@@ -123,3 +123,7 @@ Versi ini memperbaiki:
 ## Update inventory edit
 
 Halaman `Admin > Inventaris` sekarang memiliki tombol **Edit** pada daftar produk. Admin dapat mengubah nama barang, SKU/barcode, harga jual, harga modal, dan stok melalui modal edit yang tersambung ke endpoint `PATCH /api/products/:id`. SKU tetap opsional; jika dikosongkan, backend membuat SKU otomatis.
+## Vercel Redis official integration
+
+This build supports both Upstash/KV REST variables (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) and the official Redis integration variable (`REDIS_URL`). If Vercel creates only `REDIS_URL`, no extra code changes are needed. Redeploy after adding the variable.
+
