@@ -257,9 +257,9 @@ export function PosInterface() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#f8f9ff] lg:flex-row">
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-[#bccac0]">
-        <div className="flex items-center justify-between border-b border-[#bccac0] bg-white px-6 py-4">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col bg-[#f8f9ff] lg:h-full lg:min-h-0 lg:flex-row">
+      <section className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:border-r lg:border-[#bccac0]">
+        <div className="flex items-center justify-between border-b border-[#bccac0] bg-white px-4 py-3 lg:px-6 lg:py-4">
           <div>
             <h2 className="text-xl font-extrabold text-primary">{shopName}</h2>
             <p className="text-xs text-[#3d4a42]">POS Kasir • Produk dari database</p>
@@ -269,24 +269,24 @@ export function PosInterface() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-6 custom-scrollbar">
+        <div className="min-h-0 flex-1 overflow-visible p-4 custom-scrollbar lg:overflow-auto lg:p-6">
           {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center">
+          <div className="mb-4 flex flex-col gap-3 lg:mb-6 lg:flex-row lg:items-center lg:gap-4">
             <div className="relative flex-1">
               <Barcode className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-[#3d4a42]" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" ? handleSkuSubmit() : undefined}
-                className="h-14 border-[#bccac0] bg-[#eff4ff] pl-12 text-lg shadow-[0_0_0_1px_rgba(0,105,72,0.12)]"
+                className="h-12 border-[#bccac0] bg-[#eff4ff] pl-12 text-base shadow-[0_0_0_1px_rgba(0,105,72,0.12)] lg:h-14 lg:text-lg"
                 placeholder="Scan SKU atau Cari Produk..."
                 autoFocus
               />
             </div>
-            <Button variant="outline" size="lg" className="h-14 shrink-0 px-6 text-[#0b1c30]" onClick={() => setManualItemOpen(true)}>
+            <Button variant="outline" size="lg" className="h-12 shrink-0 px-4 text-[#0b1c30] lg:h-14 lg:px-6" onClick={() => setManualItemOpen(true)}>
               <PackagePlus className="mr-2 h-5 w-5" /> Add Item
             </Button>
-            <Button variant="secondary" size="lg" className="h-14 shrink-0 px-6 text-[#0b1c30]" onClick={loadProducts}>
+            <Button variant="secondary" size="lg" className="h-12 shrink-0 px-4 text-[#0b1c30] lg:h-14 lg:px-6" onClick={loadProducts}>
               <SlidersHorizontal className="mr-2 h-5 w-5" /> Refresh Produk
             </Button>
           </div>
@@ -309,15 +309,15 @@ export function PosInterface() {
 
                 return (
                   <button key={product.id} onClick={() => addToCart(product)} className="group overflow-hidden rounded-xl border border-[#bccac0] bg-white text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(33,49,69,0.10)] active:scale-[0.98]">
-                    <div className="relative h-36 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
+                    <div className="relative h-28 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 sm:h-32 lg:h-36">
                       {product.photoUrl ? <img src={product.photoUrl} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" /> : <div className="flex h-full w-full items-center justify-center text-3xl font-black text-primary">KK</div>}
                       <Badge variant={(product.stock ?? 0) < 8 ? "danger" : "default"} className="absolute right-3 top-3 normal-case tracking-normal">Stok: {product.stock ?? "-"}</Badge>
                       {cartQty > 0 ? <Badge variant="success" className="absolute left-3 top-3 normal-case tracking-normal">Di cart: {cartQty}</Badge> : null}
                     </div>
-                    <div className="p-4">
-                      <p className="line-clamp-2 min-h-[44px] text-base font-semibold text-[#0b1c30]">{product.name}</p>
+                    <div className="p-3 lg:p-4">
+                      <p className="line-clamp-2 min-h-[40px] text-sm font-semibold text-[#0b1c30] lg:min-h-[44px] lg:text-base">{product.name}</p>
                       <div className="mt-2 flex items-center justify-between">
-                        <p className="text-lg font-extrabold text-primary">{formatCurrency(product.price)}</p>
+                        <p className="text-base font-extrabold text-primary lg:text-lg">{formatCurrency(product.price)}</p>
                         <span className="rounded-full bg-[#eff4ff] px-2 py-1 text-[11px] font-semibold text-[#3d4a42]">SKU {product.sku.slice(-4)}</span>
                       </div>
                     </div>
@@ -329,13 +329,13 @@ export function PosInterface() {
         </div>
       </section>
 
-      <aside className="flex min-h-[420px] shrink-0 flex-col border-t border-[#bccac0] bg-white lg:h-full lg:max-h-none lg:w-[460px] lg:border-l lg:border-t-0">
-        <div className="flex items-center justify-between border-b border-[#bccac0] p-6">
+      <aside className="flex min-h-[360px] shrink-0 flex-col border-t border-[#bccac0] bg-white lg:h-full lg:max-h-none lg:w-[460px] lg:border-l lg:border-t-0">
+        <div className="flex items-center justify-between border-b border-[#bccac0] p-4 lg:p-6">
           <div className="flex items-center gap-3"><ShoppingCart className="h-6 w-6 text-primary" /><div><h3 className="text-xl font-bold">Keranjang</h3><p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} jenis barang</p></div></div>
           <button onClick={() => setCart([])} className="flex items-center gap-2 text-sm font-semibold text-red-600"><Trash2 className="h-4 w-4" /> Bersihkan</button>
         </div>
 
-        <div className="flex-1 overflow-auto p-5 custom-scrollbar">
+        <div className="max-h-[55vh] flex-1 overflow-auto p-4 custom-scrollbar lg:max-h-none lg:p-5">
           {cart.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] text-center text-sm text-[#3d4a42]">Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.</div>
           ) : (
@@ -376,7 +376,7 @@ export function PosInterface() {
           )}
         </div>
 
-        <div className="border-t border-[#bccac0] bg-[#dce9ff] p-6">
+        <div className="border-t border-[#bccac0] bg-[#dce9ff] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6">
           <div className="space-y-3 text-base">
             <div className="flex justify-between"><span>Total qty</span><span>{totalItems} item</span></div>
             <div className="flex justify-between"><span>Subtotal barang × qty</span><span>{formatCurrency(subtotal)}</span></div>
@@ -385,7 +385,7 @@ export function PosInterface() {
 
           <div className="mt-6 grid gap-3">
             <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="w-full"><CreditCard className="mr-2 h-5 w-5" /> Tunai (Cash)</Button>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="px-3"><QrCode className="mr-2 h-4 w-4" /> QRIS Statis</Button>
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0} className="px-3"><WalletCards className="mr-2 h-4 w-4" /> QRIS Pakasir</Button>
             </div>
