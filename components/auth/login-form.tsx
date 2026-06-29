@@ -9,6 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function roleHome(role?: "owner" | "admin") {
+  return role === "owner" ? "/owner" : "/admin";
+}
+
+function resolveNext(next: string | null, role?: "owner" | "admin") {
+  // Jangan redirect ke / dari halaman login karena / adalah protected landing yang bisa membuat loop
+  // di Vercel preview setelah cookie/session berubah. Masuk langsung ke dashboard role.
+  if (!next || next === "/" || next.startsWith("/login")) return roleHome(role);
+  if (role === "owner" && next.startsWith("/admin")) return "/owner";
+  if (role === "admin" && next.startsWith("/owner")) return "/admin";
+  return next;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,16 +34,26 @@ export function LoginForm() {
 
   useEffect(() => {
     let alive = true;
+    const timer = window.setTimeout(() => {
+      // Fallback supaya layar tidak stuck di "Memeriksa sesi login..." jika serverless
+      // preview sedang cold start atau request /api/me tertahan.
+      if (alive) setChecking(false);
+    }, 5000);
+
     api.me()
       .then((me) => {
         if (!alive) return;
-        router.replace(next || (me.user.role === "owner" ? "/owner" : "/admin"));
+        window.clearTimeout(timer);
+        router.replace(resolveNext(next, me.user.role));
       })
       .catch(() => {
-        if (alive) setChecking(false);
+        if (!alive) return;
+        window.clearTimeout(timer);
+        setChecking(false);
       });
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [next, router]);
 
@@ -47,7 +70,7 @@ export function LoginForm() {
       }
 
       const me = await api.me();
-      router.push(next || (me.user.role === "owner" ? "/owner" : "/admin"));
+      router.push(resolveNext(next, me.user.role));
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Login gagal");

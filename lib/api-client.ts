@@ -191,12 +191,27 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
-  const response = await fetch(path, {
-    ...init,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeoutMs = Number((init as RequestInit & { timeoutMs?: number }).timeoutMs ?? 12000);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+      signal: init.signal ?? controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError("Request timeout. Coba refresh halaman.", 408);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   let payload: ApiEnvelope<T> | null = null;
   try {
