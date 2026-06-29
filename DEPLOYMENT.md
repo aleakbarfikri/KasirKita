@@ -45,3 +45,14 @@ git push -u origin main
 - Prisma/Drizzle were removed for a deployment-friendly local JSON backend.
 - Data is stored in `.data/kasirkita-db.json` at runtime and is ignored by git.
 - For production use, replace the JSON store with a hosted database before handling real merchant data.
+
+
+## Vercel Login Session Fix
+
+Jika halaman login berhenti di `Memeriksa sesi login...`, gunakan versi ini atau commit terbaru. Perbaikan yang diterapkan:
+
+- Login tidak lagi redirect ke `/` saat `next=/`; user diarahkan langsung ke `/owner` atau `/admin` sesuai role.
+- Request session `/api/me` punya timeout fallback supaya halaman login tidak stuck saat serverless cold start.
+- Setelah create admin baru, logout lalu login admin akan masuk ke dashboard admin sesuai role.
+
+Catatan: versi demo masih memakai JSON store sementara di Vercel `/tmp`. Data bisa reset saat serverless instance berubah. Untuk production permanen gunakan database external seperti Supabase/Neon/Postgres.
