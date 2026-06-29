@@ -156,8 +156,19 @@ export type AppDb = {
   debtPayments: DebtPayment[];
 };
 
-const DATA_DIR = process.env.KASIRKITA_DATA_DIR || path.join(process.cwd(), ".data");
+function resolveDataDir() {
+  if (process.env.KASIRKITA_DATA_DIR) return process.env.KASIRKITA_DATA_DIR;
+
+  // Vercel serverless functions run from a read-only deployment directory.
+  // Only /tmp is writable at runtime, so the JSON store must live there.
+  if (process.env.VERCEL === "1") return path.join("/tmp", "kasirkita-data");
+
+  return path.join(process.cwd(), ".data");
+}
+
+const DATA_DIR = resolveDataDir();
 const DB_FILE = process.env.KASIRKITA_DB_FILE || path.join(DATA_DIR, "kasirkita-db.json");
+const AUTH_SECRET = process.env.KASIRKITA_AUTH_SECRET || process.env.NEXTAUTH_SECRET || "kasirkita-local-dev-secret-change-me";
 
 export function now() {
   return new Date().toISOString();
@@ -165,6 +176,34 @@ export function now() {
 
 export function createToken() {
   return crypto.randomBytes(32).toString("hex");
+}
+
+function hmac(payload: string) {
+  return crypto.createHmac("sha256", AUTH_SECRET).update(payload).digest("hex");
+}
+
+export function createSignedSessionToken(userId: string, expiresAt: string) {
+  const payload = Buffer.from(JSON.stringify({ userId, expiresAt }), "utf8").toString("base64url");
+  return `v1.${payload}.${hmac(payload)}`;
+}
+
+export function verifySignedSessionToken(token: string) {
+  const [version, payload, signature] = token.split(".");
+  if (version !== "v1" || !payload || !signature) return null;
+  const expected = hmac(payload);
+  const signatureBuffer = Buffer.from(signature, "hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; expiresAt?: string };
+    if (!parsed.userId || !parsed.expiresAt) return null;
+    if (new Date(parsed.expiresAt).getTime() <= Date.now()) return null;
+    return parsed as { userId: string; expiresAt: string };
+  } catch {
+    return null;
+  }
 }
 
 export function hashPassword(password: string, salt = crypto.randomBytes(16).toString("hex")) {
@@ -219,21 +258,33 @@ export function defaultDb(): AppDb {
 }
 
 function ensureDbFile() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb(), null, 2));
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(DB_FILE)) {
+      fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb(), null, 2));
+    }
+  } catch (error) {
+    // Last-resort fallback for serverless read-only filesystems.
+    const fallbackDir = path.join("/tmp", "kasirkita-data");
+    const fallbackFile = path.join(fallbackDir, "kasirkita-db.json");
+    if (!fs.existsSync(fallbackDir)) fs.mkdirSync(fallbackDir, { recursive: true });
+    if (!fs.existsSync(fallbackFile)) {
+      fs.writeFileSync(fallbackFile, JSON.stringify(defaultDb(), null, 2));
+    }
+    return fallbackFile;
   }
+  return DB_FILE;
 }
 
 export function readDb(): AppDb {
-  ensureDbFile();
-  const raw = fs.readFileSync(DB_FILE, "utf8");
+  const file = ensureDbFile();
+  const raw = fs.readFileSync(file, "utf8");
   return JSON.parse(raw) as AppDb;
 }
 
 export function writeDb(db: AppDb) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  const file = ensureDbFile();
+  fs.writeFileSync(file, JSON.stringify(db, null, 2));
 }
 
 export function resetDb() {

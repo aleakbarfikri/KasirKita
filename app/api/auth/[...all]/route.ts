@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createId } from "@/lib/server/ids";
-import { createToken, now, publicUser, readDb, verifyPassword, writeDb } from "@/lib/server/data-store";
+import { createSignedSessionToken, now, publicUser, readDb, verifyPassword, verifySignedSessionToken, writeDb } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 
 const COOKIE_NAME = "kasirkita_session";
@@ -37,16 +37,18 @@ export async function POST(request: Request, { params }: Params) {
       return fail("Username atau password salah.", 401);
     }
 
-    const token = createToken();
     const t = now();
+    const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const token = createSignedSessionToken(user.id, expiresAt);
     const session = {
       id: createId("sess"),
       token,
       userId: user.id,
-      expiresAt: new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt,
       createdAt: t,
       updatedAt: t,
     };
+    // Store a copy for local development, but auth also works statelessly from the signed cookie.
     db.sessions = db.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
     db.sessions.push(session);
     writeDb(db);
@@ -75,6 +77,16 @@ export async function GET(_request: Request, { params }: Params) {
     const token = cookies().get(COOKIE_NAME)?.value;
     if (!token) return Response.json(null);
     const db = readDb();
+    const signed = verifySignedSessionToken(token);
+    if (signed) {
+      const user = db.users.find((row) => row.id === signed.userId);
+      if (!user) return Response.json(null);
+      return Response.json({
+        session: { token, userId: signed.userId, expiresAt: signed.expiresAt },
+        user: publicUser(user),
+      });
+    }
+
     const session = db.sessions.find((row) => row.token === token && new Date(row.expiresAt).getTime() > Date.now());
     if (!session) return Response.json(null);
     const user = db.users.find((row) => row.id === session.userId);
