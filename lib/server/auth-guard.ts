@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getShopByIdFromDb, getUserByIdFromDb, publicUser, readDb, type AppSession } from "@/lib/server/data-store";
+import { getShopByIdFromDb, getUserByIdFromDb, publicUser, readDb, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
 
 type SessionUser = {
   id: string;
@@ -16,6 +16,14 @@ export async function getCurrentSession() {
   if (!token) return null;
 
   const db = readDb();
+  const signed = verifySignedSessionToken(token);
+  if (signed) {
+    const user = getUserByIdFromDb(db, signed.userId);
+    if (!user) return null;
+    const session = { token, userId: signed.userId, expiresAt: signed.expiresAt } as AppSession;
+    return { session, user: publicUser(user) as SessionUser };
+  }
+
   const session = db.sessions.find((row) => row.token === token) as AppSession | undefined;
   if (!session || new Date(session.expiresAt).getTime() <= Date.now()) return null;
 

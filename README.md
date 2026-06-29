@@ -123,4 +123,3 @@ Versi ini memperbaiki:
 ## Update inventory edit
 
 Halaman `Admin > Inventaris` sekarang memiliki tombol **Edit** pada daftar produk. Admin dapat mengubah nama barang, SKU/barcode, harga jual, harga modal, dan stok melalui modal edit yang tersambung ke endpoint `PATCH /api/products/:id`. SKU tetap opsional; jika dikosongkan, backend membuat SKU otomatis.
-# KasirKita
