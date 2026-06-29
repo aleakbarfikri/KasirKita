@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: Params) {
     const password = String(body.password || "");
     if (!username || !password) return fail("Username dan password wajib diisi.", 422);
 
-    const db = readDb();
+    const db = await readDb();
     const user = db.users.find((row) => row.username.toLowerCase() === username);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return fail("Username atau password salah.", 401);
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: Params) {
     // Store a copy for local development, but auth also works statelessly from the signed cookie.
     db.sessions = db.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
     db.sessions.push(session);
-    writeDb(db);
+    await writeDb(db);
     setSessionCookie(token);
 
     return ok({ user: publicUser(user), session });
@@ -60,9 +60,9 @@ export async function POST(request: Request, { params }: Params) {
   if (action === "sign-out") {
     const token = cookies().get(COOKIE_NAME)?.value;
     if (token) {
-      const db = readDb();
+      const db = await readDb();
       db.sessions = db.sessions.filter((row) => row.token !== token);
-      writeDb(db);
+      await writeDb(db);
     }
     clearSessionCookie();
     return ok({ signedOut: true });
@@ -76,7 +76,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (action === "get-session") {
     const token = cookies().get(COOKIE_NAME)?.value;
     if (!token) return Response.json(null);
-    const db = readDb();
+    const db = await readDb();
     const signed = verifySignedSessionToken(token);
     if (signed) {
       const user = db.users.find((row) => row.id === signed.userId);

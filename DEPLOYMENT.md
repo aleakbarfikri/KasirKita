@@ -21,38 +21,45 @@ username: ownerkasirkita
 password: Regina050322
 ```
 
-## GitHub public repository push
+## Vercel setup
 
-This environment cannot create a GitHub repository without an authenticated GitHub account/token. Run these commands locally after unzipping the project:
+The app can run locally with a JSON file. For Vercel production, use Vercel KV/Redis so admin accounts, products, transactions, QRIS config, debts, and withdrawals persist across serverless functions.
+
+1. Open Vercel project → Storage.
+2. Create/connect a KV/Redis store.
+3. Make sure these environment variables exist in Project Settings → Environment Variables:
+
+```txt
+KV_REST_API_URL
+KV_REST_API_TOKEN
+KASIRKITA_AUTH_SECRET
+```
+
+`KASIRKITA_AUTH_SECRET` should be a random string. Generate locally with:
+
+```bash
+openssl rand -base64 32
+```
+
+4. Redeploy the project.
+
+The first request will seed the owner automatically if the KV database is empty.
+
+## GitHub public repository push
 
 ```bash
 cd warung-digital-fullstack
 git init
 git add .
 git commit -m "Initial KasirKita deployment-ready build"
-
-# Option A: with GitHub CLI, public repo
-gh repo create kasirkita-fullstack --public --source=. --remote=origin --push
-
-# Option B: after creating a public empty repo on GitHub manually
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/kasirkita-fullstack.git
+git remote add origin https://github.com/YOUR_USERNAME/KasirKita.git
 git push -u origin main
 ```
 
 ## Notes
 
-- Prisma/Drizzle were removed for a deployment-friendly local JSON backend.
-- Data is stored in `.data/kasirkita-db.json` at runtime and is ignored by git.
-- For production use, replace the JSON store with a hosted database before handling real merchant data.
-
-
-## Vercel Login Session Fix
-
-Jika halaman login berhenti di `Memeriksa sesi login...`, gunakan versi ini atau commit terbaru. Perbaikan yang diterapkan:
-
-- Login tidak lagi redirect ke `/` saat `next=/`; user diarahkan langsung ke `/owner` atau `/admin` sesuai role.
-- Request session `/api/me` punya timeout fallback supaya halaman login tidak stuck saat serverless cold start.
-- Setelah create admin baru, logout lalu login admin akan masuk ke dashboard admin sesuai role.
-
-Catatan: versi demo masih memakai JSON store sementara di Vercel `/tmp`. Data bisa reset saat serverless instance berubah. Untuk production permanen gunakan database external seperti Supabase/Neon/Postgres.
+- Prisma/Drizzle are not required for this version.
+- Local development uses `.data/kasirkita-db.json`.
+- Vercel production should use KV/Redis through `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+- `/tmp` storage is not reliable for production because different serverless functions may not share the same files.

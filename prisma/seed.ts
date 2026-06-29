@@ -1,4 +1,11 @@
 import { resetDb } from "../lib/server/data-store";
 
-const dbFile = resetDb();
-console.log(`KasirKita local JSON database reset: ${dbFile}`);
+async function main() {
+  const dbFile = await resetDb();
+  console.log(`KasirKita local/cloud JSON database reset: ${dbFile}`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

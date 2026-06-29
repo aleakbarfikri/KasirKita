@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
-    const rows = readDb().debts.filter((debt) => debt.adminId === session.user.id && debt.shopId === scope.shopId);
+    const rows = (await readDb()).debts.filter((debt) => debt.adminId === session.user.id && debt.shopId === scope.shopId);
     return ok(sortDesc(rows));
   } catch (error) {
     const { message, status } = authError(error);
@@ -37,9 +37,9 @@ export async function POST(request: Request) {
       createdAt: t,
       updatedAt: t,
     };
-    const db = readDb();
+    const db = await readDb();
     db.debts.push(created);
-    writeDb(db);
+    await writeDb(db);
     return ok(created, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Invalid debt payload", 422, error);

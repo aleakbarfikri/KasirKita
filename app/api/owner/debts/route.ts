@@ -5,7 +5,7 @@ import { publicUser, readDb, sortDesc } from "@/lib/server/data-store";
 export async function GET() {
   try {
     const session = await requireOwner();
-    const db = readDb();
+    const db = await readDb();
     const ownerShops = db.shops.filter((shop) => shop.ownerId === session.user.id);
     const rows = db.debts
       .filter((debt) => ownerShops.some((shop) => shop.id === debt.shopId))

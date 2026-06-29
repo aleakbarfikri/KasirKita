@@ -5,7 +5,7 @@ import { readDb, sortDesc } from "@/lib/server/data-store";
 export async function GET() {
   try {
     const session = await requireAuth();
-    const db = readDb();
+    const db = await readDb();
     if (session.user.role === "owner") {
       const ownerShops = db.shops.filter((shop) => shop.ownerId === session.user.id);
       const rows = db.transactions

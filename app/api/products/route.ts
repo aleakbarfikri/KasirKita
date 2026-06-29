@@ -7,7 +7,7 @@ import { now, readDb, sortDesc, writeDb, type Product } from "@/lib/server/data-
 export async function GET() {
   try {
     const session = await requireAuth();
-    const db = readDb();
+    const db = await readDb();
 
     if (session.user.role === "owner") {
       const ownerShops = db.shops.filter((shop) => shop.ownerId === session.user.id);
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const sku = body.sku?.trim() || `SKU-${Date.now().toString().slice(-8)}`;
     const t = now();
 
-    const db = readDb();
+    const db = await readDb();
     if (db.products.some((product) => product.shopId === scope.shopId && product.sku === sku)) {
       return fail("SKU sudah digunakan di UMKM ini.", 409);
     }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       updatedAt: t,
     };
     db.products.push(created);
-    writeDb(db);
+    await writeDb(db);
     return ok(created, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Nama barang dan harga jual wajib diisi. SKU boleh dikosongkan.", 422, error);

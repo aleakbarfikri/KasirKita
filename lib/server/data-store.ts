@@ -257,6 +257,64 @@ export function defaultDb(): AppDb {
   };
 }
 
+const CLOUD_DB_KEY = process.env.KASIRKITA_CLOUD_DB_KEY || "kasirkita:db";
+
+function getRedisConfig() {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return { url: url.replace(/\/$/, ""), token };
+}
+
+async function redisCommand<T = unknown>(command: unknown[]): Promise<T | null> {
+  const config = getRedisConfig();
+  if (!config) return null;
+
+  const response = await fetch(`${config.url}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([command]),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Redis storage error: ${response.status} ${await response.text()}`);
+  }
+
+  const payload = await response.json() as Array<{ result?: T; error?: string }>;
+  const first = payload[0];
+  if (first?.error) throw new Error(first.error);
+  return first?.result ?? null;
+}
+
+async function readCloudDb(): Promise<AppDb | null> {
+  const config = getRedisConfig();
+  if (!config) return null;
+
+  const stored = await redisCommand<string | null>(["GET", CLOUD_DB_KEY]);
+  if (!stored) {
+    const fresh = defaultDb();
+    await writeCloudDb(fresh);
+    return fresh;
+  }
+
+  if (typeof stored === "string") {
+    return JSON.parse(stored) as AppDb;
+  }
+
+  return stored as AppDb;
+}
+
+async function writeCloudDb(db: AppDb): Promise<boolean> {
+  const config = getRedisConfig();
+  if (!config) return false;
+  await redisCommand(["SET", CLOUD_DB_KEY, JSON.stringify(db)]);
+  return true;
+}
+
 function ensureDbFile() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -276,27 +334,38 @@ function ensureDbFile() {
   return DB_FILE;
 }
 
-export function readDb(): AppDb {
+export async function readDb(): Promise<AppDb> {
+  const cloudDb = await readCloudDb();
+  if (cloudDb) return cloudDb;
+
   const file = ensureDbFile();
   const raw = fs.readFileSync(file, "utf8");
   return JSON.parse(raw) as AppDb;
 }
 
-export function writeDb(db: AppDb) {
+export async function writeDb(db: AppDb): Promise<void> {
+  const wroteCloud = await writeCloudDb(db);
+  if (wroteCloud) return;
+
   const file = ensureDbFile();
   fs.writeFileSync(file, JSON.stringify(db, null, 2));
 }
 
-export function resetDb() {
+export async function resetDb() {
+  const fresh = defaultDb();
+  const wroteCloud = await writeCloudDb(fresh);
+  if (wroteCloud) return CLOUD_DB_KEY;
+
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  writeDb(defaultDb());
-  return DB_FILE;
+  const file = ensureDbFile();
+  fs.writeFileSync(file, JSON.stringify(fresh, null, 2));
+  return file;
 }
 
-export function withDb<T>(mutator: (db: AppDb) => T): T {
-  const db = readDb();
+export async function withDb<T>(mutator: (db: AppDb) => T): Promise<T> {
+  const db = await readDb();
   const result = mutator(db);
-  writeDb(db);
+  await writeDb(db);
   return result;
 }
 

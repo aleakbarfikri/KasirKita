@@ -7,7 +7,7 @@ import { now, readDb, writeDb, type PaymentConfig } from "@/lib/server/data-stor
 export async function GET() {
   try {
     const session = await requireOwner();
-    const config = readDb().paymentConfigs.find((row) => row.ownerId === session.user.id) || null;
+    const config = (await readDb()).paymentConfigs.find((row) => row.ownerId === session.user.id) || null;
     return ok(config);
   } catch (error) {
     const { message, status } = authError(error);
@@ -19,7 +19,7 @@ export async function PUT(request: Request) {
   try {
     const session = await requireOwner();
     const body = paymentConfigSchema.parse(await readJson(request));
-    const db = readDb();
+    const db = await readDb();
     let config = db.paymentConfigs.find((row) => row.ownerId === session.user.id);
     const t = now();
     if (!config) {
@@ -30,7 +30,7 @@ export async function PUT(request: Request) {
       config.pakasirApiKey = body.pakasirApiKey || null;
       config.updatedAt = t;
     }
-    writeDb(db);
+    await writeDb(db);
     return ok(config);
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Invalid payment config payload", 422, error);

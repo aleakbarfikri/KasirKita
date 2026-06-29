@@ -7,7 +7,7 @@ import { getBalanceFromDb, now, readDb, sortDesc, verifyPassword, writeDb, type 
 export async function GET() {
   try {
     const session = await requireAdmin();
-    const rows = readDb().withdrawals.filter((row) => row.adminId === session.user.id);
+    const rows = (await readDb()).withdrawals.filter((row) => row.adminId === session.user.id);
     return ok(sortDesc(rows));
   } catch (error) {
     const { message, status } = authError(error);
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
     const body = withdrawalRequestSchema.parse(await readJson(request));
-    const db = readDb();
+    const db = await readDb();
     const admin = db.users.find((user) => user.id === session.user.id);
     if (!admin || !verifyPassword(body.adminPassword, admin.passwordHash)) return fail("Password admin salah. Penarikan dibatalkan.", 401);
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       completedAt: null,
     };
     db.withdrawals.push(created);
-    writeDb(db);
+    await writeDb(db);
     return ok(created, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Data penarikan belum lengkap. Isi rekening, nominal, dan password admin.", 422, error);

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     if (body.paymentMethod === "cash" && paidAmount < total) return fail("Cash paid amount cannot be lower than total", 422);
     if (body.paymentMethod === "debt" && !body.customerName) return fail("Customer name is required for debt transaction", 422);
 
-    const db = readDb();
+    const db = await readDb();
     const pakasirConfig = body.paymentMethod === "qris_pakasir" ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) : null;
     if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
       return fail("Slug dan API Key Pakasir belum diisi. Buka Owner > API Config terlebih dahulu.", 422);
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     db.transactions.push(transaction);
     db.transactionItems.push(...items);
-    writeDb(db);
+    await writeDb(db);
     const result = { transaction, items, debt };
 
     if (body.paymentMethod === "qris_pakasir") {
@@ -99,13 +99,13 @@ export async function POST(request: Request) {
           },
         }, { status: 201 });
       } catch (error) {
-        const retryDb = readDb();
+        const retryDb = await readDb();
         const row = retryDb.transactions.find((trx) => trx.id === transactionId);
         if (row) {
           row.status = "failed";
           row.note = error instanceof Error ? error.message : "Gagal membuat transaksi Pakasir";
           row.updatedAt = now();
-          writeDb(retryDb);
+          await writeDb(retryDb);
         }
         return fail(error instanceof Error ? error.message : "Gagal membuat transaksi Pakasir", 502);
       }
