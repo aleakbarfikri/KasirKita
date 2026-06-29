@@ -23,6 +23,7 @@ import {
   Store,
   UserRound,
   Users,
+  X,
   Wallet,
 } from "lucide-react";
 
@@ -87,6 +88,7 @@ export function AppShell({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -236,6 +238,11 @@ export function AppShell({
       .toUpperCase();
   }, [role, user]);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+    setNotificationOpen(false);
+  }, [pathname]);
+
   async function signOut() {
     await authClient.signOut();
     router.replace("/login");
@@ -255,7 +262,7 @@ export function AppShell({
   }
 
   return (
-    <div className={cn("min-h-screen bg-[#f8f9ff] text-[#0b1c30]", fullScreen && "h-screen overflow-hidden")}>
+    <div className={cn("min-h-screen bg-[#f8f9ff] text-[#0b1c30]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-[#bccac0] bg-[#f8f9ff] lg:flex">
         <div className="px-6 py-7">
           <Link href="/" className="block">
@@ -305,11 +312,86 @@ export function AppShell({
         </div>
       </aside>
 
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true">
+          <button
+            className="absolute inset-0 bg-[#0b1c30]/45 backdrop-blur-sm"
+            aria-label="Tutup menu"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 flex w-[86vw] max-w-[330px] flex-col border-r border-[#bccac0] bg-[#f8f9ff] shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-5">
+              <Link href={role === "owner" ? "/owner" : "/admin"} className="flex items-center gap-3">
+                <img src="/kasirkita-mark.png" alt="Logo KasirKita" className="h-11 w-11 object-contain" />
+                <span className="text-2xl font-black tracking-tight text-primary">KasirKita</span>
+              </Link>
+              <button
+                className="rounded-full border border-[#bccac0] bg-white p-2 text-[#0b1c30]"
+                aria-label="Tutup menu"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-5 pb-3 text-xs font-bold uppercase tracking-[0.18em] text-[#3d4a42]">
+              Menu {role === "owner" ? "Owner" : "Admin"}
+            </div>
+
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
+              {nav.map((item) => {
+                const active = pathname === item.href || (item.href !== `/${role}` && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl px-4 py-4 text-base font-bold text-[#3d4a42] transition-colors active:scale-[0.98]",
+                      active ? "bg-primary text-white" : "hover:bg-[#dce9ff]",
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="border-t border-[#bccac0] p-4">
+              <div className="rounded-2xl border border-[#bccac0] bg-[#eff4ff] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-[#0b1c30]">{user?.name || user?.username}</p>
+                    <p className="truncate text-xs text-[#3d4a42]">{role === "owner" ? "Owner Account" : user?.shopName || "Admin UMKM"}</p>
+                  </div>
+                </div>
+                <button onClick={signOut} className="mt-4 flex items-center gap-2 text-sm font-bold text-primary">
+                  <LogOut className="h-4 w-4" /> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <main className="lg:pl-[280px]">
-        <header className="sticky top-0 z-20 flex min-h-[68px] items-center justify-between border-b border-[#bccac0] bg-white/90 px-4 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#bccac0] bg-white/95 px-3 backdrop-blur lg:min-h-[68px] lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div className="lg:hidden">
-              <Link href="/" className="flex items-center gap-1 text-lg font-black text-primary"><img src="/kasirkita-mark.png" alt="KasirKita" className="h-8 w-8 object-contain" /><span>KK</span></Link>
+            <div className="flex items-center gap-2 lg:hidden">
+              <button
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#bccac0] bg-white text-primary shadow-sm"
+                aria-label="Buka menu"
+                onClick={() => setMobileNavOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <Link href={role === "owner" ? "/owner" : "/admin"} className="flex items-center gap-1 text-lg font-black text-primary">
+                <img src="/kasirkita-mark.png" alt="KasirKita" className="h-8 w-8 object-contain" />
+                <span>KK</span>
+              </Link>
             </div>
             <div className="hidden w-full max-w-[440px] items-center rounded-2xl bg-[#e5eeff] px-4 py-2.5 text-sm text-[#3d4a42] md:flex">
               <Menu className="mr-2 h-5 w-5" /> {role === "owner" ? "Area Owner" : user?.shopName || "Area Admin"}
@@ -389,9 +471,9 @@ export function AppShell({
         </header>
 
         {fullScreen ? (
-          <div className="h-[calc(100vh-68px)] overflow-hidden">{children}</div>
+          <div className="min-h-[calc(100vh-64px)] overflow-y-auto pb-24 lg:h-[calc(100vh-68px)] lg:overflow-hidden lg:pb-0">{children}</div>
         ) : (
-          <div className="p-4 lg:p-8">
+          <div className="p-4 pb-24 lg:p-8">
             <div className="mb-8">
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">{title}</h2>
               {description ? <p className="mt-1 text-base text-[#3d4a42]">{description}</p> : null}
