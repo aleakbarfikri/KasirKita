@@ -18,7 +18,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
 
     const body = parsed.data;
-    const db = readDb();
+    const db = await readDb();
     const user = db.users.find((row) => row.id === params.id);
     const profile = db.adminProfiles.find((row) => row.userId === params.id);
     if (!user || !profile) return fail("Admin profile not found", 404);
@@ -46,7 +46,7 @@ export async function PATCH(request: Request, { params }: Params) {
     user.updatedAt = t;
     shop.updatedAt = t;
     profile.updatedAt = t;
-    writeDb(db);
+    await writeDb(db);
 
     const updated = rowWithAdminProfile(db, profile);
     return ok(updated);
@@ -60,12 +60,12 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const session = await requireOwner();
     await assertOwnerOwnsAdmin(session.user.id, params.id);
-    const db = readDb();
+    const db = await readDb();
     const profile = db.adminProfiles.find((row) => row.userId === params.id);
     if (!profile) return fail("Admin profile not found", 404);
     profile.isActive = false;
     profile.updatedAt = now();
-    writeDb(db);
+    await writeDb(db);
     return ok(profile);
   } catch (error) {
     const { message, status } = authError(error);

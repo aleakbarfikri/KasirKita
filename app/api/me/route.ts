@@ -8,7 +8,7 @@ export async function GET() {
     let shop = null;
 
     if (session.user.role === "admin") {
-      const db = readDb();
+      const db = await readDb();
       const profile = db.adminProfiles.find((row) => row.userId === session.user.id && row.isActive);
       shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
     }

@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
-    const db = readDb();
+    const db = await readDb();
     const transaction = db.transactions.find((row) => row.externalRef === params.reference);
     if (!transaction || transaction.cashierId !== session.user.id) return fail("Payment reference not found", 404);
 
@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: Params) {
       transaction.status = "success";
       transaction.updatedAt = now();
       incrementBalance(db, transaction.cashierId, "totalEarnedQrisApi", transaction.total);
-      writeDb(db);
+      await writeDb(db);
       return ok({ status: "paid", providerStatus, transaction });
     }
 

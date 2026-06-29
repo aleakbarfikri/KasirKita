@@ -12,7 +12,7 @@ function getZodMessage(error: unknown) {
 export async function GET() {
   try {
     const session = await requireOwner();
-    const db = readDb();
+    const db = await readDb();
     const rows = db.adminProfiles
       .filter((profile) => profile.ownerId === session.user.id)
       .map((profile) => rowWithAdminProfile(db, profile))
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const parsed = adminCreateSchema.safeParse(await readJson(request));
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
     const body = parsed.data;
-    const db = readDb();
+    const db = await readDb();
 
     if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);
     if (db.users.some((user) => user.username.toLowerCase() === body.username.toLowerCase())) return fail("Username sudah digunakan.", 409);
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     db.shops.push(shop);
     db.adminProfiles.push(profile);
     db.balances.push(balance);
-    writeDb(db);
+    await writeDb(db);
 
     return ok({ admin: publicUser(user), profile, shop, balance }, { status: 201 });
   } catch (error) {

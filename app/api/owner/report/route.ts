@@ -19,7 +19,7 @@ export async function GET() {
   try {
     const session = await requireOwner();
     const ownerId = session.user.id;
-    const db = readDb();
+    const db = await readDb();
     const ownerShops = db.shops.filter((shop) => shop.ownerId === ownerId);
     const admins = db.adminProfiles
       .filter((profile) => profile.ownerId === ownerId)

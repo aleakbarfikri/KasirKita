@@ -7,7 +7,7 @@ type Params = { params: { id: string } };
 export async function POST(_request: Request, { params }: Params) {
   try {
     const session = await requireOwner();
-    const db = readDb();
+    const db = await readDb();
     const withdrawal = db.withdrawals.find((row) => row.id === params.id && row.ownerId === session.user.id);
     if (!withdrawal) return fail("Withdrawal not found", 404);
     if (withdrawal.status === "completed") return ok(withdrawal);
@@ -17,7 +17,7 @@ export async function POST(_request: Request, { params }: Params) {
     withdrawal.completedAt = t;
     withdrawal.processedAt = withdrawal.processedAt ?? t;
     incrementBalance(db, withdrawal.adminId, "totalWithdrawn", withdrawal.amount);
-    writeDb(db);
+    await writeDb(db);
     return ok(withdrawal);
   } catch (error) {
     const { message, status } = authError(error);

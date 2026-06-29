@@ -6,7 +6,7 @@ import { now, readDb, writeDb } from "@/lib/server/data-store";
 type Params = { params: { id: string } };
 
 async function assertCanAccessProduct(userId: string, role: string | undefined, productId: string) {
-  const db = readDb();
+  const db = await readDb();
   const product = db.products.find((row) => row.id === productId);
   if (!product) throw Object.assign(new Error("Product not found"), { status: 404 });
 
@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const session = await requireAuth();
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
-    const product = readDb().products.find((row) => row.id === params.id) ?? null;
+    const product = (await readDb()).products.find((row) => row.id === params.id) ?? null;
     return ok(product);
   } catch (error) {
     const { message, status } = authError(error);
@@ -37,7 +37,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const session = await requireAuth();
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
     const body = updateProductSchema.parse(await readJson(request));
-    const db = readDb();
+    const db = await readDb();
     const product = db.products.find((row) => row.id === params.id);
     if (!product) return fail("Product not found", 404);
 
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.stock !== undefined) product.stock = body.stock;
     if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
     product.updatedAt = now();
-    writeDb(db);
+    await writeDb(db);
 
     return ok(product);
   } catch (error) {
@@ -68,12 +68,12 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const session = await requireAuth();
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
-    const db = readDb();
+    const db = await readDb();
     const product = db.products.find((row) => row.id === params.id);
     if (!product) return fail("Product not found", 404);
     product.isActive = false;
     product.updatedAt = now();
-    writeDb(db);
+    await writeDb(db);
     return ok(product);
   } catch (error) {
     const { message, status } = authError(error);

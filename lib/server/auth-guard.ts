@@ -15,7 +15,7 @@ export async function getCurrentSession() {
   const token = cookies().get("kasirkita_session")?.value;
   if (!token) return null;
 
-  const db = readDb();
+  const db = await readDb();
   const signed = verifySignedSessionToken(token);
   if (signed) {
     const user = getUserByIdFromDb(db, signed.userId);
@@ -64,7 +64,7 @@ export function authError(error: unknown) {
 }
 
 export async function getAdminScope(adminId: string) {
-  const db = readDb();
+  const db = await readDb();
   const profile = db.adminProfiles.find((row) => row.userId === adminId && row.isActive);
   if (!profile) {
     throw Object.assign(new Error("Admin profile is not active or has no shop"), { status: 403 });
@@ -84,7 +84,7 @@ export async function getAdminScope(adminId: string) {
 }
 
 export async function assertOwnerOwnsAdmin(ownerId: string, adminId: string) {
-  const db = readDb();
+  const db = await readDb();
   const profile = db.adminProfiles.find((row) => row.ownerId === ownerId && row.userId === adminId);
   if (!profile) {
     throw Object.assign(new Error("Admin not found for this owner"), { status: 404 });
@@ -92,12 +92,12 @@ export async function assertOwnerOwnsAdmin(ownerId: string, adminId: string) {
 }
 
 export async function getOwnerShop(ownerId: string) {
-  const db = readDb();
+  const db = await readDb();
   return db.shops.find((shop) => shop.ownerId === ownerId) || null;
 }
 
 export async function getUserById(id: string) {
-  const db = readDb();
+  const db = await readDb();
   const user = getUserByIdFromDb(db, id);
   return user ? publicUser(user) : null;
 }

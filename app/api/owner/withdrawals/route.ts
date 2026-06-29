@@ -5,7 +5,7 @@ import { publicUser, readDb, sortDesc } from "@/lib/server/data-store";
 export async function GET() {
   try {
     const session = await requireOwner();
-    const db = readDb();
+    const db = await readDb();
     const rows = db.withdrawals
       .filter((withdrawal) => withdrawal.ownerId === session.user.id)
       .map((withdrawal) => {
