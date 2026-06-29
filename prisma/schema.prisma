@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id
+  name            String
+  email           String   @unique
+  emailVerified   Boolean  @default(false)
+  image           String?
+  username        String?  @unique
+  displayUsername String?
+  role            String?  @default("admin")
+  shopName        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessions            Session[]
+  accounts            Account[]
+  ownedShops          Shop[]         @relation("OwnerShops")
+  adminProfile        AdminProfile?  @relation("AdminUser")
+  ownedAdminProfiles  AdminProfile[] @relation("OwnerAdminProfiles")
+  cashierTransactions Transaction[]  @relation("CashierTransactions")
+  adminDebts          Debt[]         @relation("AdminDebts")
+  adminWithdrawals    Withdrawal[]   @relation("AdminWithdrawals")
+  ownerWithdrawals    Withdrawal[]   @relation("OwnerWithdrawals")
+  paymentConfigs      PaymentConfig[]
+  balance             Balance?
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+model Shop {
+  id                 String   @id
+  ownerId            String
+  owner              User     @relation("OwnerShops", fields: [ownerId], references: [id], onDelete: Cascade)
+  name               String
+  address            String?
+  qrisStaticImageUrl String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  admins       AdminProfile[]
+  products     Product[]
+  transactions Transaction[]
+  debts        Debt[]
+
+  @@index([ownerId])
+}
+
+model AdminProfile {
+  userId    String  @id
+  user      User    @relation("AdminUser", fields: [userId], references: [id], onDelete: Cascade)
+  ownerId   String
+  owner     User    @relation("OwnerAdminProfiles", fields: [ownerId], references: [id], onDelete: Cascade)
+  shopId    String
+  shop      Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([shopId])
+}
+
+model PaymentConfig {
+  id            String   @id
+  ownerId       String   @unique
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  pakasirSlug   String?
+  pakasirApiKey String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Product {
+  id        String   @id
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sku       String
+  name      String
+  price     Int
+  costPrice Int      @default(0)
+  stock     Int?
+  photoUrl  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactionItems TransactionItem[]
+
+  @@unique([shopId, sku])
+  @@index([shopId])
+}
+
+model Transaction {
+  id            String   @id
+  shopId        String
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  cashierId     String
+  cashier       User     @relation("CashierTransactions", fields: [cashierId], references: [id], onDelete: Restrict)
+  paymentMethod String
+  total         Int
+  paidAmount    Int?
+  changeAmount  Int?
+  status        String   @default("pending")
+  externalRef   String?
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items TransactionItem[]
+  debt  Debt?
+
+  @@index([shopId])
+  @@index([cashierId])
+  @@index([externalRef])
+}
+
+model TransactionItem {
+  id            String      @id
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sku           String
+  name          String
+  price         Int
+  quantity      Int
+  subtotal      Int
+
+  @@index([transactionId])
+}
+
+model Balance {
+  adminId             String   @id
+  admin               User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  totalEarnedQrisApi  Int      @default(0)
+  totalWithdrawn      Int      @default(0)
+  updatedAt           DateTime @updatedAt
+}
+
+model Withdrawal {
+  id            String    @id
+  adminId       String
+  admin         User      @relation("AdminWithdrawals", fields: [adminId], references: [id], onDelete: Cascade)
+  ownerId       String
+  owner         User      @relation("OwnerWithdrawals", fields: [ownerId], references: [id], onDelete: Cascade)
+  amount        Int
+  bankName      String
+  accountNumber String
+  accountName   String
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
+  completedAt   DateTime?
+
+  @@index([adminId])
+  @@index([ownerId])
+}
+
+model Debt {
+  id            String       @id
+  shopId        String
+  shop          Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  adminId       String
+  admin         User         @relation("AdminDebts", fields: [adminId], references: [id], onDelete: Cascade)
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String?
+  amount        Int
+  paidAmount    Int          @default(0)
+  status        String       @default("open")
+  dueDate       DateTime?
+  note          String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  payments DebtPayment[]
+
+  @@index([shopId])
+  @@index([adminId])
+}
+
+model DebtPayment {
+  id        String   @id
+  debtId    String
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([debtId])
+}

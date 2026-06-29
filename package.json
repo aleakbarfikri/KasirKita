@@ -1,0 +1,35 @@
+{
+  "name": "kasirkita-fullstack",
+  "version": "1.2.3",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:setup": "tsx scripts/seed-json-db.ts",
+    "db:reset": "tsx scripts/seed-json-db.ts"
+  },
+  "dependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
+    "lucide-react": "^0.468.0",
+    "next": "^14.2.4",
+    "postcss": "^8.4.39",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.4.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3",
+    "zod": "latest",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "@types/qrcode": "^1.5.5"
+  }
+}
