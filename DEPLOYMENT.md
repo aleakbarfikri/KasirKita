@@ -63,3 +63,7 @@ git push -u origin main
 - Local development uses `.data/kasirkita-db.json`.
 - Vercel production should use KV/Redis through `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
 - `/tmp` storage is not reliable for production because different serverless functions may not share the same files.
+## Vercel Redis official integration
+
+This build supports both Upstash/KV REST variables (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) and the official Redis integration variable (`REDIS_URL`). If Vercel creates only `REDIS_URL`, no extra code changes are needed. Redeploy after adding the variable.
+

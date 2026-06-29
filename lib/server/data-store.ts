@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import net from "node:net";
+import tls from "node:tls";
 
 export type UserRole = "owner" | "admin";
 
@@ -290,29 +292,159 @@ async function redisCommand<T = unknown>(command: unknown[]): Promise<T | null> 
   return first?.result ?? null;
 }
 
-async function readCloudDb(): Promise<AppDb | null> {
-  const config = getRedisConfig();
-  if (!config) return null;
+function encodeRedisCommand(parts: string[]) {
+  return `*${parts.length}\r\n${parts.map((part) => `$${Buffer.byteLength(part)}\r\n${part}\r\n`).join("")}`;
+}
 
-  const stored = await redisCommand<string | null>(["GET", CLOUD_DB_KEY]);
+type AnyNodeBuffer = Buffer<ArrayBufferLike>;
+
+function parseResp(buffer: AnyNodeBuffer): { value: unknown; rest: AnyNodeBuffer } | null {
+  if (buffer.length < 1) return null;
+  const prefix = String.fromCharCode(buffer[0]);
+  const lineEnd = buffer.indexOf("\r\n");
+  if (lineEnd === -1) return null;
+  const line = buffer.subarray(1, lineEnd).toString("utf8");
+  const afterLine = lineEnd + 2;
+
+  if (prefix === "+") return { value: line, rest: buffer.subarray(afterLine) };
+  if (prefix === "-") throw new Error(`Redis error: ${line}`);
+  if (prefix === ":") return { value: Number(line), rest: buffer.subarray(afterLine) };
+
+  if (prefix === "$") {
+    const length = Number(line);
+    if (length === -1) return { value: null, rest: buffer.subarray(afterLine) };
+    const end = afterLine + length;
+    if (buffer.length < end + 2) return null;
+    return { value: buffer.subarray(afterLine, end).toString("utf8"), rest: buffer.subarray(end + 2) };
+  }
+
+  if (prefix === "*") {
+    const count = Number(line);
+    if (count === -1) return { value: null, rest: buffer.subarray(afterLine) };
+    const values: unknown[] = [];
+    let rest = buffer.subarray(afterLine);
+    for (let index = 0; index < count; index += 1) {
+      const parsed = parseResp(rest);
+      if (!parsed) return null;
+      values.push(parsed.value);
+      rest = parsed.rest;
+    }
+    return { value: values, rest };
+  }
+
+  throw new Error(`Unsupported Redis response: ${prefix}`);
+}
+
+async function redisUrlCommand<T = unknown>(command: string[]): Promise<T | null> {
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) return null;
+
+  const url = new URL(redisUrl);
+  const isTls = url.protocol === "rediss:";
+  const port = Number(url.port || (isTls ? 6380 : 6379));
+  const username = url.username ? decodeURIComponent(url.username) : "";
+  const password = url.password ? decodeURIComponent(url.password) : "";
+  const database = url.pathname?.replace(/^\//, "");
+
+  const commands: string[][] = [];
+  if (password) {
+    commands.push(username ? ["AUTH", username, password] : ["AUTH", password]);
+  }
+  if (database && /^\d+$/.test(database) && database !== "0") {
+    commands.push(["SELECT", database]);
+  }
+  commands.push(command);
+
+  return await new Promise<T>((resolve, reject) => {
+    const socket = isTls
+      ? tls.connect({ host: url.hostname, port, servername: url.hostname })
+      : net.connect({ host: url.hostname, port });
+
+    let responseBuffer: AnyNodeBuffer = Buffer.alloc(0);
+    let responseIndex = 0;
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("Redis URL storage timeout"));
+    }, 10_000);
+
+    socket.once("connect", () => {
+      socket.write(commands.map(encodeRedisCommand).join(""));
+    });
+
+    socket.on("data", (chunk) => {
+      try {
+        responseBuffer = Buffer.concat([responseBuffer, chunk]);
+        while (responseIndex < commands.length) {
+          const parsed = parseResp(responseBuffer);
+          if (!parsed) return;
+          responseBuffer = parsed.rest;
+          responseIndex += 1;
+          if (responseIndex === commands.length) {
+            clearTimeout(timeout);
+            socket.end();
+            resolve(parsed.value as T);
+            return;
+          }
+        }
+      } catch (error) {
+        clearTimeout(timeout);
+        socket.destroy();
+        reject(error);
+      }
+    });
+
+    socket.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
+}
+
+async function readRedisUrlDb(): Promise<AppDb | null> {
+  if (!process.env.REDIS_URL) return null;
+  const stored = await redisUrlCommand<string | null>(["GET", CLOUD_DB_KEY]);
   if (!stored) {
     const fresh = defaultDb();
-    await writeCloudDb(fresh);
+    await writeRedisUrlDb(fresh);
     return fresh;
   }
+  return JSON.parse(stored) as AppDb;
+}
 
-  if (typeof stored === "string") {
-    return JSON.parse(stored) as AppDb;
+async function writeRedisUrlDb(db: AppDb): Promise<boolean> {
+  if (!process.env.REDIS_URL) return false;
+  await redisUrlCommand(["SET", CLOUD_DB_KEY, JSON.stringify(db)]);
+  return true;
+}
+
+async function readCloudDb(): Promise<AppDb | null> {
+  const config = getRedisConfig();
+  if (config) {
+    const stored = await redisCommand<string | null>(["GET", CLOUD_DB_KEY]);
+    if (!stored) {
+      const fresh = defaultDb();
+      await writeCloudDb(fresh);
+      return fresh;
+    }
+
+    if (typeof stored === "string") {
+      return JSON.parse(stored) as AppDb;
+    }
+
+    return stored as AppDb;
   }
 
-  return stored as AppDb;
+  return await readRedisUrlDb();
 }
 
 async function writeCloudDb(db: AppDb): Promise<boolean> {
   const config = getRedisConfig();
-  if (!config) return false;
-  await redisCommand(["SET", CLOUD_DB_KEY, JSON.stringify(db)]);
-  return true;
+  if (config) {
+    await redisCommand(["SET", CLOUD_DB_KEY, JSON.stringify(db)]);
+    return true;
+  }
+
+  return await writeRedisUrlDb(db);
 }
 
 function ensureDbFile() {
