@@ -1,0 +1,261 @@
+"use client";
+
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Edit3, ImagePlus, Loader2, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserX, X } from "lucide-react";
+import { api, type OwnerAdminRow } from "@/lib/api-client";
+import { formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+function normalizeUsername(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+}
+
+export function AdminManagement() {
+  const [admins, setAdmins] = useState<OwnerAdminRow[]>([]);
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editing, setEditing] = useState<OwnerAdminRow | null>(null);
+  const [editShopName, setEditShopName] = useState("");
+  const [editShopAddress, setEditShopAddress] = useState("");
+  const [editQrisImage, setEditQrisImage] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const qrisInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function loadAdmins() {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await api.owner.admins.list();
+      setAdmins(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat admin");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAdmins();
+  }, []);
+
+  async function addAdmin() {
+    const normalizedUsername = normalizeUsername(username);
+    if (!name.trim() || !normalizedUsername || !email.trim() || !password || !shopName.trim()) {
+      setError("Nama, username, email, password, dan nama UMKM wajib diisi.");
+      return;
+    }
+    if (normalizedUsername.length < 3) {
+      setError("Username minimal 3 karakter. Gunakan huruf, angka, atau underscore.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const created = await api.owner.admins.create({
+        name: name.trim(),
+        username: normalizedUsername,
+        email: email.trim(),
+        password,
+        shopName: shopName.trim(),
+        shopAddress: shopAddress.trim(),
+      });
+      setAdmins((current) => [created, ...current]);
+      setName("");
+      setUsername("");
+      setEmail("");
+      setPassword("");
+      setShopName("");
+      setShopAddress("");
+      setMessage(`Admin berhasil dibuat. Username login: ${created.admin.username || normalizedUsername}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuat admin");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openEdit(row: OwnerAdminRow) {
+    setEditing(row);
+    setEditShopName(row.shop.name ?? "");
+    setEditShopAddress(row.shop.address ?? "");
+    setEditQrisImage(row.shop.qrisStaticImageUrl ?? "");
+    setEditError(null);
+  }
+
+  function handleQrisUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setEditError("File QRIS harus berupa gambar PNG/JPG.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => setEditQrisImage(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsDataURL(file);
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    if (!editShopName.trim()) {
+      setEditError("Nama UMKM wajib diisi.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    setMessage(null);
+    try {
+      const updated = await api.owner.admins.update(editing.admin.id, {
+        shopName: editShopName.trim(),
+        shopAddress: editShopAddress.trim(),
+        qrisStaticImageUrl: editQrisImage,
+      });
+      setAdmins((current) => current.map((row) => row.admin.id === updated.admin.id ? updated : row));
+      setEditing(null);
+      setMessage("Data admin, nama UMKM, dan QRIS statis berhasil diperbarui.");
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Gagal menyimpan perubahan admin");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function deactivateAdmin(id: string) {
+    setError(null);
+    try {
+      await api.owner.admins.deactivate(id);
+      setAdmins((current) => current.map((row) => row.admin.id === id ? { ...row, profile: { ...row.profile, isActive: false } } : row));
+      setMessage("Admin berhasil dinonaktifkan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menonaktifkan admin");
+    }
+  }
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tambahkan Admin UMKM</CardTitle>
+          
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+          {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
+          <div className="space-y-2"><Label>Nama Admin</Label><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ayu Lestari" /></div>
+          <div className="space-y-2">
+            <Label>Username</Label>
+            <Input value={username} onChange={(event) => setUsername(normalizeUsername(event.target.value))} placeholder="admin_cabang_4" autoCapitalize="none" autoCorrect="off" />
+            <p className="text-xs text-[#3d4a42]">Gunakan huruf kecil, angka, atau underscore. Contoh: admin_cabang_4</p>
+          </div>
+          <div className="space-y-2"><Label>Email</Label><Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin4@kasirkita.test" /></div>
+          <div className="space-y-2"><Label>Password Awal</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="minimal 8 karakter" /></div>
+          <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="UMKM Sumber Rezeki" /></div>
+          <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" /></div>
+          <Button className="w-full" onClick={addAdmin} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Buat Admin</Button>
+          <div className="rounded-2xl bg-secondary p-4 text-sm text-secondary-foreground"><ShieldCheck className="mb-2 h-5 w-5" /> QRIS statis per cabang bisa ditambahkan setelah admin dibuat lewat tombol Edit.</div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Daftar Admin</CardTitle>
+              <CardDescription>Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS Pakasir.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadAdmins}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {loading ? (
+            <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat admin...</div>
+          ) : (
+            <Table>
+              <TableHeader><TableRow><TableHead>Username</TableHead><TableHead>UMKM</TableHead><TableHead>QRIS Statis</TableHead><TableHead>Status</TableHead><TableHead>Saldo QRIS Pakasir</TableHead><TableHead>Total Withdrawn</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {admins.map((row) => {
+                  const balance = row.balance;
+                  const available = (balance?.totalEarnedQrisApi ?? 0) - (balance?.totalWithdrawn ?? 0);
+                  return (
+                    <TableRow key={row.admin.id}>
+                      <TableCell><p className="font-medium">{row.admin.username || row.admin.email}</p><p className="text-xs text-[#3d4a42]">{row.admin.name}</p></TableCell>
+                      <TableCell><p>{row.shop.name}</p><p className="text-xs text-[#3d4a42]">{row.shop.address || "Tanpa alamat"}</p></TableCell>
+                      <TableCell>{row.shop.qrisStaticImageUrl ? <Badge variant="success" className="normal-case tracking-normal"><QrCode className="mr-1 h-3.5 w-3.5" /> Ada QRIS</Badge> : <Badge variant="secondary" className="normal-case tracking-normal">Belum ada</Badge>}</TableCell>
+                      <TableCell><Badge variant={row.profile.isActive ? "success" : "secondary"}>{row.profile.isActive ? "Aktif" : "Nonaktif"}</Badge></TableCell>
+                      <TableCell>{formatCurrency(Math.max(available, 0))}</TableCell>
+                      <TableCell>{formatCurrency(balance?.totalWithdrawn ?? 0)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(row)}><Edit3 className="mr-2 h-4 w-4" /> Edit</Button>
+                          <Button variant="outline" size="sm" disabled={!row.profile.isActive} onClick={() => deactivateAdmin(row.admin.id)}><UserX className="mr-2 h-4 w-4" /> Nonaktifkan</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal open={editing !== null} title="Edit Admin UMKM" description="Edit nama UMKM dan QRIS statis yang akan tampil di pembayaran QRIS Statis milik admin ini." onClose={() => !editSaving ? setEditing(null) : undefined}>
+        {editing ? (
+          <div className="space-y-4">
+            {editError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{editError}</p> : null}
+            <div className="rounded-2xl bg-[#eff4ff] p-4 text-sm">
+              <p className="font-bold text-[#0b1c30]">{editing.admin.name}</p>
+              <p className="text-[#3d4a42]">Username: {editing.admin.username || editing.admin.email}</p>
+            </div>
+            <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={editShopName} onChange={(event) => setEditShopName(event.target.value)} placeholder="UMKM Melati" /></div>
+            <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={editShopAddress} onChange={(event) => setEditShopAddress(event.target.value)} placeholder="Jl. Melati No. 12" /></div>
+
+            <div className="space-y-2">
+              <Label>QRIS Statis Pemilik UMKM</Label>
+              <input ref={qrisInputRef} type="file" accept="image/*" onChange={handleQrisUpload} className="hidden" />
+              <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-[#bccac0] bg-[#f8f9ff]">
+                {editQrisImage ? (
+                  <>
+                    <img src={editQrisImage} alt="QRIS Statis Cabang" className="h-full max-h-80 w-full object-contain p-4" />
+                    <button type="button" onClick={() => setEditQrisImage("")} className="absolute right-3 top-3 rounded-full bg-white p-2 shadow"><X className="h-4 w-4" /></button>
+                  </>
+                ) : (
+                  <div className="p-8 text-center text-[#3d4a42]">
+                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#dae2fd] text-primary"><ImagePlus className="h-8 w-8" /></div>
+                    <p className="font-semibold text-[#0b1c30]">Upload QRIS statis cabang</p>
+                    <p className="text-xs">Gambar ini akan muncul saat admin memilih QRIS Statis di POS.</p>
+                  </div>
+                )}
+              </div>
+              <Button variant="outline" className="w-full" onClick={() => qrisInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload / Ganti QRIS</Button>
+            </div>
+
+            <Button className="w-full" size="lg" onClick={saveEdit} disabled={editSaving}>
+              {editSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Edit3 className="mr-2 h-4 w-4" />} Simpan Perubahan
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
+    </div>
+  );
+}

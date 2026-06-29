@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 225 100% 99%;
+    --foreground: 213 63% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 63% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 63% 12%;
+    --primary: 161 100% 21%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 223 73% 92%;
+    --secondary-foreground: 226 20% 27%;
+    --muted: 218 100% 96%;
+    --muted-foreground: 205 8% 36%;
+    --accent: 202 100% 35%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 143 10% 76%;
+    --input: 143 10% 76%;
+    --ring: 161 100% 21%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer components {
+  .pos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #bccac0;
+    border-radius: 999px;
+  }
+
+  .receipt-grid {
+    background-image: linear-gradient(rgba(11, 28, 48, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(11, 28, 48, 0.06) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+}
