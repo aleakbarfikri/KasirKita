@@ -6,36 +6,37 @@ Aplikasi ini dibuat dengan Next.js App Router dan dapat dijalankan secara lokal 
 
 ## Fitur Utama
 
-* Login Owner dan Admin
-* Role guard untuk Owner dan Admin
-* Dashboard Owner
-* Manajemen Admin UMKM
-* Manajemen produk dan inventaris
-* Edit produk, SKU/barcode, harga, harga modal, stok, dan foto
-* POS kasir untuk transaksi penjualan
-* Quick POS dari halaman utama
-* Tambah item manual yang belum ada di inventaris
-* Pembayaran tunai
-* QRIS statis
-* QRIS Pakasir API
-* Transaksi hutang pelanggan
-* Buku hutang Admin
-* Monitoring hutang oleh Owner
-* Request withdrawal oleh Admin
-* Approval withdrawal oleh Owner
-* Export laporan CSV dari Dashboard Owner
+- Login Owner dan Admin
+- Role guard untuk Owner dan Admin
+- Dashboard Owner
+- Manajemen Admin UMKM
+- Manajemen produk dan inventaris
+- Edit produk, SKU/barcode, harga, harga modal, stok, dan foto
+- POS kasir untuk transaksi penjualan
+- Quick POS dari halaman utama
+- Tambah item manual yang belum ada di inventaris
+- Pembayaran tunai
+- QRIS statis
+- QRIS Pakasir API
+- Transaksi hutang pelanggan
+- Buku hutang Admin
+- Monitoring hutang oleh Owner
+- Request withdrawal oleh Admin
+- Approval withdrawal oleh Owner
+- Export laporan CSV dari Dashboard Owner
+- Ganti password Owner dari Dashboard Owner
 
 ## Tech Stack
 
-* Next.js 14 App Router
-* React 18
-* TypeScript
-* Tailwind CSS
-* Next.js API Route Handlers
-* Signed HTTP-only cookie session
-* JSON data store untuk local development
-* Redis/KV untuk production di Vercel
-* QRCode
+- Next.js 14 App Router
+- React 18
+- TypeScript
+- Tailwind CSS
+- Next.js API Route Handlers
+- Signed HTTP-only cookie session
+- JSON data store untuk local development
+- Redis/KV untuk production di Vercel
+- QRCode
 
 ## Struktur Project
 
@@ -97,6 +98,12 @@ Untuk keamanan, credential akun tidak ditulis di README. Jangan pernah menaruh u
 
 Sebelum deploy production, pastikan credential Owner bawaan sudah diganti dan gunakan secret environment yang kuat.
 
+## Ganti Password Owner
+
+Setelah login sebagai Owner, buka Dashboard Owner lalu gunakan kartu **Ganti Password Owner**.
+
+Password baru minimal 8 karakter. Setelah berhasil diganti, logout lalu login ulang menggunakan password baru.
+
 ## Perintah NPM
 
 ```bash
@@ -141,14 +148,14 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
 1. Push project ke GitHub.
 2. Import repository ke Vercel.
 3. Tambahkan environment variable production:
-
-   * `KASIRKITA_AUTH_SECRET`
-   * `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau
-   * `REDIS_URL`
+   - `KASIRKITA_AUTH_SECRET`
+   - `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau
+   - `REDIS_URL`
 4. Redeploy project.
 5. Login sebagai Owner.
-6. Buat Admin UMKM dari dashboard Owner.
-7. Login sebagai Admin untuk mulai mengelola produk dan transaksi.
+6. Ganti password Owner dari Dashboard Owner.
+7. Buat Admin UMKM dari dashboard Owner.
+8. Login sebagai Admin untuk mulai mengelola produk dan transaksi.
 
 ## Endpoint Utama
 
@@ -162,6 +169,7 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
 /api/withdrawals
 /api/debts
 /api/owner/admins
+/api/owner/change-password
 /api/owner/payment-config
 /api/owner/withdrawals
 /api/owner/debts
@@ -172,28 +180,24 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
 ## Flow Penggunaan
 
 1. Owner login ke dashboard.
-2. Owner membuat Admin UMKM.
-3. Admin login ke dashboard kasir.
-4. Admin menambahkan produk ke inventaris.
-5. Admin melakukan checkout transaksi dari POS.
-6. Transaksi bisa dibayar tunai, QRIS statis, QRIS Pakasir, atau dicatat sebagai hutang.
-7. Owner dapat memantau admin, hutang, withdrawal, dan laporan transaksi.
+2. Owner mengganti password awal.
+3. Owner membuat Admin UMKM.
+4. Admin login ke dashboard kasir.
+5. Admin menambahkan produk ke inventaris.
+6. Admin melakukan checkout transaksi dari POS.
+7. Transaksi bisa dibayar tunai, QRIS statis, QRIS Pakasir, atau dicatat sebagai hutang.
+8. Owner dapat memantau admin, hutang, withdrawal, dan laporan transaksi.
 
 ## Catatan Keamanan
 
-* Jangan commit file `.env` atau `.env.local`.
-* Jangan publish credential akun.
-* Jangan publish API key Pakasir.
-* Jangan publish Redis/KV token.
-* Gunakan `KASIRKITA_AUTH_SECRET` yang panjang dan random.
-* Jika credential pernah terlanjur dipublikasikan, segera ganti password dan redeploy.
-* Untuk production, pastikan data store sudah memakai Redis/KV.
+- Jangan commit file `.env` atau `.env.local`.
+- Jangan publish credential akun.
+- Jangan publish API key Pakasir.
+- Jangan publish Redis/KV token.
+- Gunakan `KASIRKITA_AUTH_SECRET` yang panjang dan random.
+- Jika credential pernah terlanjur dipublikasikan, segera ganti password dan redeploy.
+- Untuk production, pastikan data store sudah memakai Redis/KV.
 
 ## Status
 
 Project ini masih dalam tahap pengembangan dan bisa terus disesuaikan untuk kebutuhan UMKM, toko, cabang, kasir, dan payment flow yang lebih lengkap.
-jual, harga modal, dan stok melalui modal edit yang tersambung ke endpoint `PATCH /api/products/:id`. SKU tetap opsional; jika dikosongkan, backend membuat SKU otomatis.
-## Vercel Redis official integration
-
-This build supports both Upstash/KV REST variables (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) and the official Redis integration variable (`REDIS_URL`). If Vercel creates only `REDIS_URL`, no extra code changes are needed. Redeploy after adding the variable.
-
