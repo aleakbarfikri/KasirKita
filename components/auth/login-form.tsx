@@ -100,7 +100,7 @@ export function LoginForm() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="ownerkasirkita" autoComplete="username" />
+            <Input id="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

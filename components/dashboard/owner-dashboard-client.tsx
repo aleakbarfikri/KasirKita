@@ -20,7 +20,6 @@ import {
   type TransactionRecord,
 } from "@/lib/api-client";
 import { MetricCard } from "@/components/layout/metric-card";
-import { OwnerChangePasswordCard } from "@/components/dashboard/owner-change-password-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -287,8 +286,6 @@ export function OwnerDashboardClient() {
         </div>
 
         <aside className="space-y-6">
-          <OwnerChangePasswordCard />
-
           <Card className="bg-[#213145] text-white">
             <CardHeader>
               <CardTitle className="text-white">Akses Cepat</CardTitle>

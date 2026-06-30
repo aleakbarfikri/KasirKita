@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Barcode, CheckCircle2, Clock, CreditCard, Loader2, Minus, NotebookPen, PackagePlus, Plus, QrCode, ShoppingCart, SlidersHorizontal, Trash2, WalletCards } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Barcode, Camera, CheckCircle2, Clock, CreditCard, Loader2, Minus, NotebookPen, PackagePlus, Plus, QrCode, ScanLine, ShoppingCart, SlidersHorizontal, Trash2, WalletCards } from "lucide-react";
+import type { IScannerControls } from "@zxing/browser";
 import { api, type CheckoutItem, type CheckoutResponse, type PaymentMethod, type ProductRecord } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,9 @@ const emptyManualItem = {
 };
 
 export function PosInterface() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const scanHandledRef = useRef(false);
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [shopQrisImage, setShopQrisImage] = useState("");
@@ -48,6 +52,11 @@ export function PosInterface() {
   const [debtNote, setDebtNote] = useState("");
   const [manualItemOpen, setManualItemOpen] = useState(false);
   const [manualItem, setManualItem] = useState(emptyManualItem);
+  const [skuScannerOpen, setSkuScannerOpen] = useState(false);
+  const [scannerRunId, setScannerRunId] = useState(0);
+  const [scannerStarting, setScannerStarting] = useState(false);
+  const [scannerMessage, setScannerMessage] = useState("Arahkan kamera ke barcode SKU produk.");
+  const [lastScannedSku, setLastScannedSku] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,14 +121,126 @@ export function PosInterface() {
   const total = subtotal;
   const change = Math.max(cashReceived - total, 0);
 
-  function addToCart(product: ProductRecord, quantity = 1) {
+  const addToCart = useCallback((product: ProductRecord, quantity = 1) => {
     const safeQuantity = Math.max(1, Math.floor(quantity));
     setCart((current) => {
       const found = current.find((item) => item.id === product.id);
       if (found) return current.map((item) => item.id === product.id ? { ...item, qty: item.qty + safeQuantity } : item);
       return [...current, { ...product, qty: safeQuantity }];
     });
+  }, []);
+
+  const stopSkuScanner = useCallback(() => {
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
+  }, []);
+
+  function openSkuScanner() {
+    scanHandledRef.current = false;
+    setLastScannedSku("");
+    setScannerMessage("Meminta izin kamera...");
+    setScannerRunId((current) => current + 1);
+    setSkuScannerOpen(true);
   }
+
+  const handleScannedSku = useCallback((rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
+
+    setLastScannedSku(code);
+    setQuery(code);
+
+    const exact = products.find((product) => product.sku.toLowerCase() === code.toLowerCase());
+    if (exact) {
+      addToCart(exact);
+      setQuery("");
+      setError(null);
+      setScannerMessage(`SKU ${code} masuk ke keranjang.`);
+      setSkuScannerOpen(false);
+      return;
+    }
+
+    setScannerMessage(`SKU ${code} tidak ditemukan. Item manual dibuka.`);
+    setManualItem((current) => ({ ...current, name: code, sku: code.toUpperCase() }));
+    setSkuScannerOpen(false);
+    setManualItemOpen(true);
+  }, [addToCart, products]);
+
+  useEffect(() => {
+    if (!skuScannerOpen) {
+      stopSkuScanner();
+      return;
+    }
+
+    let alive = true;
+
+    async function startScanner() {
+      if (!videoRef.current) return;
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScannerMessage("Kamera tidak tersedia di browser ini.");
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        setScannerMessage("Kamera perlu HTTPS. Gunakan Vercel/HTTPS atau localhost saat testing.");
+        return;
+      }
+
+      setScannerStarting(true);
+      setScannerMessage("Meminta izin kamera...");
+
+      try {
+        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const reader = new BrowserMultiFormatReader(undefined, {
+          delayBetweenScanAttempts: 180,
+          delayBetweenScanSuccess: 500,
+        });
+
+        const controls = await reader.decodeFromConstraints(
+          {
+            audio: false,
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
+          videoRef.current,
+          (result) => {
+            if (!result || scanHandledRef.current) return;
+            scanHandledRef.current = true;
+            stopSkuScanner();
+            handleScannedSku(result.getText());
+          },
+        );
+
+        if (!alive) {
+          controls.stop();
+          return;
+        }
+
+        scannerControlsRef.current = controls;
+        setScannerMessage("Arahkan kamera ke barcode SKU produk.");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Gagal membuka kamera.";
+        setScannerMessage(
+          message.includes("Permission") || message.includes("NotAllowed")
+            ? "Izin kamera ditolak. Aktifkan izin kamera di browser."
+            : `Gagal membuka kamera: ${message}`,
+        );
+      } finally {
+        if (alive) setScannerStarting(false);
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      alive = false;
+      stopSkuScanner();
+    };
+  }, [handleScannedSku, scannerRunId, skuScannerOpen, stopSkuScanner]);
 
   function addManualItem() {
     const name = manualItem.name.trim();
@@ -283,6 +404,9 @@ export function PosInterface() {
                 autoFocus
               />
             </div>
+            <Button variant="navy" size="lg" className="h-12 shrink-0 px-4 lg:h-14 lg:px-6" onClick={openSkuScanner}>
+              <Camera className="mr-2 h-5 w-5" /> Scan SKU
+            </Button>
             <Button variant="outline" size="lg" className="h-12 shrink-0 px-4 text-[#0b1c30] lg:h-14 lg:px-6" onClick={() => setManualItemOpen(true)}>
               <PackagePlus className="mr-2 h-5 w-5" /> Add Item
             </Button>
@@ -393,6 +517,41 @@ export function PosInterface() {
           </div>
         </div>
       </aside>
+
+      <Modal open={skuScannerOpen} title="Scan SKU Kamera" description="Arahkan kamera ke barcode produk. SKU yang cocok langsung masuk keranjang." onClose={() => setSkuScannerOpen(false)}>
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-3xl border border-[#bccac0] bg-[#0b1c30]">
+            <video ref={videoRef} className="aspect-[4/3] w-full object-cover" muted playsInline autoPlay />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="h-28 w-[78%] rounded-2xl border-2 border-emerald-300 shadow-[0_0_0_999px_rgba(11,28,48,0.35)]" />
+              <ScanLine className="absolute h-10 w-10 text-emerald-200" />
+            </div>
+            {scannerStarting ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0b1c30]/50 text-white">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Membuka kamera...
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl bg-[#eff4ff] p-4 text-sm font-semibold text-[#3d4a42]">
+            <p>{scannerMessage}</p>
+            {lastScannedSku ? <p className="mt-2 text-primary">Terakhir terbaca: {lastScannedSku}</p> : null}
+            <p className="mt-2 text-xs font-medium">
+              Di HP, kamera hanya aktif pada HTTPS. Gunakan domain Vercel/HTTPS untuk testing dari perangkat lain.
+            </p>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setSkuScannerOpen(false)}>
+              Tutup
+            </Button>
+            <Button onClick={openSkuScanner} disabled={scannerStarting}>
+              {scannerStarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+              Scan Ulang
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={manualItemOpen} title="Add Item Manual" description="Tambahkan item langsung ke keranjang tanpa harus terdaftar di inventaris." onClose={() => setManualItemOpen(false)}>
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}

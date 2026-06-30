@@ -68,10 +68,25 @@ export function AdminDashboardClient() {
       <div className="mt-6 grid gap-6 xl:grid-cols-[360px_1fr]">
         <Card className="bg-[#213145] text-white">
           <CardHeader><CardTitle className="text-white">Aksi Cepat</CardTitle><CardDescription className="text-white/70">Operasi harian admin UMKM.</CardDescription></CardHeader>
-          <CardContent className="grid gap-3">
-            <Link href="/admin/pos"><Button size="lg" className="w-full bg-white text-primary hover:bg-white/90"><Store className="mr-2 h-5 w-5" /> Buka Kasir POS</Button></Link>
-            <Link href="/admin/debts"><Button size="lg" variant="secondary" className="w-full"><NotebookTabs className="mr-2 h-5 w-5" /> Catatan Hutang</Button></Link>
-            <Link href="/admin/withdraw"><Button size="lg" className="w-full bg-white text-[#0f7a4f] hover:bg-white/90"><Wallet className="mr-2 h-5 w-5" /> Ajukan Tarik Dana</Button></Link>
+          <CardContent className="grid min-w-0 gap-3">
+            <Link href="/admin/pos" className="block min-w-0">
+              <Button size="lg" className="w-full min-w-0 justify-start px-4 bg-white text-primary hover:bg-white/90">
+                <Store className="mr-2 h-5 w-5 shrink-0" />
+                <span className="min-w-0 truncate">Buka Kasir POS</span>
+              </Button>
+            </Link>
+            <Link href="/admin/debts" className="block min-w-0">
+              <Button size="lg" variant="secondary" className="w-full min-w-0 justify-start px-4">
+                <NotebookTabs className="mr-2 h-5 w-5 shrink-0" />
+                <span className="min-w-0 truncate">Catatan Hutang</span>
+              </Button>
+            </Link>
+            <Link href="/admin/withdraw" className="block min-w-0">
+              <Button size="lg" className="w-full min-w-0 justify-start px-4 bg-white text-[#0f7a4f] hover:bg-white/90">
+                <Wallet className="mr-2 h-5 w-5 shrink-0" />
+                <span className="min-w-0 truncate">Ajukan Tarik Dana</span>
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
