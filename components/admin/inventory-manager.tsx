@@ -171,13 +171,13 @@ export function InventoryManager() {
 
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        <Card>
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Input Barang</CardTitle>
             <CardDescription>Data produk sekarang disimpan melalui API Route Handler + SQLite lokal.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="min-w-0 space-y-4">
             {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
             <div className="space-y-2"><Label>Nama Barang</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Contoh: Gula 1kg" /></div>
@@ -188,42 +188,42 @@ export function InventoryManager() {
               <div className="space-y-2"><Label>Stok</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label>Foto Produk <span className="text-xs font-normal text-[#3d4a42]">(opsional)</span></Label>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
               {photoPreview ? (
-                <div className="overflow-hidden rounded-2xl border border-[#bccac0] bg-[#f8f9ff]">
+                <div className="min-w-0 overflow-hidden rounded-2xl border border-[#bccac0] bg-[#f8f9ff]">
                   <div className="relative h-48 bg-[#dae2fd]">
                     <img src={photoPreview} alt="Preview foto produk" className="h-full w-full object-cover" />
                     <button type="button" onClick={clearPhoto} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#0b1c30] shadow-sm hover:bg-white" aria-label="Hapus foto">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="flex items-center justify-between gap-3 p-3">
-                    <p className="truncate text-sm font-semibold text-[#0b1c30]">{photoName}</p>
+                  <div className="flex min-w-0 items-center justify-between gap-3 p-3">
+                    <p className="min-w-0 truncate text-sm font-semibold text-[#0b1c30]">{photoName}</p>
                     <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Ganti</Button>
                   </div>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] px-4 py-8 text-center transition-colors hover:border-primary hover:bg-[#eff4ff]">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#dae2fd] text-primary"><ImagePlus className="h-6 w-6" /></div>
-                  <p className="font-bold text-[#0b1c30]">Upload foto produk</p>
-                  <p className="mt-1 text-sm text-[#3d4a42]">PNG, JPG, atau foto dari kamera. Bisa dikosongkan.</p>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] px-4 py-8 text-center transition-colors hover:border-primary hover:bg-[#eff4ff]">
+                  <div className="mb-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#dae2fd] text-primary"><ImagePlus className="h-6 w-6" /></div>
+                  <p className="max-w-full text-wrap break-words font-bold text-[#0b1c30]">Upload foto produk</p>
+                  <p className="mt-1 max-w-full text-wrap break-words text-sm leading-relaxed text-[#3d4a42]">PNG, JPG, atau foto dari kamera. Bisa dikosongkan.</p>
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" type="button"><Camera className="mr-2 h-4 w-4" /> Scan</Button>
-              <Button onClick={addProduct} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Simpan</Button>
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button variant="outline" type="button" className="w-full min-w-0 px-3"><Camera className="mr-2 h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Scan</span></Button>
+              <Button onClick={addProduct} disabled={saving} className="w-full min-w-0 px-3">{saving ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Plus className="mr-2 h-4 w-4 shrink-0" />} <span className="min-w-0 truncate">Simpan</span></Button>
             </div>
-            <Button type="button" variant="secondary" className="w-full" onClick={() => fileInputRef.current?.click()}>
-              <UploadCloud className="mr-2 h-4 w-4" /> Pilih Foto Produk
+            <Button type="button" variant="secondary" className="w-full min-w-0 px-3" onClick={() => fileInputRef.current?.click()}>
+              <UploadCloud className="mr-2 h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Pilih Foto Produk</span>
             </Button>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -233,7 +233,7 @@ export function InventoryManager() {
               <Button variant="outline" size="sm" onClick={loadProducts} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
             </div>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="min-w-0 overflow-x-auto">
             {loading ? (
               <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat produk...</div>
             ) : (
