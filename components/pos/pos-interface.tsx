@@ -434,12 +434,12 @@ export function PosInterface() {
                 return (
                   <button key={product.id} onClick={() => addToCart(product)} className="group overflow-hidden rounded-xl border border-[#bccac0] bg-white text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(33,49,69,0.10)] active:scale-[0.98]">
                     <div className="relative h-28 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 sm:h-32 lg:h-36">
-                      {product.photoUrl ? <img src={product.photoUrl} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" /> : <div className="flex h-full w-full items-center justify-center text-3xl font-black text-primary">KK</div>}
+                      <div className="flex h-full w-full items-center justify-center px-3 text-center text-xl font-black leading-tight text-primary sm:text-2xl lg:text-3xl"><span className="line-clamp-3">{product.name}</span></div>
                       <Badge variant={(product.stock ?? 0) < 8 ? "danger" : "default"} className="absolute right-3 top-3 normal-case tracking-normal">Stok: {product.stock ?? "-"}</Badge>
                       {cartQty > 0 ? <Badge variant="success" className="absolute left-3 top-3 normal-case tracking-normal">Di cart: {cartQty}</Badge> : null}
                     </div>
                     <div className="p-3 lg:p-4">
-                      <p className="line-clamp-2 min-h-[40px] text-sm font-semibold text-[#0b1c30] lg:min-h-[44px] lg:text-base">{product.name}</p>
+                      <p className="line-clamp-2 min-h-[52px] text-lg font-extrabold leading-tight text-[#0b1c30] lg:min-h-[60px] lg:text-xl">{product.name}</p>
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-base font-extrabold text-primary lg:text-lg">{formatCurrency(product.price)}</p>
                         <span className="rounded-full bg-[#eff4ff] px-2 py-1 text-[11px] font-semibold text-[#3d4a42]">SKU {product.sku.slice(-4)}</span>
@@ -468,7 +468,7 @@ export function PosInterface() {
                 <div key={item.id} className="rounded-xl border border-[#bccac0] bg-[#f8f9ff] p-3">
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
-                      {item.photoUrl ? <img src={item.photoUrl} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-black text-primary">{item.isManual ? "ADD" : "KK"}</div>}
+                      <div className="flex h-full w-full items-center justify-center overflow-hidden px-1 text-center text-[10px] font-black leading-tight text-primary">{item.isManual ? "ADD" : item.name}</div>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2"><p className="truncate font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>

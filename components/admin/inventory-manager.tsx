@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera, ImagePlus, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, UploadCloud, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Camera, Loader2, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { api, type ProductRecord } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -19,15 +19,11 @@ export function InventoryManager() {
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [photoName, setPhotoName] = useState("");
-  const [photoPreview, setPhotoPreview] = useState("");
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
+const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
   const [editName, setEditName] = useState("");
   const [editSku, setEditSku] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -52,37 +48,12 @@ export function InventoryManager() {
   useEffect(() => {
     loadProducts();
   }, []);
-
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("File harus berupa gambar.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoName(file.name);
-      setPhotoPreview(typeof reader.result === "string" ? reader.result : "");
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function clearPhoto() {
-    setPhotoName("");
-    setPhotoPreview("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
   function resetForm() {
     setName("");
     setSku("");
     setPrice("");
     setCostPrice("");
     setStock("");
-    clearPhoto();
   }
 
   async function addProduct() {
@@ -101,7 +72,7 @@ export function InventoryManager() {
         price: Number(price),
         costPrice: Number(costPrice || 0),
         stock: stock ? Number(stock) : null,
-        photoUrl: photoPreview || "",
+        photoUrl: "",
       });
       setItems((current) => [created, ...current]);
       setMessage("Produk berhasil disimpan ke database.");
@@ -188,39 +159,11 @@ export function InventoryManager() {
               <div className="space-y-2"><Label>Stok</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
-            <div className="min-w-0 space-y-2">
-              <Label>Foto Produk <span className="text-xs font-normal text-[#3d4a42]">(opsional)</span></Label>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-              {photoPreview ? (
-                <div className="min-w-0 overflow-hidden rounded-2xl border border-[#bccac0] bg-[#f8f9ff]">
-                  <div className="relative h-48 bg-[#dae2fd]">
-                    <img src={photoPreview} alt="Preview foto produk" className="h-full w-full object-cover" />
-                    <button type="button" onClick={clearPhoto} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#0b1c30] shadow-sm hover:bg-white" aria-label="Hapus foto">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex min-w-0 items-center justify-between gap-3 p-3">
-                    <p className="min-w-0 truncate text-sm font-semibold text-[#0b1c30]">{photoName}</p>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Ganti</Button>
-                  </div>
-                </div>
-              ) : (
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full min-w-0 max-w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] px-3 py-6 text-center transition-colors hover:border-primary hover:bg-[#eff4ff] sm:px-4 sm:py-8">
-                  <div className="mb-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#dae2fd] text-primary"><ImagePlus className="h-6 w-6" /></div>
-                  <p className="w-full max-w-full break-words px-2 text-center font-bold text-[#0b1c30]">Upload foto produk</p>
-                  <p className="mt-1 w-full max-w-full break-words px-2 text-center text-sm leading-relaxed text-[#3d4a42]">PNG, JPG, atau foto dari kamera. Bisa dikosongkan.</p>
-                </button>
-              )}
-            </div>
-
-            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+<div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
               <Button variant="outline" type="button" className="w-full min-w-0 px-3"><Camera className="mr-2 h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Scan</span></Button>
               <Button onClick={addProduct} disabled={saving} className="w-full min-w-0 px-3">{saving ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Plus className="mr-2 h-4 w-4 shrink-0" />} <span className="min-w-0 truncate">Simpan</span></Button>
             </div>
-            <Button type="button" variant="secondary" className="w-full min-w-0 px-3" onClick={() => fileInputRef.current?.click()}>
-              <UploadCloud className="mr-2 h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Pilih Foto Produk</span>
-            </Button>
-          </CardContent>
+</CardContent>
         </Card>
 
         <Card className="min-w-0 overflow-hidden">
@@ -238,16 +181,11 @@ export function InventoryManager() {
               <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat produk...</div>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Foto</TableHead><TableHead>Barang</TableHead><TableHead>SKU</TableHead><TableHead>Harga Jual</TableHead><TableHead>Harga Modal</TableHead><TableHead>Stok</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Barang</TableHead><TableHead>SKU</TableHead><TableHead>Harga Jual</TableHead><TableHead>Harga Modal</TableHead><TableHead>Stok</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {items.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="h-14 w-14 overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
-                          {item.photoUrl ? <img src={item.photoUrl} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-xs font-extrabold text-primary">KK</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
+<TableCell className="font-medium">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{formatCurrency(item.price)}</TableCell>
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
