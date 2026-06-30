@@ -18,6 +18,15 @@ function statusVariant(status: TransactionRecord["status"]) {
   return "danger" as const;
 }
 
+function shortOrderId(id?: string | null) {
+  if (!id) return "-";
+
+  const cleanId = id.replace(/^trx_/i, "");
+  const shortId = cleanId.slice(0, 6).toUpperCase();
+
+  return shortId ? `TRX-${shortId}` : "-";
+}
+
 export function AdminDashboardClient() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
@@ -65,24 +74,24 @@ export function AdminDashboardClient() {
         <MetricCard title="Hutang Aktif" value={formatCurrency(stats.activeDebt)} helper="Belum lunas + sebagian" icon={NotebookTabs} tone="red" />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[360px_1fr]">
-        <Card className="bg-[#213145] text-white">
+      <div className="mt-6 grid w-full min-w-0 max-w-full gap-6 overflow-hidden xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <Card className="min-w-0 max-w-full overflow-hidden bg-[#213145] text-white">
           <CardHeader><CardTitle className="text-white">Aksi Cepat</CardTitle><CardDescription className="text-white/70">Operasi harian admin UMKM.</CardDescription></CardHeader>
-          <CardContent className="grid min-w-0 gap-3">
+          <CardContent className="grid min-w-0 max-w-full gap-3 px-4 sm:px-6">
             <Link href="/admin/pos" className="block min-w-0">
-              <Button size="lg" className="w-full min-w-0 justify-start px-4 bg-white text-primary hover:bg-white/90">
+              <Button size="lg" className="w-full min-w-0 max-w-full justify-start overflow-hidden px-4 bg-white text-primary hover:bg-white/90">
                 <Store className="mr-2 h-5 w-5 shrink-0" />
                 <span className="min-w-0 truncate">Buka Kasir POS</span>
               </Button>
             </Link>
             <Link href="/admin/debts" className="block min-w-0">
-              <Button size="lg" variant="secondary" className="w-full min-w-0 justify-start px-4">
+              <Button size="lg" variant="secondary" className="w-full min-w-0 max-w-full justify-start overflow-hidden px-4">
                 <NotebookTabs className="mr-2 h-5 w-5 shrink-0" />
                 <span className="min-w-0 truncate">Catatan Hutang</span>
               </Button>
             </Link>
             <Link href="/admin/withdraw" className="block min-w-0">
-              <Button size="lg" className="w-full min-w-0 justify-start px-4 bg-white text-[#0f7a4f] hover:bg-white/90">
+              <Button size="lg" className="w-full min-w-0 max-w-full justify-start overflow-hidden px-4 bg-white text-[#0f7a4f] hover:bg-white/90">
                 <Wallet className="mr-2 h-5 w-5 shrink-0" />
                 <span className="min-w-0 truncate">Ajukan Tarik Dana</span>
               </Button>
@@ -91,14 +100,14 @@ export function AdminDashboardClient() {
         </Card>
 
         <Card className="bg-white">
-          <CardHeader><CardTitle>Transaksi Cabang</CardTitle><CardDescription>Riwayat singkat transaksi dari endpoint <code>/api/transactions</code>.</CardDescription></CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardHeader><CardTitle>Transaksi Cabang</CardTitle><CardDescription className="break-words">Riwayat singkat transaksi dari endpoint <code className="break-all">/api/transactions</code>.</CardDescription></CardHeader>
+          <CardContent className="max-w-full overflow-x-auto px-4 sm:px-6">
             <Table>
               <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Metode</TableHead><TableHead>Total</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
               <TableBody>
                 {transactions.slice(0, 8).map((transaction) => (
                   <TableRow key={transaction.id}>
-                    <TableCell className="font-bold">{transaction.id}</TableCell>
+                    <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                     <TableCell>{paymentMethodLabel(transaction.paymentMethod)}</TableCell>
                     <TableCell>{formatCurrency(transaction.total)}</TableCell>
                     <TableCell><Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{transactionStatusLabel(transaction.status)}</Badge></TableCell>
