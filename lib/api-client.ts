@@ -16,6 +16,12 @@ export type MeResponse = {
   shop?: ShopRecord | null;
 };
 
+export type ProfileUpdateResponse = {
+  user: SessionUser;
+  shop?: ShopRecord | null;
+  changed: boolean;
+};
+
 export type ProductRecord = {
   id: string;
   shopId?: string;
@@ -235,6 +241,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 export const api = {
   me: () => apiFetch<MeResponse>("/api/me"),
+  profile: {
+    update: (body: { name?: string; shopName?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
+      apiFetch<ProfileUpdateResponse>("/api/profile", { method: "PATCH", body: JSON.stringify(body) }),
+  },
 
   products: {
     list: () => apiFetch<ProductRecord[]>("/api/products"),

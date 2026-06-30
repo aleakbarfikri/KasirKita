@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
 import { api, type SessionUser } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import {
   AlertTriangle,
   Bell,
@@ -14,7 +18,9 @@ import {
   Code2,
   DollarSign,
   History,
+  KeyRound,
   LayoutDashboard,
+  Loader2,
   LogOut,
   Menu,
   NotebookTabs,
@@ -89,6 +95,16 @@ export function AppShell({
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileShopName, setProfileShopName] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -241,7 +257,64 @@ export function AppShell({
   useEffect(() => {
     setMobileNavOpen(false);
     setNotificationOpen(false);
+    setProfileOpen(false);
   }, [pathname]);
+
+  function openProfileModal() {
+    setProfileName(user?.name || "");
+    setProfileShopName(user?.shopName || "");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setProfileError(null);
+    setProfileSuccess(null);
+    setProfileOpen(false);
+    setProfileModalOpen(true);
+  }
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    if (newPassword || currentPassword || confirmPassword) {
+      if (newPassword.length < 8) {
+        setProfileError("Password baru minimal 8 karakter.");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setProfileError("Konfirmasi password baru tidak sama.");
+        return;
+      }
+    }
+
+    setProfileSaving(true);
+
+    try {
+      const result = await api.profile.update({
+        name: profileName,
+        shopName: profileShopName,
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+
+      setUser((current) => {
+        if (!current) return result.user;
+        return { ...current, ...result.user };
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setProfileSuccess("Profil berhasil diperbarui.");
+      router.refresh();
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Gagal menyimpan profil.");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   async function signOut() {
     await authClient.signOut();
@@ -407,6 +480,7 @@ export function AppShell({
               aria-label="Notifikasi"
               onClick={() => {
                 setNotificationOpen((value) => !value);
+                setProfileOpen(false);
                 if (!notificationOpen) loadNotifications();
               }}
             >
@@ -464,9 +538,52 @@ export function AppShell({
             <div className="hidden items-center gap-2 rounded-full bg-[#dae2fd] px-4 py-2 text-sm font-bold text-[#5c647a] sm:flex">
               <DollarSign className="h-4 w-4" /> API Connected
             </div>
-            <button onClick={signOut} className="rounded-full border-2 border-primary p-2 text-primary" aria-label="Logout">
+            <button
+              onClick={() => {
+                setProfileOpen((value) => !value);
+                setNotificationOpen(false);
+              }}
+              className="rounded-full border-2 border-primary p-2 text-primary transition hover:bg-primary hover:text-white"
+              aria-label="Buka profil"
+              aria-expanded={profileOpen}
+            >
               <UserRound className="h-5 w-5" />
             </button>
+
+            {profileOpen ? (
+              <div className="absolute right-0 top-12 z-50 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-[#bccac0] bg-white shadow-2xl">
+                <div className="border-b border-[#e3e9e5] p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-extrabold text-[#0b1c30]">{user?.name || user?.username}</p>
+                      <p className="truncate text-xs text-[#3d4a42]">
+                        {role === "owner" ? "Owner Account" : user?.shopName || "Admin UMKM"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 p-3">
+                  <button
+                    onClick={openProfileModal}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-[#0b1c30] transition hover:bg-[#eff4ff]"
+                  >
+                    <UserRound className="h-4 w-4 text-primary" />
+                    Profil & Password
+                  </button>
+                  <button
+                    onClick={signOut}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-red-700 transition hover:bg-red-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -482,6 +599,95 @@ export function AppShell({
           </div>
         )}
       </main>
+
+      <Modal
+        open={profileModalOpen}
+        title="Profil Akun"
+        description={role === "owner" ? "Kelola nama Owner, nama aplikasi/UMKM, dan password." : "Kelola nama admin, nama UMKM, dan password login."}
+        onClose={() => setProfileModalOpen(false)}
+      >
+        <form onSubmit={saveProfile} className="space-y-5">
+          {profileError ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{profileError}</p> : null}
+          {profileSuccess ? <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{profileSuccess}</p> : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="profileName">{role === "owner" ? "Nama Owner" : "Nama Admin"}</Label>
+              <Input
+                id="profileName"
+                value={profileName}
+                onChange={(event) => setProfileName(event.target.value)}
+                minLength={2}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="profileShopName">Nama UMKM</Label>
+              <Input
+                id="profileShopName"
+                value={profileShopName}
+                onChange={(event) => setProfileShopName(event.target.value)}
+                minLength={2}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#bccac0] bg-[#f8f9ff] p-4">
+            <div className="mb-4 flex items-center gap-2 font-extrabold text-[#0b1c30]">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Ganti Password
+            </div>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Password Lama</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">Password Baru</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setProfileModalOpen(false)}>
+              Tutup
+            </Button>
+            <Button type="submit" disabled={profileSaving}>
+              {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {profileSaving ? "Menyimpan..." : "Simpan Profil"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
