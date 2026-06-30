@@ -159,7 +159,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <div className="space-y-2"><Label>Stok</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
-<div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+<div className="grid min-w-0 grid-cols-1 gap-2">
               <Button variant="outline" type="button" className="w-full min-w-0 px-3"><Camera className="mr-2 h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Scan</span></Button>
               <Button onClick={addProduct} disabled={saving} className="w-full min-w-0 px-3">{saving ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Plus className="mr-2 h-4 w-4 shrink-0" />} <span className="min-w-0 truncate">Simpan</span></Button>
             </div>
