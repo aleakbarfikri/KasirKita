@@ -171,13 +171,13 @@ export function InventoryManager() {
 
   return (
     <>
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div className="grid w-full min-w-0 max-w-full gap-6 overflow-hidden xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Input Barang</CardTitle>
             <CardDescription>Data produk sekarang disimpan melalui API Route Handler + SQLite lokal.</CardDescription>
           </CardHeader>
-          <CardContent className="min-w-0 space-y-4">
+          <CardContent className="min-w-0 max-w-full space-y-4 overflow-hidden px-4 sm:px-6">
             {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
             <div className="space-y-2"><Label>Nama Barang</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Contoh: Gula 1kg" /></div>
@@ -205,10 +205,10 @@ export function InventoryManager() {
                   </div>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] px-4 py-8 text-center transition-colors hover:border-primary hover:bg-[#eff4ff]">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full min-w-0 max-w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] px-3 py-6 text-center transition-colors hover:border-primary hover:bg-[#eff4ff] sm:px-4 sm:py-8">
                   <div className="mb-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#dae2fd] text-primary"><ImagePlus className="h-6 w-6" /></div>
-                  <p className="max-w-full text-wrap break-words font-bold text-[#0b1c30]">Upload foto produk</p>
-                  <p className="mt-1 max-w-full text-wrap break-words text-sm leading-relaxed text-[#3d4a42]">PNG, JPG, atau foto dari kamera. Bisa dikosongkan.</p>
+                  <p className="w-full max-w-full break-words px-2 text-center font-bold text-[#0b1c30]">Upload foto produk</p>
+                  <p className="mt-1 w-full max-w-full break-words px-2 text-center text-sm leading-relaxed text-[#3d4a42]">PNG, JPG, atau foto dari kamera. Bisa dikosongkan.</p>
                 </button>
               )}
             </div>
