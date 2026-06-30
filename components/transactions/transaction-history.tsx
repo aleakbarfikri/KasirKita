@@ -16,6 +16,15 @@ function statusVariant(status: TransactionRecord["status"]) {
   return "danger" as const;
 }
 
+function shortOrderId(id?: string | null) {
+  if (!id) return "-";
+
+  const cleanId = id.replace(/^trx_/i, "");
+  const shortId = cleanId.slice(0, 6).toUpperCase();
+
+  return shortId ? `TRX-${shortId}` : "-";
+}
+
 export function TransactionHistory() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,17 +48,17 @@ export function TransactionHistory() {
   }, []);
 
   return (
-    <Card className="bg-white">
+    <Card className="min-w-0 max-w-full overflow-hidden bg-white">
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Semua Transaksi</CardTitle>
-            <CardDescription>Data transaksi dari endpoint <code>/api/transactions</code>.</CardDescription>
+            <CardDescription className="break-words">Data transaksi dari endpoint <code className="break-all">/api/transactions</code>.</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={loadTransactions}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
         </div>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent className="max-w-full overflow-x-auto px-4 sm:px-6">
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         {loading ? (
           <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat transaksi...</div>
@@ -60,11 +69,11 @@ export function TransactionHistory() {
               {transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{shortDate(transaction.createdAt)}</TableCell>
-                  <TableCell className="font-bold">{transaction.id}</TableCell>
+                  <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                   <TableCell>{paymentMethodLabel(transaction.paymentMethod)}</TableCell>
                   <TableCell>{formatCurrency(transaction.total)}</TableCell>
                   <TableCell><Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{transactionStatusLabel(transaction.status)}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground">{transaction.externalRef || "-"}</TableCell>
+                  <TableCell className="max-w-[8rem] truncate whitespace-nowrap text-muted-foreground" title={transaction.externalRef || ""}>{transaction.externalRef ? shortOrderId(transaction.externalRef) : "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
