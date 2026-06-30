@@ -1,63 +1,162 @@
-# KasirKita Fullstack — SQLite Version
+# KasirKita
 
-Aplikasi POS KasirKita dengan frontend Next.js, API Route Handlers, Better Auth, dan database lokal SQLite.
+KasirKita adalah aplikasi POS (Point of Sale) berbasis web untuk membantu UMKM mengelola penjualan, produk, admin cabang, pembayaran, hutang pelanggan, withdrawal, dan laporan transaksi.
 
-Versi ini **tidak memakai Drizzle, PostgreSQL, atau Docker**. Database tersimpan sebagai file lokal:
+Aplikasi ini dibuat dengan Next.js App Router dan dapat dijalankan secara lokal maupun dideploy ke Vercel.
 
-```txt
-prisma/dev.db
-```
+## Fitur Utama
+
+* Login Owner dan Admin
+* Role guard untuk Owner dan Admin
+* Dashboard Owner
+* Manajemen Admin UMKM
+* Manajemen produk dan inventaris
+* Edit produk, SKU/barcode, harga, harga modal, stok, dan foto
+* POS kasir untuk transaksi penjualan
+* Quick POS dari halaman utama
+* Tambah item manual yang belum ada di inventaris
+* Pembayaran tunai
+* QRIS statis
+* QRIS Pakasir API
+* Transaksi hutang pelanggan
+* Buku hutang Admin
+* Monitoring hutang oleh Owner
+* Request withdrawal oleh Admin
+* Approval withdrawal oleh Owner
+* Export laporan CSV dari Dashboard Owner
 
 ## Tech Stack
 
-- Next.js App Router
-- Tailwind CSS
-- shadcn-style local components
-- Next.js API Route Handlers
-- Better Auth + username login
-- Prisma Client
-- SQLite lokal
+* Next.js 14 App Router
+* React 18
+* TypeScript
+* Tailwind CSS
+* Next.js API Route Handlers
+* Signed HTTP-only cookie session
+* JSON data store untuk local development
+* Redis/KV untuk production di Vercel
+* QRCode
 
-## Cara menjalankan
+## Struktur Project
+
+```txt
+app/              Halaman utama, route dashboard, dan API routes
+components/       Komponen UI
+lib/              Client helper dan server utility
+lib/server/       Auth guard, data store, validator, formatter, dan helper backend
+scripts/          Script setup/reset database
+public/           Asset publik
+```
+
+## Cara Menjalankan di Lokal
+
+Pastikan Node.js sudah terinstall.
 
 ```bash
-cp .env.example .env
 npm install
+cp .env.example .env.local
+```
+
+Isi atau sesuaikan environment variable lokal:
+
+```env
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+KASIRKITA_AUTH_SECRET="ganti-dengan-random-string-yang-panjang"
+```
+
+Generate secret yang aman:
+
+```bash
+openssl rand -base64 32
+```
+
+Reset dan seed database lokal:
+
+```bash
 npm run db:setup
+```
+
+Jalankan development server:
+
+```bash
 npm run dev
 ```
 
-Buka:
+Buka aplikasi:
 
 ```txt
 http://localhost:3000
 http://localhost:3000/login
 ```
 
-## Akun awal
+## Akun Owner
 
-```txt
-Owner:
-username: ownerkasirkita
-password: Regina050322
-```
+Akun Owner awal dibuat otomatis saat database kosong.
 
-Database awal hanya berisi akun Owner. Buat admin UMKM dari menu Owner → Admin Management, lalu login sebagai admin tersebut untuk menambah produk dan transaksi.
+Untuk keamanan, credential akun tidak ditulis di README. Jangan pernah menaruh username, password, token, API key, atau secret production di repository publik.
 
-## Perintah database
+Sebelum deploy production, pastikan credential Owner bawaan sudah diganti dan gunakan secret environment yang kuat.
+
+## Perintah NPM
 
 ```bash
-npm run db:setup   # reset SQLite lokal + generate Prisma client + push schema + seed owner
-npm run db:reset   # hapus prisma/dev.db lalu setup ulang
-npm run db:studio  # buka Prisma Studio untuk melihat/edit database
+npm run dev       # menjalankan development server
+npm run build     # build production
+npm run start     # menjalankan production server
+npm run lint      # menjalankan lint
+npm run db:setup  # reset/seed data store lokal atau cloud
+npm run db:reset  # reset ulang data store
 ```
 
-## Endpoint utama
+## Storage / Database
+
+KasirKita menggunakan JSON data store.
+
+Untuk local development, data disimpan sebagai file lokal:
+
+```txt
+.data/kasirkita-db.json
+```
+
+Untuk production di Vercel, gunakan Redis/KV agar data tetap persisten antar serverless function.
+
+Environment variable yang didukung:
+
+```env
+KASIRKITA_AUTH_SECRET="random-secret"
+KV_REST_API_URL="..."
+KV_REST_API_TOKEN="..."
+```
+
+Atau gunakan official Redis integration dari Vercel:
+
+```env
+REDIS_URL="..."
+```
+
+Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime sementara, tetapi penyimpanan seperti ini tidak disarankan untuk production karena data bisa tidak konsisten atau hilang.
+
+## Deploy ke Vercel
+
+1. Push project ke GitHub.
+2. Import repository ke Vercel.
+3. Tambahkan environment variable production:
+
+   * `KASIRKITA_AUTH_SECRET`
+   * `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau
+   * `REDIS_URL`
+4. Redeploy project.
+5. Login sebagai Owner.
+6. Buat Admin UMKM dari dashboard Owner.
+7. Login sebagai Admin untuk mulai mengelola produk dan transaksi.
+
+## Endpoint Utama
 
 ```txt
 /api/auth/[...all]
 /api/me
 /api/products
+/api/products/:id
 /api/pos/checkout
 /api/transactions
 /api/withdrawals
@@ -66,63 +165,34 @@ npm run db:studio  # buka Prisma Studio untuk melihat/edit database
 /api/owner/payment-config
 /api/owner/withdrawals
 /api/owner/debts
+/api/owner/report
 /api/pakasir/status/:reference
 ```
 
-## Fitur
+## Flow Penggunaan
 
-- Login Owner/Admin dengan Better Auth username plugin
-- Role guard Owner/Admin
-- CRUD produk + foto opsional
-- POS checkout tunai, QRIS statis, QRIS Pakasir API, dan hutang
-- Buku hutang admin + monitoring owner
-- Withdrawal admin + approval owner
-- Payment config owner
-- Semua data backend masuk ke SQLite lokal
+1. Owner login ke dashboard.
+2. Owner membuat Admin UMKM.
+3. Admin login ke dashboard kasir.
+4. Admin menambahkan produk ke inventaris.
+5. Admin melakukan checkout transaksi dari POS.
+6. Transaksi bisa dibayar tunai, QRIS statis, QRIS Pakasir, atau dicatat sebagai hutang.
+7. Owner dapat memantau admin, hutang, withdrawal, dan laporan transaksi.
 
-## Update POS Kasir
+## Catatan Keamanan
 
-Halaman `/admin/pos` sudah mendukung:
+* Jangan commit file `.env` atau `.env.local`.
+* Jangan publish credential akun.
+* Jangan publish API key Pakasir.
+* Jangan publish Redis/KV token.
+* Gunakan `KASIRKITA_AUTH_SECRET` yang panjang dan random.
+* Jika credential pernah terlanjur dipublikasikan, segera ganti password dan redeploy.
+* Untuk production, pastikan data store sudah memakai Redis/KV.
 
-- Tombol **Add Item** untuk item manual yang belum ada di inventaris.
-- Input nama item, SKU opsional, harga per item, dan quantity.
-- Perhitungan otomatis `harga per item × quantity` untuk subtotal setiap item.
-- Total keranjang otomatis menjumlahkan semua subtotal item.
-- Item manual tetap ikut tersimpan ke transaksi backend melalui `/api/pos/checkout`.
+## Status
 
-## Update Homepage + POS Payment Panel
-
-Versi ini juga menambahkan:
-
-- Quick POS di halaman utama `/` yang sudah memakai backend:
-  - mengambil produk dari `/api/products`
-  - cari barang berdasarkan nama/SKU
-  - tambah barang ke keranjang dari homepage
-  - Add Item manual dari homepage
-  - opsi simpan item manual ke inventaris backend
-  - checkout payment dari homepage ke `/api/pos/checkout`
-- Payment panel di `/admin/pos` selalu terlihat, tidak hanya di layar besar.
-- Quantity `+ / - / input` menghitung subtotal `harga × qty` dan total transaksi otomatis.
-
-## Update Owner Admin + Laporan
-
-Versi ini memperbaiki:
-
-- Form **Tambahkan Admin UMKM** tidak lagi memunculkan error generik `Invalid admin payload` untuk username dengan spasi/tanda hubung.
-- Username admin otomatis dinormalisasi ke format Better Auth yang valid: huruf kecil, angka, dan underscore.
-- Error backend sekarang lebih jelas, misalnya email/username sudah digunakan atau password kurang panjang.
-- Tombol **Unduh Laporan** di Dashboard Owner sekarang aktif dan mengunduh file CSV dari endpoint `/api/owner/report`.
-- Laporan CSV berisi ringkasan pendapatan, admin cabang, transaksi, withdrawal, dan piutang/hutang pelanggan.
-
-## Update Withdrawal Security
-
-- Saat password admin salah di modal konfirmasi withdrawal, sekarang muncul notifikasi merah langsung di dalam modal.
-- Input password diberi highlight merah sampai admin mengetik ulang password.
-- Request withdrawal tidak dikirim ke Owner sampai password admin yang sedang login benar.
-
-## Update inventory edit
-
-Halaman `Admin > Inventaris` sekarang memiliki tombol **Edit** pada daftar produk. Admin dapat mengubah nama barang, SKU/barcode, harga jual, harga modal, dan stok melalui modal edit yang tersambung ke endpoint `PATCH /api/products/:id`. SKU tetap opsional; jika dikosongkan, backend membuat SKU otomatis.
+Project ini masih dalam tahap pengembangan dan bisa terus disesuaikan untuk kebutuhan UMKM, toko, cabang, kasir, dan payment flow yang lebih lengkap.
+jual, harga modal, dan stok melalui modal edit yang tersambung ke endpoint `PATCH /api/products/:id`. SKU tetap opsional; jika dikosongkan, backend membuat SKU otomatis.
 ## Vercel Redis official integration
 
 This build supports both Upstash/KV REST variables (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) and the official Redis integration variable (`REDIS_URL`). If Vercel creates only `REDIS_URL`, no extra code changes are needed. Redeploy after adding the variable.
