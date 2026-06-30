@@ -48,7 +48,7 @@ export function TransactionHistory() {
   }, []);
 
   return (
-    <Card className="min-w-0 max-w-full overflow-hidden bg-white">
+    <Card className="w-full min-w-0 max-w-full bg-white">
       <CardHeader>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -58,12 +58,12 @@ export function TransactionHistory() {
           <Button variant="outline" size="sm" onClick={loadTransactions}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
         </div>
       </CardHeader>
-      <CardContent className="max-w-full overflow-x-auto px-4 sm:px-6">
+      <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         {loading ? (
           <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat transaksi...</div>
         ) : (
-          <Table>
+          <Table className="min-w-[640px]">
             <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Order ID</TableHead><TableHead>Metode</TableHead><TableHead>Total</TableHead><TableHead>Status</TableHead><TableHead>Ref</TableHead></TableRow></TableHeader>
             <TableBody>
               {transactions.map((transaction) => (
