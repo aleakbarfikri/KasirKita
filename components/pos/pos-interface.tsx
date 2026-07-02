@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Barcode, Camera, CheckCircle2, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
 import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
@@ -56,6 +56,7 @@ export function PosInterface() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
   const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
@@ -592,6 +593,7 @@ export function PosInterface() {
   async function openPayment(method: PaymentMethod) {
     if (cart.length === 0) return;
     setError(null);
+    setMobileCartOpen(false);
 
     if (method === "qris_pakasir" && typeof navigator !== "undefined" && !navigator.onLine) {
       setError("QRIS Pakasir perlu internet untuk membuat QR dinamis. Gunakan Tunai, QRIS Statis, atau Hutang saat offline.");
@@ -675,7 +677,7 @@ export function PosInterface() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-visible p-4 custom-scrollbar lg:overflow-auto lg:p-6">
+        <div className="min-h-0 flex-1 overflow-visible p-4 pb-36 custom-scrollbar lg:overflow-auto lg:p-6">
           <div className="mb-4 flex flex-col gap-2 md:hidden">
             <div className={isOnline ? "rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700" : "rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800"}>
               {isOnline ? "Online - transaksi dikirim langsung." : "Offline - transaksi tunai, QRIS statis, dan hutang disimpan dulu di perangkat ini."}
@@ -762,13 +764,34 @@ export function PosInterface() {
         </div>
       </section>
 
-      <aside className="flex min-h-[360px] shrink-0 flex-col border-t border-[#bccac0] bg-white lg:h-full lg:max-h-none lg:w-[460px] lg:border-l lg:border-t-0">
-        <div className="flex items-center justify-between border-b border-[#bccac0] p-4 lg:p-6">
-          <div className="flex items-center gap-3"><ShoppingCart className="h-6 w-6 text-primary" /><div><h3 className="text-xl font-bold">{t("Keranjang")}</h3><p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} {t("jenis barang")}</p></div></div>
-          <button onClick={() => setCart([])} className="flex items-center gap-2 text-sm font-semibold text-red-600"><Trash2 className="h-4 w-4" /> {t("Bersihkan")}</button>
+      <aside className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] min-h-[360px] shrink-0 flex-col rounded-t-[2rem] border border-[#bccac0] bg-white shadow-[0_-18px_60px_rgba(11,28,48,0.22)] transition-transform duration-300 ease-out ${mobileCartOpen ? "translate-y-0" : "translate-y-[calc(100%-104px)]"} lg:static lg:z-auto lg:h-full lg:max-h-none lg:w-[460px] lg:translate-y-0 lg:rounded-none lg:border-l lg:border-r-0 lg:border-t-0 lg:shadow-none`}>
+        <div className="border-b border-[#bccac0] p-4 lg:p-6">
+          <button
+            type="button"
+            onClick={() => setMobileCartOpen((open) => !open)}
+            className="mb-3 flex w-full items-center justify-center text-[#3d4a42] lg:hidden"
+            aria-label={mobileCartOpen ? "Tutup keranjang" : "Buka keranjang"}
+          >
+            <span className="mr-2 h-1.5 w-12 rounded-full bg-[#bccac0]" />
+            {mobileCartOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+          </button>
+          <div className="flex items-center justify-between gap-3">
+            <button type="button" onClick={() => setMobileCartOpen((open) => !open)} className="flex min-w-0 flex-1 items-center gap-3 text-left lg:pointer-events-none">
+              <ShoppingCart className="h-6 w-6 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <h3 className="text-xl font-bold">{t("Keranjang")}</h3>
+                <p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} {t("jenis barang")}</p>
+              </div>
+            </button>
+            <div className="text-right lg:hidden">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Total")}</p>
+              <p className="text-lg font-black text-primary">{formatCurrency(total)}</p>
+            </div>
+            <button onClick={() => setCart([])} className="hidden items-center gap-2 text-sm font-semibold text-red-600 sm:flex"><Trash2 className="h-4 w-4" /> {t("Bersihkan")}</button>
+          </div>
         </div>
 
-        <div className="max-h-[55vh] flex-1 overflow-auto p-4 custom-scrollbar lg:max-h-none lg:p-5">
+        <div className="max-h-[46vh] flex-1 overflow-auto p-4 custom-scrollbar lg:max-h-none lg:p-5">
           {cart.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] text-center text-sm text-[#3d4a42]">{t("Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.")}</div>
           ) : (
