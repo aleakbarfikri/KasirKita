@@ -764,67 +764,67 @@ export function PosInterface() {
         </div>
       </section>
 
-      <aside className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] min-h-[360px] shrink-0 flex-col rounded-t-[2rem] border border-[#bccac0] bg-white shadow-[0_-18px_60px_rgba(11,28,48,0.22)] transition-transform duration-300 ease-out ${mobileCartOpen ? "translate-y-0" : "translate-y-[calc(100%-104px)]"} lg:static lg:z-auto lg:h-full lg:max-h-none lg:w-[460px] lg:translate-y-0 lg:rounded-none lg:border-l lg:border-r-0 lg:border-t-0 lg:shadow-none`}>
-        <div className="border-b border-[#bccac0] p-4 lg:p-6">
+      <aside className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[78vh] min-h-[280px] shrink-0 flex-col rounded-t-[1.5rem] border border-[#bccac0] bg-white shadow-[0_-18px_60px_rgba(11,28,48,0.22)] transition-transform duration-300 ease-out ${mobileCartOpen ? "translate-y-0" : "translate-y-[calc(100%-78px)]"} lg:static lg:z-auto lg:h-full lg:max-h-none lg:min-h-[360px] lg:w-[460px] lg:translate-y-0 lg:rounded-none lg:border-l lg:border-r-0 lg:border-t-0 lg:shadow-none`}>
+        <div className="border-b border-[#bccac0] px-4 py-2.5 lg:p-6">
           <button
             type="button"
             onClick={() => setMobileCartOpen((open) => !open)}
-            className="mb-3 flex w-full items-center justify-center text-[#3d4a42] lg:hidden"
+            className="mb-1.5 flex w-full items-center justify-center text-[#3d4a42] lg:hidden"
             aria-label={mobileCartOpen ? "Tutup keranjang" : "Buka keranjang"}
           >
-            <span className="mr-2 h-1.5 w-12 rounded-full bg-[#bccac0]" />
-            {mobileCartOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+            <span className="mr-2 h-1.5 w-11 rounded-full bg-[#bccac0]" />
+            {mobileCartOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
           <div className="flex items-center justify-between gap-3">
             <button type="button" onClick={() => setMobileCartOpen((open) => !open)} className="flex min-w-0 flex-1 items-center gap-3 text-left lg:pointer-events-none">
-              <ShoppingCart className="h-6 w-6 shrink-0 text-primary" />
+              <ShoppingCart className="h-5 w-5 shrink-0 text-primary lg:h-6 lg:w-6" />
               <div className="min-w-0">
-                <h3 className="text-xl font-bold">{t("Keranjang")}</h3>
+                <h3 className="text-lg font-bold leading-tight lg:text-xl">{t("Keranjang")}</h3>
                 <p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} {t("jenis barang")}</p>
               </div>
             </button>
             <div className="text-right lg:hidden">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Total")}</p>
-              <p className="text-lg font-black text-primary">{formatCurrency(total)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Total")}</p>
+              <p className="text-base font-black text-primary">{formatCurrency(total)}</p>
             </div>
             <button onClick={() => setCart([])} className="hidden items-center gap-2 text-sm font-semibold text-red-600 sm:flex"><Trash2 className="h-4 w-4" /> {t("Bersihkan")}</button>
           </div>
         </div>
 
-        <div className="max-h-[46vh] flex-1 overflow-auto p-4 custom-scrollbar lg:max-h-none lg:p-5">
+        <div className="max-h-[32vh] flex-1 overflow-auto p-3 custom-scrollbar lg:max-h-none lg:p-5">
           {cart.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] text-center text-sm text-[#3d4a42]">{t("Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.")}</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 lg:space-y-3">
               {cart.map((item) => (
-                <div key={item.id} className="rounded-xl border border-[#bccac0] bg-[#f8f9ff] p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
+                <div key={item.id} className="rounded-xl border border-[#bccac0] bg-[#f8f9ff] p-2.5 lg:p-3">
+                  <div className="flex items-center gap-2.5 lg:gap-3">
+                    <div className="hidden h-14 w-14 overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 sm:block">
                       <div className="flex h-full w-full items-center justify-center overflow-hidden px-1 text-center text-[10px] font-black leading-tight text-primary">{item.isManual ? "ADD" : item.name}</div>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2"><p className="truncate font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>
+                      <div className="flex items-center gap-2"><p className="truncate text-sm font-bold lg:text-base lg:font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>
                       <p className="text-sm font-bold text-primary">{formatCurrency(productFinalPrice(item))} × {item.qty}</p>
                       {productDiscountAmount(item) > 0 ? <p className="text-xs font-semibold text-amber-700">{t("Diskon item")} {formatCurrency(productDiscountAmount(item))} / pcs</p> : null}
                     </div>
-                    <button onClick={() => updateQty(item.id, 0)} className="flex h-9 w-9 items-center justify-center rounded-full text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={() => updateQty(item.id, 0)} className="flex h-8 w-8 items-center justify-center rounded-full text-red-600 hover:bg-red-50 lg:h-9 lg:w-9"><Trash2 className="h-4 w-4" /></button>
                   </div>
-                  <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
-                    <div className="grid grid-cols-3 items-center gap-2 rounded-xl bg-white p-2">
-                      <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex h-9 items-center justify-center rounded-lg border border-[#bccac0]"><Minus className="h-4 w-4" /></button>
+                  <div className="mt-2 grid grid-cols-[minmax(0,140px)_auto] items-end gap-2 lg:mt-3 lg:grid-cols-[1fr_auto] lg:gap-3">
+                    <div className="grid grid-cols-3 items-center gap-1.5 rounded-xl bg-white p-1.5 lg:gap-2 lg:p-2">
+                      <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex h-8 items-center justify-center rounded-lg border border-[#bccac0] lg:h-9"><Minus className="h-4 w-4" /></button>
                       <Input
                         type="number"
                         min={1}
                         value={item.qty}
                         onChange={(event) => updateQty(item.id, Number(event.target.value))}
-                        className="h-9 px-2 text-center font-bold"
+                        className="h-8 px-1 text-center text-sm font-bold lg:h-9 lg:px-2"
                         aria-label={`Quantity ${item.name}`}
                       />
-                      <button onClick={() => updateQty(item.id, item.qty + 1)} className="flex h-9 items-center justify-center rounded-lg border border-[#bccac0]"><Plus className="h-4 w-4" /></button>
+                      <button onClick={() => updateQty(item.id, item.qty + 1)} className="flex h-8 items-center justify-center rounded-lg border border-[#bccac0] lg:h-9"><Plus className="h-4 w-4" /></button>
                     </div>
                     <div className="text-right">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3d4a42]">Subtotal</p>
-                      <p className="text-lg font-extrabold text-[#0b1c30]">{formatCurrency(productFinalPrice(item) * item.qty)}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3d4a42] lg:text-[11px] lg:tracking-[0.16em]">Subtotal</p>
+                      <p className="text-sm font-extrabold text-[#0b1c30] lg:text-lg">{formatCurrency(productFinalPrice(item) * item.qty)}</p>
                     </div>
                   </div>
                 </div>
@@ -833,17 +833,17 @@ export function PosInterface() {
           )}
         </div>
 
-        <div className="border-t border-[#bccac0] bg-[#dce9ff] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6">
-          <div className="space-y-3 text-base">
+        <div className="border-t border-[#bccac0] bg-[#dce9ff] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:p-6">
+          <div className="space-y-2 text-sm lg:space-y-3 lg:text-base">
             <div className="flex justify-between"><span>{t("Total qty")}</span><span>{totalItems} item</span></div>
             <div className="flex justify-between"><span>{t("Subtotal barang × qty")}</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className="rounded-2xl border border-[#bccac0] bg-white p-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <Label className="text-sm">{t("Diskon Transaksi")}</Label>
+            <div className="rounded-xl border border-[#bccac0] bg-white p-2 lg:rounded-2xl lg:p-3">
+              <div className="mb-1.5 flex items-center justify-between gap-2 lg:mb-2">
+                <Label className="text-xs lg:text-sm">{t("Diskon Transaksi")}</Label>
                 {checkoutDiscountAmount > 0 ? <span className="text-sm font-bold text-amber-700">-{formatCurrency(checkoutDiscountAmount)}</span> : null}
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-                <select value={checkoutDiscountType} onChange={(event) => setCheckoutDiscountType(event.target.value as DiscountType)} className="h-10 rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold">
+                <select value={checkoutDiscountType} onChange={(event) => setCheckoutDiscountType(event.target.value as DiscountType)} className="h-9 rounded-lg border border-[#bccac0] bg-white px-2 text-xs font-semibold lg:h-10 lg:rounded-xl lg:px-3 lg:text-sm">
                   <option value="none">{t("Tanpa Diskon")}</option>
                   <option value="percent">{t("Persen")}</option>
                   <option value="amount">{t("Nominal Rupiah")}</option>
@@ -856,20 +856,20 @@ export function PosInterface() {
                   onChange={(event) => setCheckoutDiscountValue(event.target.value)}
                   disabled={checkoutDiscountType === "none"}
                   placeholder={checkoutDiscountType === "percent" ? "10" : "5000"}
-                  className="h-10"
+                  className="h-9 rounded-lg px-2 text-sm lg:h-10 lg:rounded-xl"
                 />
               </div>
             </div>
-            <div className="border-t border-[#bccac0] pt-3 flex justify-between font-extrabold"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between border-t border-[#bccac0] pt-2 font-extrabold lg:pt-3"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
           </div>
 
-          <div className="mt-6 grid gap-3">
-            <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="w-full"><CreditCard className="mr-2 h-5 w-5" /> {t("Tunai (Cash)")}</Button>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="px-3"><QrCode className="mr-2 h-4 w-4" /> QRIS Statis</Button>
-              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="px-3"><WalletCards className="mr-2 h-4 w-4" /> QRIS Pakasir</Button>
+          <div className="mt-3 grid gap-2 lg:mt-6 lg:gap-3">
+            <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="h-11 w-full rounded-xl text-sm lg:h-12 lg:rounded-2xl lg:text-base"><CreditCard className="mr-2 h-4 w-4 lg:h-5 lg:w-5" /> {t("Tunai (Cash)")}</Button>
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
+              <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="h-11 rounded-xl px-2 text-sm lg:h-12 lg:rounded-2xl lg:px-3 lg:text-base"><QrCode className="mr-1.5 h-4 w-4" /> QRIS Statis</Button>
+              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="h-11 rounded-xl px-2 text-sm lg:h-12 lg:rounded-2xl lg:px-3 lg:text-base"><WalletCards className="mr-1.5 h-4 w-4" /> QRIS Pakasir</Button>
             </div>
-            <Button size="lg" variant="navy" onClick={() => openPayment("debt")} disabled={cart.length === 0} className="w-full"><NotebookPen className="mr-2 h-5 w-5" /> {t("Catat Hutang")}</Button>
+            <Button size="lg" variant="navy" onClick={() => openPayment("debt")} disabled={cart.length === 0} className="h-11 w-full rounded-xl text-sm lg:h-12 lg:rounded-2xl lg:text-base"><NotebookPen className="mr-2 h-4 w-4 lg:h-5 lg:w-5" /> {t("Catat Hutang")}</Button>
           </div>
         </div>
       </aside>
