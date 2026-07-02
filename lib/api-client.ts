@@ -1,4 +1,4 @@
-export type UserRole = "owner" | "admin";
+export type UserRole = "owner" | "admin" | "cashier";
 
 export type SessionUser = {
   id: string;
@@ -50,10 +50,58 @@ export type TransactionRecord = {
   changeAmount?: number | null;
   status: TransactionStatus;
   externalRef?: string | null;
+  receiptToken?: string | null;
   note?: string | null;
   shopName?: string;
+  cashierName?: string;
+  costTotal?: number;
+  grossProfit?: number;
+  items?: Array<{
+    id: string;
+    productId?: string | null;
+    sku: string;
+    name: string;
+    price: number;
+    costPrice?: number | null;
+    quantity: number;
+    subtotal: number;
+  }>;
   createdAt: string;
   updatedAt?: string;
+};
+
+export type AuditLogRecord = {
+  id: string;
+  actorId: string;
+  actorRole: UserRole;
+  shopId?: string | null;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  message: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type CashShiftRecord = {
+  id: string;
+  shopId: string;
+  cashierId: string;
+  cashierName?: string;
+  openedAt: string;
+  closedAt: string;
+  transactionCount: number;
+  cashSales: number;
+  qrisStaticSales: number;
+  qrisPakasirSales: number;
+  debtSales: number;
+  cancelledSales: number;
+  grossSales: number;
+  grossProfit: number;
+  cashCounted?: number | null;
+  cashDifference?: number | null;
+  note?: string | null;
+  createdAt: string;
 };
 
 export type DebtStatus = "open" | "partial" | "paid";
@@ -110,11 +158,29 @@ export type AdminProfile = {
   updatedAt?: string;
 };
 
+export type CashierProfile = {
+  userId: string;
+  adminId: string;
+  ownerId: string;
+  shopId: string;
+  isActive: boolean;
+  approvalStatus: "approved" | "pending" | "rejected";
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CashierRow = {
+  cashier: SessionUser;
+  profile: CashierProfile;
+  shop: ShopRecord;
+};
+
 export type ShopRecord = {
   id: string;
   ownerId: string;
   name: string;
   address?: string | null;
+  phone?: string | null;
   qrisStaticImageUrl?: string | null;
 };
 
@@ -137,9 +203,31 @@ export type PaymentConfig = {
   ownerId?: string;
   pakasirSlug?: string | null;
   pakasirApiKey?: string | null;
+  whatsappProvider?: string | null;
+  whatsappApiKey?: string | null;
+  whatsappSender?: string | null;
   createdAt?: string;
   updatedAt?: string;
 } | null;
+
+export type BackupInfo = {
+  id: string;
+  reason: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export type RestoreBackupResponse = {
+  backupBeforeRestore: BackupInfo;
+  restoredAt: string;
+  counts: {
+    users: number;
+    shops: number;
+    products: number;
+    transactions: number;
+    debts: number;
+  };
+};
 
 export type CheckoutItem = {
   productId?: string;
@@ -163,6 +251,7 @@ export type CheckoutResponse = {
   transaction: TransactionRecord;
   items: unknown[];
   debt?: DebtRecord | null;
+  receipt?: ReceiptRecord;
   payment?: {
     provider: "pakasir";
     status: "pending";
@@ -177,6 +266,20 @@ export type CheckoutResponse = {
     expiredAt?: string | null;
     pollEveryMs: number;
   };
+};
+
+export type ReceiptRecord = {
+  transaction: TransactionRecord;
+  items: CheckoutItem[];
+  shop: {
+    name: string;
+    address?: string | null;
+    phone?: string | null;
+  };
+  cashier: {
+    name: string;
+  };
+  publicUrl?: string;
 };
 
 type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error?: { message?: string; details?: unknown } };
@@ -195,7 +298,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   const controller = new AbortController();
   const timeoutMs = Number((init as RequestInit & { timeoutMs?: number }).timeoutMs ?? 12000);
@@ -242,7 +345,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 export const api = {
   me: () => apiFetch<MeResponse>("/api/me"),
   profile: {
-    update: (body: { name?: string; shopName?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
+    update: (body: { name?: string; shopName?: string; shopAddress?: string; shopPhone?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
       apiFetch<ProfileUpdateResponse>("/api/profile", { method: "PATCH", body: JSON.stringify(body) }),
   },
 
@@ -251,6 +354,11 @@ export const api = {
     create: (body: Partial<ProductRecord>) => apiFetch<ProductRecord>("/api/products", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: Partial<ProductRecord>) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
     remove: (id: string) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "DELETE" }),
+    importCsv: (file: File) => {
+      const body = new FormData();
+      body.append("file", file);
+      return apiFetch<{ created: number; updated: number; total: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
+    },
   },
 
   checkout: (body: CheckoutPayload) => apiFetch<CheckoutResponse>("/api/pos/checkout", { method: "POST", body: JSON.stringify(body) }),
@@ -258,6 +366,18 @@ export const api = {
 
   transactions: {
     list: () => apiFetch<TransactionRecord[]>("/api/transactions"),
+    void: (id: string, body: { reason: string }) =>
+      apiFetch<{ transaction: TransactionRecord; items: unknown[]; debt?: DebtRecord | null }>(`/api/transactions/${id}/void`, { method: "POST", body: JSON.stringify(body) }),
+  },
+
+  auditLogs: {
+    list: () => apiFetch<AuditLogRecord[]>("/api/audit-logs"),
+  },
+
+  shifts: {
+    list: () => apiFetch<CashShiftRecord[]>("/api/shifts"),
+    close: (body: { cashCounted?: number | null; note?: string }) =>
+      apiFetch<CashShiftRecord>("/api/shifts", { method: "POST", body: JSON.stringify(body) }),
   },
 
   debts: {
@@ -273,15 +393,26 @@ export const api = {
     create: (body: { amount: number; bankName: string; accountNumber: string; accountName: string; adminPassword: string }) =>
       apiFetch<WithdrawalRecord>("/api/withdrawals", { method: "POST", body: JSON.stringify(body) }),
   },
+  cashiers: {
+    list: () => apiFetch<CashierRow[]>("/api/admin/cashiers"),
+    create: (body: { name: string; username: string; email: string; password: string }) =>
+      apiFetch<CashierRow>("/api/admin/cashiers", { method: "POST", body: JSON.stringify(body) }),
+    updatePassword: (id: string, body: { password: string }) =>
+      apiFetch<CashierRow>(`/api/admin/cashiers/${id}/password`, { method: "PATCH", body: JSON.stringify(body) }),
+  },
 
   owner: {
     admins: {
       list: () => apiFetch<OwnerAdminRow[]>("/api/owner/admins"),
-      create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string }) =>
+      create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string; shopPhone?: string }) =>
         apiFetch<OwnerAdminRow>("/api/owner/admins", { method: "POST", body: JSON.stringify(body) }),
-      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; qrisStaticImageUrl?: string }) =>
+      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string }) =>
         apiFetch<OwnerAdminRow>(`/api/owner/admins/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
       deactivate: (id: string) => apiFetch<AdminProfile>(`/api/owner/admins/${id}`, { method: "DELETE" }),
+    },
+    cashiers: {
+      list: () => apiFetch<CashierRow[]>("/api/owner/cashiers"),
+      approve: (id: string) => apiFetch<CashierRow>(`/api/owner/cashiers/${id}/approve`, { method: "POST" }),
     },
     paymentConfig: {
       get: () => apiFetch<PaymentConfig>("/api/owner/payment-config"),
@@ -293,6 +424,15 @@ export const api = {
     },
     debts: {
       list: () => apiFetch<OwnerDebtRow[]>("/api/owner/debts"),
+    },
+    backups: {
+      list: () => apiFetch<BackupInfo[]>("/api/owner/backups"),
+      create: () => apiFetch<BackupInfo>("/api/owner/backups", { method: "POST" }),
+      restore: (file: File) => {
+        const body = new FormData();
+        body.append("backup", file);
+        return apiFetch<RestoreBackupResponse>("/api/owner/backups/restore", { method: "POST", body });
+      },
     },
   },
 };

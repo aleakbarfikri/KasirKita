@@ -7,7 +7,7 @@ type SessionUser = {
   email: string;
   username?: string | null;
   displayUsername?: string | null;
-  role?: "owner" | "admin";
+  role?: "owner" | "admin" | "cashier";
   shopName?: string | null;
 };
 
@@ -57,6 +57,14 @@ export async function requireAdmin() {
   return session;
 }
 
+export async function requirePosUser() {
+  const session = await requireAuth();
+  if (session.user.role !== "admin" && session.user.role !== "cashier") {
+    throw Object.assign(new Error("Admin or cashier access required"), { status: 403 });
+  }
+  return session;
+}
+
 export function authError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unauthorized";
   const status = typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 401;
@@ -66,18 +74,34 @@ export function authError(error: unknown) {
 export async function getAdminScope(adminId: string) {
   const db = await readDb();
   const profile = db.adminProfiles.find((row) => row.userId === adminId && row.isActive);
-  if (!profile) {
+  if (profile) {
+    const shop = getShopByIdFromDb(db, profile.shopId);
+    if (!shop) {
+      throw Object.assign(new Error("Shop not found for this admin"), { status: 403 });
+    }
+
+    return {
+      adminId: profile.userId,
+      ownerId: profile.ownerId,
+      shopId: profile.shopId,
+      shopName: shop.name,
+      qrisStaticImageUrl: shop.qrisStaticImageUrl,
+    };
+  }
+
+  const cashierProfile = db.cashierProfiles.find((row) => row.userId === adminId && row.isActive && row.approvalStatus === "approved");
+  if (!cashierProfile) {
     throw Object.assign(new Error("Admin profile is not active or has no shop"), { status: 403 });
   }
-  const shop = getShopByIdFromDb(db, profile.shopId);
+  const shop = getShopByIdFromDb(db, cashierProfile.shopId);
   if (!shop) {
     throw Object.assign(new Error("Shop not found for this admin"), { status: 403 });
   }
 
   return {
-    adminId: profile.userId,
-    ownerId: profile.ownerId,
-    shopId: profile.shopId,
+    adminId: cashierProfile.adminId,
+    ownerId: cashierProfile.ownerId,
+    shopId: cashierProfile.shopId,
     shopName: shop.name,
     qrisStaticImageUrl: shop.qrisStaticImageUrl,
   };

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
+import { useAppLanguage } from "@/lib/i18n";
 
 function statusVariant(status: WithdrawalRecord["status"]) {
   if (status === "completed") return "success" as const;
@@ -21,6 +22,7 @@ function statusVariant(status: WithdrawalRecord["status"]) {
 }
 
 export function WithdrawalForm() {
+  const { t } = useAppLanguage();
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [bankName, setBankName] = useState("BCA");
@@ -63,10 +65,10 @@ export function WithdrawalForm() {
   const canSubmit = amountNumber > 0 && !invalid && accountNumber.length >= 3 && accountName.length >= 2;
 
   const helper = useMemo(() => {
-    if (!amount) return "Masukkan jumlah penarikan dari saldo QRIS Pakasir.";
-    if (invalid) return "Jumlah tidak boleh melebihi saldo digital tersedia.";
-    return "Request akan muncul di dashboard Owner melalui endpoint withdrawal.";
-  }, [amount, invalid]);
+    if (!amount) return t("Masukkan jumlah penarikan dari saldo QRIS Pakasir.");
+    if (invalid) return t("Jumlah tidak boleh melebihi saldo digital tersedia.");
+    return t("Request akan muncul di dashboard Owner.");
+  }, [amount, invalid, t]);
 
   function submitWithdrawal() {
     if (!canSubmit) return;
@@ -107,23 +109,23 @@ export function WithdrawalForm() {
     <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Ajukan Tarik Dana</CardTitle>
-          <CardDescription>Hanya saldo dari QRIS Pakasir sukses yang dapat ditarik.</CardDescription>
+          <CardTitle>{t("Ajukan Tarik Dana")}</CardTitle>
+          <CardDescription>{t("Hanya saldo dari QRIS Pakasir sukses yang dapat ditarik.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
           {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
           <div className="rounded-2xl bg-slate-950 p-5 text-white">
-            <p className="text-sm text-white/70">Saldo Digital Tersedia</p>
+            <p className="text-sm text-white/70">{t("Saldo Digital Tersedia")}</p>
             <p className="mt-1 text-3xl font-black">{formatCurrency(availableBalance)}</p>
             <p className="mt-2 text-xs text-white/50">Earned {formatCurrency(earnedQris)} • Reserved {formatCurrency(reserved)}</p>
           </div>
-          <div className="space-y-2"><Label>Nama Bank</Label><Select value={bankName} onChange={(event) => setBankName(event.target.value)}><option>BCA</option><option>BRI</option><option>Mandiri</option><option>BNI</option></Select></div>
-          <div className="space-y-2"><Label>Nomor Rekening</Label><Input value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} placeholder="1234567890" /></div>
-          <div className="space-y-2"><Label>Atas Nama</Label><Input value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Ayu Lestari" /></div>
-          <div className="space-y-2"><Label>Jumlah Penarikan</Label><Input value={amount} onChange={(event) => setAmount(event.target.value)} type="number" placeholder="500000" /></div>
+          <div className="space-y-2"><Label>{t("Nama Bank")}</Label><Select value={bankName} onChange={(event) => setBankName(event.target.value)}><option>BCA</option><option>BRI</option><option>Mandiri</option><option>BNI</option></Select></div>
+          <div className="space-y-2"><Label>{t("Nomor Rekening")}</Label><Input value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} placeholder="1234567890" /></div>
+          <div className="space-y-2"><Label>{t("Atas Nama")}</Label><Input value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Ayu Lestari" /></div>
+          <div className="space-y-2"><Label>{t("Jumlah Penarikan")}</Label><Input value={amount} onChange={(event) => setAmount(event.target.value)} type="number" placeholder="500000" /></div>
           <div className={`rounded-2xl p-4 text-sm ${invalid ? "bg-red-50 text-red-700" : "bg-secondary text-secondary-foreground"}`}><AlertCircle className="mb-2 h-4 w-4" /> {helper}</div>
-          <Button disabled={!canSubmit || saving} className="w-full" onClick={submitWithdrawal}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Ajukan Penarikan</Button>
+          <Button disabled={!canSubmit || saving} className="w-full" onClick={submitWithdrawal}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} {t("Ajukan Penarikan")}</Button>
         </CardContent>
       </Card>
 
@@ -131,18 +133,18 @@ export function WithdrawalForm() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <CardTitle>Status Request</CardTitle>
-              <CardDescription>Status berubah saat Owner menandai transfer selesai.</CardDescription>
+              <CardTitle>{t("Status Request")}</CardTitle>
+              <CardDescription>{t("Status berubah saat Owner menandai transfer selesai.")}</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={loadData}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
+            <Button variant="outline" size="sm" onClick={loadData}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
-            <div className="flex min-h-64 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat data...</div>
+            <div className="flex min-h-64 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat data...")}</div>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Bank</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("Tanggal")}</TableHead><TableHead>Bank</TableHead><TableHead>{t("Jumlah")}</TableHead><TableHead>{t("Status")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {withdrawals.map((item) => (
                   <TableRow key={item.id}>

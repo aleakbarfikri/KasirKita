@@ -12,6 +12,8 @@ import {
 type ProfilePayload = {
   name?: string;
   shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
@@ -28,6 +30,8 @@ export async function PATCH(request: Request) {
 
     const name = String(body.name ?? "").trim();
     const shopName = String(body.shopName ?? "").trim();
+    const shopAddress = String(body.shopAddress ?? "").trim();
+    const shopPhone = String(body.shopPhone ?? "").trim();
     const currentPassword = String(body.currentPassword || "");
     const newPassword = String(body.newPassword || "");
     const confirmPassword = String(body.confirmPassword || "");
@@ -68,14 +72,16 @@ export async function PATCH(request: Request) {
     if (name) user.name = name;
 
     let shop = null;
-    if (shopName) {
-      user.shopName = shopName;
+    if (shopName || body.shopAddress !== undefined || body.shopPhone !== undefined) {
+      if (shopName) user.shopName = shopName;
 
       if (user.role === "admin") {
         const profile = db.adminProfiles.find((row) => row.userId === user.id && row.isActive);
         shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
         if (shop) {
-          shop.name = shopName;
+          if (shopName) shop.name = shopName;
+          if (body.shopAddress !== undefined) shop.address = shopAddress || null;
+          if (body.shopPhone !== undefined) shop.phone = shopPhone || null;
           shop.updatedAt = now();
         }
       }

@@ -23,11 +23,24 @@ export async function PUT(request: Request) {
     let config = db.paymentConfigs.find((row) => row.ownerId === session.user.id);
     const t = now();
     if (!config) {
-      config = { id: createId("paycfg"), ownerId: session.user.id, pakasirSlug: body.pakasirSlug || null, pakasirApiKey: body.pakasirApiKey || null, createdAt: t, updatedAt: t } satisfies PaymentConfig;
+      config = {
+        id: createId("paycfg"),
+        ownerId: session.user.id,
+        pakasirSlug: body.pakasirSlug || null,
+        pakasirApiKey: body.pakasirApiKey || null,
+        whatsappProvider: body.whatsappProvider || null,
+        whatsappApiKey: body.whatsappApiKey || null,
+        whatsappSender: body.whatsappSender || null,
+        createdAt: t,
+        updatedAt: t,
+      } satisfies PaymentConfig;
       db.paymentConfigs.push(config);
     } else {
       config.pakasirSlug = body.pakasirSlug || null;
       config.pakasirApiKey = body.pakasirApiKey || null;
+      config.whatsappProvider = body.whatsappProvider || null;
+      config.whatsappApiKey = body.whatsappApiKey || null;
+      config.whatsappSender = body.whatsappSender || null;
       config.updatedAt = t;
     }
     await writeDb(db);

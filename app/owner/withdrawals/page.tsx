@@ -3,7 +3,7 @@ import { WithdrawalTable } from "@/components/owner/withdrawal-table";
 
 export default function OwnerWithdrawalsPage() {
   return (
-    <AppShell role="owner" title="Riwayat Penarikan" description="Lihat notifikasi withdrawal dan tandai transfer manual sebagai selesai.">
+    <AppShell role="owner" title="Riwayat Penarikan" description="Lihat notifikasi withdraw dan tandai transfer manual sebagai selesai.">
       <WithdrawalTable />
     </AppShell>
   );
