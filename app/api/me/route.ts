@@ -11,6 +11,10 @@ export async function GET() {
       const db = await readDb();
       const profile = db.adminProfiles.find((row) => row.userId === session.user.id && row.isActive);
       shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
+    } else if (session.user.role === "cashier") {
+      const db = await readDb();
+      const profile = db.cashierProfiles.find((row) => row.userId === session.user.id && row.isActive && row.approvalStatus === "approved");
+      shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
     }
 
     return ok({ user: session.user, session: session.session, shop });

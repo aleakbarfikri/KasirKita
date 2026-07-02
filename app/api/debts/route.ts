@@ -8,7 +8,12 @@ export async function GET() {
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
-    const rows = (await readDb()).debts.filter((debt) => debt.adminId === session.user.id && debt.shopId === scope.shopId);
+    const db = await readDb();
+    const legacyCashierIds = db.cashierProfiles
+      .filter((profile) => profile.adminId === scope.adminId && profile.shopId === scope.shopId)
+      .map((profile) => profile.userId);
+    const visibleOwnerIds = new Set([scope.adminId, ...legacyCashierIds]);
+    const rows = db.debts.filter((debt) => visibleOwnerIds.has(debt.adminId) && debt.shopId === scope.shopId);
     return ok(sortDesc(rows));
   } catch (error) {
     const { message, status } = authError(error);
@@ -25,7 +30,7 @@ export async function POST(request: Request) {
     const created: Debt = {
       id: createId("debt"),
       shopId: scope.shopId,
-      adminId: session.user.id,
+      adminId: scope.adminId,
       transactionId: null,
       customerName: body.customerName,
       customerPhone: body.customerPhone ?? null,

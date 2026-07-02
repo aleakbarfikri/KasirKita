@@ -21,17 +21,16 @@ username: ownerkasirkita
 password: Regina050322
 ```
 
-## Vercel setup
+## Vercel setup with production database
 
-The app can run locally with a JSON file. For Vercel production, use Vercel KV/Redis so admin accounts, products, transactions, QRIS config, debts, and withdrawals persist across serverless functions.
+The app can run locally with a JSON file. For Vercel production, use Postgres so admin accounts, products, transactions, QRIS config, debts, and withdrawals persist across serverless functions.
 
-1. Open Vercel project → Storage.
-2. Create/connect a KV/Redis store.
+1. Create a Postgres database in Neon, Supabase, or Vercel Storage.
+2. Copy the pooled connection string.
 3. Make sure these environment variables exist in Project Settings → Environment Variables:
 
 ```txt
-KV_REST_API_URL
-KV_REST_API_TOKEN
+POSTGRES_URL
 KASIRKITA_AUTH_SECRET
 ```
 
@@ -43,7 +42,47 @@ openssl rand -base64 32
 
 4. Redeploy the project.
 
-The first request will seed the owner automatically if the KV database is empty.
+The first request will seed the owner automatically if the Postgres database is empty.
+
+This version stores the application state in Postgres `jsonb` tables:
+
+- `kasirkita_app_state`
+- `kasirkita_backups`
+
+That keeps the migration low-risk because existing API routes can keep using the same `readDb` / `writeDb` data layer. A later version can normalize this into dedicated SQL tables once traffic and reporting needs grow.
+
+## Migrate local JSON data to Postgres
+
+After setting `POSTGRES_URL` locally:
+
+```bash
+npm install
+npm run db:migrate:production
+```
+
+By default, migration reads `.data/kasirkita-db.json`. To migrate another file:
+
+```bash
+KASIRKITA_MIGRATION_SOURCE="/path/to/kasirkita-db.json" npm run db:migrate:production
+```
+
+The script writes the data to Postgres and creates an initial backup snapshot.
+
+## Backup and export
+
+Owner dashboard includes:
+
+- `Export CSV` for owner report downloads.
+- `Buat Backup JSON` for full database snapshots.
+- Download links for recent backups.
+
+CLI backup:
+
+```bash
+npm run backup:create -- manual-before-release
+```
+
+Backups are stored in Postgres when `POSTGRES_URL` is configured. Local development stores backup files under `.data/backups`.
 
 ## GitHub public repository push
 
@@ -61,9 +100,6 @@ git push -u origin main
 
 - Prisma/Drizzle are not required for this version.
 - Local development uses `.data/kasirkita-db.json`.
-- Vercel production should use KV/Redis through `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+- Vercel production should use Postgres through `POSTGRES_URL`.
 - `/tmp` storage is not reliable for production because different serverless functions may not share the same files.
-## Vercel Redis official integration
-
-This build supports both Upstash/KV REST variables (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) and the official Redis integration variable (`REDIS_URL`). If Vercel creates only `REDIS_URL`, no extra code changes are needed. Redeploy after adding the variable.
-
+- Redis/KV is still supported as a fallback through `KV_REST_API_URL` + `KV_REST_API_TOKEN` or `REDIS_URL`, but Postgres is preferred for production.

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useAppLanguage } from "@/lib/i18n";
 
 type DebtView = DebtRecord & { shopName?: string; adminName?: string };
 
@@ -35,6 +36,7 @@ function normalizeOwnerRows(rows: OwnerDebtRow[]): DebtView[] {
 }
 
 export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
+  const { t } = useAppLanguage();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Semua");
   const [debts, setDebts] = useState<DebtView[]>([]);
@@ -127,27 +129,27 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
       {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">Total Belum Lunas</p><p className="mt-2 text-3xl font-extrabold text-primary">{formatCurrency(outstanding)}</p></div><NotebookPen className="h-9 w-9 text-primary" /></div></CardContent></Card>
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">Jatuh Tempo</p><p className="mt-2 text-3xl font-extrabold text-red-700">{formatCurrency(overdue)}</p></div><CalendarClock className="h-9 w-9 text-red-700" /></div></CardContent></Card>
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">Sudah Dibayar</p><p className="mt-2 text-3xl font-extrabold text-[#00628d]">{formatCurrency(paid)}</p></div><CheckCircle2 className="h-9 w-9 text-[#00628d]" /></div></CardContent></Card>
+        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Total Belum Lunas")}</p><p className="mt-2 text-3xl font-extrabold text-primary">{formatCurrency(outstanding)}</p></div><NotebookPen className="h-9 w-9 text-primary" /></div></CardContent></Card>
+        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Jatuh Tempo")}</p><p className="mt-2 text-3xl font-extrabold text-red-700">{formatCurrency(overdue)}</p></div><CalendarClock className="h-9 w-9 text-red-700" /></div></CardContent></Card>
+        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Sudah Dibayar")}</p><p className="mt-2 text-3xl font-extrabold text-[#00628d]">{formatCurrency(paid)}</p></div><CheckCircle2 className="h-9 w-9 text-[#00628d]" /></div></CardContent></Card>
       </div>
 
       {!ownerView ? (
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle>Input Hutang Manual</CardTitle>
-            <CardDescription>Form ini mengirim data ke endpoint <code>/api/debts</code>.</CardDescription>
+            <CardTitle>{t("Input Hutang Manual")}</CardTitle>
+            <CardDescription>{t("Catat hutang pelanggan secara manual.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 lg:grid-cols-4">
-              <div className="space-y-2"><Label>Nama pelanggan</Label><Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Contoh Bu Lina" /></div>
-              <div className="space-y-2"><Label>No. HP</Label><Input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
-              <div className="space-y-2"><Label>Nominal</Label><Input value={amount} onChange={(event) => setAmount(event.target.value)} type="number" placeholder="150000" /></div>
-              <div className="space-y-2"><Label>Jatuh tempo</Label><Input value={dueDate} onChange={(event) => setDueDate(event.target.value)} type="date" /></div>
+              <div className="space-y-2"><Label>{t("Nama pelanggan")}</Label><Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder={t("Contoh Bu Lina")} /></div>
+              <div className="space-y-2"><Label>{t("No. HP")}</Label><Input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
+              <div className="space-y-2"><Label>{t("Nominal")}</Label><Input value={amount} onChange={(event) => setAmount(event.target.value)} type="number" placeholder="150000" /></div>
+              <div className="space-y-2"><Label>{t("Jatuh tempo")}</Label><Input value={dueDate} onChange={(event) => setDueDate(event.target.value)} type="date" /></div>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
-              <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Catatan barang, alamat, atau kesepakatan pembayaran..." />
-              <Button size="lg" className="h-full min-h-[110px]" onClick={addManualDebt} disabled={saving}>{saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5" />} Tambah Catatan Hutang</Button>
+              <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("Catatan barang, alamat, atau kesepakatan pembayaran...")} />
+              <Button size="lg" className="h-full min-h-[110px]" onClick={addManualDebt} disabled={saving}>{saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5" />} {t("Tambah Catatan Hutang")}</Button>
             </div>
           </CardContent>
         </Card>
@@ -157,22 +159,22 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
         <CardHeader>
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
-              <CardTitle>{ownerView ? "Piutang Semua Cabang" : "Buku Hutang Pelanggan"}</CardTitle>
-              <CardDescription>{ownerView ? "Owner dapat memantau piutang lintas UMKM dan risiko jatuh tempo." : "Pantau pelanggan yang belum melunasi pembelian."}</CardDescription>
+              <CardTitle>{ownerView ? t("Piutang Semua Cabang") : t("Buku Hutang Pelanggan")}</CardTitle>
+              <CardDescription>{ownerView ? t("Owner dapat memantau piutang lintas UMKM dan risiko jatuh tempo.") : t("Pantau pelanggan yang belum melunasi pembelian.")}</CardDescription>
             </div>
             <div className="grid gap-3 sm:grid-cols-[260px_180px_120px]">
-              <div className="relative"><Search className="pointer-events-none absolute left-3 top-3.5 h-5 w-5 text-[#3d4a42]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} className="pl-10" placeholder="Cari pelanggan/UMKM" /></div>
+              <div className="relative"><Search className="pointer-events-none absolute left-3 top-3.5 h-5 w-5 text-[#3d4a42]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} className="pl-10" placeholder={t("Cari pelanggan/UMKM")} /></div>
               <Select value={status} onChange={(event) => setStatus(event.target.value)}><option>Semua</option><option>Belum Lunas</option><option>Sebagian</option><option>Lunas</option><option>Jatuh Tempo</option></Select>
-              <Button variant="outline" onClick={loadDebts}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
+              <Button variant="outline" onClick={loadDebts}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
-            <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat buku hutang...</div>
+            <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat buku hutang...")}</div>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Pelanggan</TableHead>{ownerView ? <TableHead>Cabang</TableHead> : null}<TableHead>Nominal</TableHead><TableHead>Dibayar</TableHead><TableHead>Jatuh Tempo</TableHead><TableHead>Status</TableHead>{!ownerView ? <TableHead>Aksi</TableHead> : null}</TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("Pelanggan")}</TableHead>{ownerView ? <TableHead>{t("Cabang")}</TableHead> : null}<TableHead>{t("Nominal")}</TableHead><TableHead>{t("Dibayar")}</TableHead><TableHead>{t("Jatuh Tempo")}</TableHead><TableHead>{t("Status")}</TableHead>{!ownerView ? <TableHead>{t("Aksi")}</TableHead> : null}</TableRow></TableHeader>
               <TableBody>
                 {filteredDebts.map((debt) => {
                   const label = isOverdue(debt.status, debt.dueDate) ? "Jatuh Tempo" : debtStatusLabel(debt.status);

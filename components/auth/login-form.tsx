@@ -4,18 +4,23 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
+import { cacheSession, readCachedSession } from "@/lib/offline-session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function roleHome(role?: "owner" | "admin") {
+function roleHome(role?: "owner" | "admin" | "cashier") {
+  if (role === "cashier") return "/admin";
   return role === "owner" ? "/owner" : "/admin";
 }
 
-function resolveNext(next: string | null, role?: "owner" | "admin") {
+function resolveNext(next: string | null, role?: "owner" | "admin" | "cashier") {
   // Jangan redirect ke / dari halaman login karena / adalah protected landing yang bisa membuat loop
   // di Vercel preview setelah cookie/session berubah. Masuk langsung ke dashboard role.
+  if (role === "cashier") {
+    return "/admin";
+  }
   if (!next || next === "/" || next.startsWith("/login")) return roleHome(role);
   if (role === "owner" && next.startsWith("/admin")) return "/owner";
   if (role === "admin" && next.startsWith("/owner")) return "/admin";
@@ -44,11 +49,17 @@ export function LoginForm() {
       .then((me) => {
         if (!alive) return;
         window.clearTimeout(timer);
+        cacheSession(me);
         router.replace(resolveNext(next, me.user.role));
       })
       .catch(() => {
         if (!alive) return;
         window.clearTimeout(timer);
+        const cached = readCachedSession();
+        if (cached?.user && !navigator.onLine) {
+          router.replace(resolveNext(next, cached.user.role));
+          return;
+        }
         setChecking(false);
       });
     return () => {
@@ -70,6 +81,7 @@ export function LoginForm() {
       }
 
       const me = await api.me();
+      cacheSession(me);
       router.push(resolveNext(next, me.user.role));
       router.refresh();
     } catch (error) {
@@ -93,8 +105,8 @@ export function LoginForm() {
   return (
     <Card className="mx-auto w-full max-w-md rounded-[2rem] border-slate-200 shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-2xl text-slate-950">Masuk KasirKita</CardTitle>
-        <p className="text-sm text-slate-500">Masuk sebagai Owner atau Admin UMKM.</p>
+        <CardTitle className="text-2xl text-slate-950">Masuk Dashboard KasirKita</CardTitle>
+        <p className="text-sm text-slate-500">Masuk sebagai owner, admin, atau kasir toko.</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">

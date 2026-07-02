@@ -55,6 +55,7 @@ export async function POST(request: Request) {
       ownerId: session.user.id,
       name: body.shopName,
       address: body.shopAddress || null,
+      phone: body.shopPhone || null,
       qrisStaticImageUrl: null,
       createdAt: t,
       updatedAt: t,

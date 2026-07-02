@@ -1,7 +1,7 @@
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { updateProductSchema } from "@/lib/server/validators";
-import { now, readDb, writeDb } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
 
 type Params = { params: { id: string } };
 
@@ -35,6 +35,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireAuth();
+    if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses mengubah inventaris.", 403);
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
     const body = updateProductSchema.parse(await readJson(request));
     const db = await readDb();
@@ -54,6 +55,16 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.stock !== undefined) product.stock = body.stock;
     if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
     product.updatedAt = now();
+    addAuditLog(db, {
+      actorId: session.user.id,
+      actorRole: session.user.role === "owner" ? "owner" : "admin",
+      shopId: product.shopId,
+      action: "update_product",
+      entityType: "product",
+      entityId: product.id,
+      message: `Produk ${product.name} diperbarui.`,
+      metadata: { sku: product.sku, price: product.price, stock: product.stock },
+    });
     await writeDb(db);
 
     return ok(product);
@@ -67,12 +78,23 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const session = await requireAuth();
+    if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses menghapus inventaris.", 403);
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
     const db = await readDb();
     const product = db.products.find((row) => row.id === params.id);
     if (!product) return fail("Product not found", 404);
     product.isActive = false;
     product.updatedAt = now();
+    addAuditLog(db, {
+      actorId: session.user.id,
+      actorRole: session.user.role === "owner" ? "owner" : "admin",
+      shopId: product.shopId,
+      action: "delete_product",
+      entityType: "product",
+      entityId: product.id,
+      message: `Produk ${product.name} dinonaktifkan dari inventaris.`,
+      metadata: { sku: product.sku },
+    });
     await writeDb(db);
     return ok(product);
   } catch (error) {

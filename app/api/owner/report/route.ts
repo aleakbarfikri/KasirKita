@@ -1,14 +1,18 @@
 import { authError, requireOwner } from "@/lib/server/auth-guard";
 import { publicUser, readDb } from "@/lib/server/data-store";
+import { itemCostPrice, transactionProfit } from "@/lib/server/profit";
+
+const delimiter = ";";
+const utf8Bom = "\uFEFF";
 
 function csvCell(value: unknown) {
   if (value === null || value === undefined) return "";
   const text = value instanceof Date ? value.toISOString() : String(value);
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function csvRow(values: unknown[]) {
-  return values.map(csvCell).join(",");
+  return values.map(csvCell).join(delimiter);
 }
 
 function rupiahNumber(value: number) {
@@ -36,17 +40,21 @@ export async function GET() {
       .map((debt) => ({ ...debt, shop: ownerShops.find((shop) => shop.id === debt.shopId)!, admin: db.users.find((user) => user.id === debt.adminId)! }));
 
     const totalRevenue = transactions.filter((row) => row.status === "success").reduce((sum, row) => sum + row.total, 0);
+    const totalCost = transactions.filter((row) => row.status === "success").reduce((sum, row) => sum + transactionProfit(db, row).costTotal, 0);
+    const grossProfit = totalRevenue - totalCost;
     const totalDigital = admins.reduce((sum, row) => sum + ((row.balance?.totalEarnedQrisApi ?? 0) - (row.balance?.totalWithdrawn ?? 0)), 0);
     const pendingWithdrawal = withdrawals.filter((row) => row.status !== "completed").reduce((sum, row) => sum + row.amount, 0);
     const outstandingDebt = debts.filter((row) => row.status !== "paid").reduce((sum, row) => sum + row.amount - row.paidAmount, 0);
 
-    const lines: string[] = [];
+    const lines: string[] = ["sep=;"];
     lines.push(csvRow(["KASIRKITA OWNER REPORT"]));
     lines.push(csvRow(["Downloaded At", new Date()]));
     lines.push(csvRow(["Owner", session.user.name]));
     lines.push("");
     lines.push(csvRow(["Ringkasan", "Nilai"]));
     lines.push(csvRow(["Total Pendapatan Sukses", rupiahNumber(totalRevenue)]));
+    lines.push(csvRow(["Total Modal Barang", rupiahNumber(totalCost)]));
+    lines.push(csvRow(["Laba Kotor", rupiahNumber(grossProfit)]));
     lines.push(csvRow(["Saldo QRIS Digital", rupiahNumber(totalDigital)]));
     lines.push(csvRow(["Withdrawal Belum Selesai", rupiahNumber(pendingWithdrawal)]));
     lines.push(csvRow(["Piutang Aktif", rupiahNumber(outstandingDebt)]));
@@ -72,8 +80,9 @@ export async function GET() {
     lines.push("");
 
     lines.push(csvRow(["TRANSAKSI"]));
-    lines.push(csvRow(["Tanggal", "UMKM", "Kasir", "Metode", "Status", "Total", "Dibayar", "Kembalian", "Item"]));
+    lines.push(csvRow(["Tanggal", "UMKM", "Kasir", "Metode", "Status", "Total", "Modal", "Laba Kotor", "Dibayar", "Kembalian", "Item"]));
     transactions.forEach((row) => {
+      const profit = transactionProfit(db, row);
       lines.push(csvRow([
         row.createdAt,
         row.shop.name,
@@ -81,9 +90,11 @@ export async function GET() {
         row.paymentMethod,
         row.status,
         rupiahNumber(row.total),
+        rupiahNumber(profit.costTotal),
+        rupiahNumber(profit.grossProfit),
         rupiahNumber(row.paidAmount ?? 0),
         rupiahNumber(row.changeAmount ?? 0),
-        row.items.map((item) => `${item.name} x${item.quantity}`).join("; "),
+        row.items.map((item) => `${item.name} x${item.quantity} modal ${itemCostPrice(db, item)}`).join(" | "),
       ]));
     });
     lines.push("");
@@ -102,7 +113,7 @@ export async function GET() {
     });
 
     const filename = `kasirkita-owner-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    return new Response(lines.join("\n"), {
+    return new Response(`${utf8Bom}${lines.join("\r\n")}`, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

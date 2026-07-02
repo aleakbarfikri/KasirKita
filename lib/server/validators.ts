@@ -46,6 +46,18 @@ export const adminCreateSchema = z.object({
   password: z.string().min(8, "Password minimal 8 karakter"),
   shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter"),
   shopAddress: z.string().trim().optional(),
+  shopPhone: z.string().trim().optional(),
+});
+
+export const cashierCreateSchema = z.object({
+  name: z.string().trim().min(2, "Nama kasir minimal 2 karakter"),
+  username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
+  password: z.string().min(8, "Password minimal 8 karakter"),
+});
+
+export const cashierPasswordSchema = z.object({
+  password: z.string().min(8, "Password kasir minimal 8 karakter"),
 });
 
 export const adminUpdateSchema = z.object({
@@ -53,6 +65,7 @@ export const adminUpdateSchema = z.object({
   username: z.preprocess(normalizeUsername, z.string().min(3).regex(/^[a-z0-9_]+$/)).optional(),
   shopName: z.string().trim().min(2).optional(),
   shopAddress: z.string().trim().optional(),
+  shopPhone: z.string().trim().optional(),
   qrisStaticImageUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
 });
@@ -60,6 +73,9 @@ export const adminUpdateSchema = z.object({
 export const paymentConfigSchema = z.object({
   pakasirSlug: z.string().trim().min(1, "Slug Pakasir wajib diisi").optional().or(z.literal("")),
   pakasirApiKey: z.string().trim().min(1, "API Key Pakasir wajib diisi").optional().or(z.literal("")),
+  whatsappProvider: z.string().trim().optional().or(z.literal("")),
+  whatsappApiKey: z.string().trim().optional().or(z.literal("")),
+  whatsappSender: z.string().trim().optional().or(z.literal("")),
 });
 
 export const withdrawalRequestSchema = z.object({
@@ -81,4 +97,13 @@ export const debtCreateSchema = z.object({
 export const debtPaymentSchema = z.object({
   amount: z.coerce.number().int().positive(),
   note: z.string().optional(),
+});
+
+export const voidTransactionSchema = z.object({
+  reason: z.string().trim().min(3, "Alasan void minimal 3 karakter"),
+});
+
+export const closeShiftSchema = z.object({
+  cashCounted: z.coerce.number().int().min(0).optional().nullable(),
+  note: z.string().trim().optional(),
 });

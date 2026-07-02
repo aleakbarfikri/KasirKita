@@ -36,6 +36,12 @@ export async function POST(request: Request, { params }: Params) {
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return fail("Username atau password salah.", 401);
     }
+    if (user.role === "cashier") {
+      const profile = db.cashierProfiles.find((row) => row.userId === user.id);
+      if (!profile || !profile.isActive || profile.approvalStatus !== "approved") {
+        return fail("Akun kasir belum aktif. Minta owner melakukan approval terlebih dahulu.", 403);
+      }
+    }
 
     const t = now();
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString();

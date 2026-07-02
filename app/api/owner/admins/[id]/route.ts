@@ -39,6 +39,7 @@ export async function PATCH(request: Request, { params }: Params) {
       shop.name = body.shopName;
     }
     if (body.shopAddress !== undefined) shop.address = body.shopAddress;
+    if (body.shopPhone !== undefined) shop.phone = body.shopPhone || null;
     if (body.qrisStaticImageUrl !== undefined) shop.qrisStaticImageUrl = body.qrisStaticImageUrl || null;
     if (typeof body.isActive === "boolean") profile.isActive = body.isActive;
 

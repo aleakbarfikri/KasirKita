@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Edit3, ImagePlus, Loader2, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserX, X } from "lucide-react";
-import { api, type OwnerAdminRow } from "@/lib/api-client";
+import { CheckCircle2, Edit3, ImagePlus, Loader2, MessageCircle, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserX, X } from "lucide-react";
+import { api, type CashierRow, type OwnerAdminRow } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,23 @@ function normalizeUsername(value: string) {
     .slice(0, 40);
 }
 
+function whatsappHref(phone?: string | null) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const normalized = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  return `https://wa.me/${normalized}`;
+}
+
 export function AdminManagement() {
   const [admins, setAdmins] = useState<OwnerAdminRow[]>([]);
+  const [cashiers, setCashiers] = useState<CashierRow[]>([]);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
+  const [shopPhone, setShopPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -36,6 +45,7 @@ export function AdminManagement() {
   const [editing, setEditing] = useState<OwnerAdminRow | null>(null);
   const [editShopName, setEditShopName] = useState("");
   const [editShopAddress, setEditShopAddress] = useState("");
+  const [editShopPhone, setEditShopPhone] = useState("");
   const [editQrisImage, setEditQrisImage] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -45,8 +55,9 @@ export function AdminManagement() {
     setLoading(true);
     setError(null);
     try {
-      const rows = await api.owner.admins.list();
+      const [rows, cashierRows] = await Promise.all([api.owner.admins.list(), api.owner.cashiers.list()]);
       setAdmins(rows);
+      setCashiers(cashierRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat admin");
     } finally {
@@ -79,6 +90,7 @@ export function AdminManagement() {
         password,
         shopName: shopName.trim(),
         shopAddress: shopAddress.trim(),
+        shopPhone: shopPhone.trim(),
       });
       setAdmins((current) => [created, ...current]);
       setName("");
@@ -87,6 +99,7 @@ export function AdminManagement() {
       setPassword("");
       setShopName("");
       setShopAddress("");
+      setShopPhone("");
       setMessage(`Admin berhasil dibuat. Username login: ${created.admin.username || normalizedUsername}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat admin");
@@ -99,6 +112,7 @@ export function AdminManagement() {
     setEditing(row);
     setEditShopName(row.shop.name ?? "");
     setEditShopAddress(row.shop.address ?? "");
+    setEditShopPhone(row.shop.phone ?? "");
     setEditQrisImage(row.shop.qrisStaticImageUrl ?? "");
     setEditError(null);
   }
@@ -128,6 +142,7 @@ export function AdminManagement() {
       const updated = await api.owner.admins.update(editing.admin.id, {
         shopName: editShopName.trim(),
         shopAddress: editShopAddress.trim(),
+        shopPhone: editShopPhone.trim(),
         qrisStaticImageUrl: editQrisImage,
       });
       setAdmins((current) => current.map((row) => row.admin.id === updated.admin.id ? updated : row));
@@ -151,8 +166,50 @@ export function AdminManagement() {
     }
   }
 
+  async function approveCashier(id: string) {
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await api.owner.cashiers.approve(id);
+      setCashiers((current) => current.map((row) => row.cashier.id === updated.cashier.id ? updated : row));
+      setMessage("Kasir berhasil disetujui dan sudah bisa login.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal approve kasir");
+    }
+  }
+
+  const pendingCashiers = cashiers.filter((row) => row.profile.approvalStatus === "pending");
+
   return (
     <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      {pendingCashiers.length > 0 ? (
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Approval Kasir Tambahan</CardTitle>
+            <CardDescription>Kasir kedua dan seterusnya perlu persetujuan owner sebelum bisa login.</CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow><TableHead>Kasir</TableHead><TableHead>UMKM</TableHead><TableHead>Dibuat Oleh</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {pendingCashiers.map((row) => {
+                  const admin = admins.find((item) => item.admin.id === row.profile.adminId);
+                  return (
+                    <TableRow key={row.cashier.id}>
+                      <TableCell><p className="font-bold">{row.cashier.name}</p><p className="text-xs text-[#3d4a42]">{row.cashier.username}</p></TableCell>
+                      <TableCell>{row.shop.name}</TableCell>
+                      <TableCell>{admin?.admin.name || "-"}</TableCell>
+                      <TableCell><Badge variant="warning">Menunggu Approval</Badge></TableCell>
+                      <TableCell><Button size="sm" onClick={() => approveCashier(row.cashier.id)}><CheckCircle2 className="mr-2 h-4 w-4" /> Approve</Button></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Tambahkan Admin UMKM</CardTitle>
@@ -171,6 +228,7 @@ export function AdminManagement() {
           <div className="space-y-2"><Label>Password Awal</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="minimal 8 karakter" /></div>
           <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="UMKM Sumber Rezeki" /></div>
           <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" /></div>
+          <div className="space-y-2"><Label>Nomer Telpon</Label><Input value={shopPhone} onChange={(event) => setShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
           <Button className="w-full" onClick={addAdmin} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Buat Admin</Button>
           <div className="rounded-2xl bg-secondary p-4 text-sm text-secondary-foreground"><ShieldCheck className="mb-2 h-5 w-5" /> QRIS statis per cabang bisa ditambahkan setelah admin dibuat lewat tombol Edit.</div>
         </CardContent>
@@ -191,15 +249,39 @@ export function AdminManagement() {
             <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat admin...</div>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Username</TableHead><TableHead>UMKM</TableHead><TableHead>QRIS Statis</TableHead><TableHead>Status</TableHead><TableHead>Saldo QRIS Pakasir</TableHead><TableHead>Total Withdrawn</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Nama UMKM</TableHead>
+                  <TableHead>Alamat Toko</TableHead>
+                  <TableHead>Nomer Telpon</TableHead>
+                  <TableHead>QRIS Statis</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Saldo QRIS Pakasir</TableHead>
+                  <TableHead>Total Withdrawn</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {admins.map((row) => {
                   const balance = row.balance;
                   const available = (balance?.totalEarnedQrisApi ?? 0) - (balance?.totalWithdrawn ?? 0);
+                  const waHref = whatsappHref(row.shop.phone);
                   return (
                     <TableRow key={row.admin.id}>
                       <TableCell><p className="font-medium">{row.admin.username || row.admin.email}</p><p className="text-xs text-[#3d4a42]">{row.admin.name}</p></TableCell>
-                      <TableCell><p>{row.shop.name}</p><p className="text-xs text-[#3d4a42]">{row.shop.address || "Tanpa alamat"}</p></TableCell>
+                      <TableCell className="min-w-[150px] align-middle"><p className="font-bold text-[#0b1c30]">{row.shop.name}</p></TableCell>
+                      <TableCell className="min-w-[180px] align-middle"><p className="max-w-[220px] whitespace-normal text-sm leading-relaxed text-[#3d4a42]">{row.shop.address || "Tanpa alamat"}</p></TableCell>
+                      <TableCell>
+                        {row.shop.phone ? (
+                          <a href={waHref || "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100">
+                            <MessageCircle className="h-4 w-4" />
+                            {row.shop.phone}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-[#3d4a42]">Belum ada</span>
+                        )}
+                      </TableCell>
                       <TableCell>{row.shop.qrisStaticImageUrl ? <Badge variant="success" className="normal-case tracking-normal"><QrCode className="mr-1 h-3.5 w-3.5" /> Ada QRIS</Badge> : <Badge variant="secondary" className="normal-case tracking-normal">Belum ada</Badge>}</TableCell>
                       <TableCell><Badge variant={row.profile.isActive ? "success" : "secondary"}>{row.profile.isActive ? "Aktif" : "Nonaktif"}</Badge></TableCell>
                       <TableCell>{formatCurrency(Math.max(available, 0))}</TableCell>
@@ -229,6 +311,7 @@ export function AdminManagement() {
             </div>
             <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={editShopName} onChange={(event) => setEditShopName(event.target.value)} placeholder="UMKM Melati" /></div>
             <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={editShopAddress} onChange={(event) => setEditShopAddress(event.target.value)} placeholder="Jl. Melati No. 12" /></div>
+            <div className="space-y-2"><Label>Nomer Telpon</Label><Input value={editShopPhone} onChange={(event) => setEditShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
 
             <div className="space-y-2">
               <Label>QRIS Statis Pemilik UMKM</Label>

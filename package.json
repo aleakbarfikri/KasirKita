@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "db:setup": "tsx scripts/seed-json-db.ts",
-    "db:reset": "tsx scripts/seed-json-db.ts"
+    "db:reset": "tsx scripts/seed-json-db.ts",
+    "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
+    "backup:create": "tsx scripts/create-backup.ts"
   },
   "dependencies": {
     "@types/node": "^20.14.10",
@@ -22,6 +24,7 @@
     "lucide-react": "^0.468.0",
     "next": "^14.2.4",
     "postcss": "^8.4.39",
+    "postgres": "^3.4.5",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

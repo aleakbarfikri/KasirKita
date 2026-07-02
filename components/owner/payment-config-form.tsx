@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 export function PaymentConfigForm() {
   const [slug, setSlug] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [whatsappProvider, setWhatsappProvider] = useState("");
+  const [whatsappApiKey, setWhatsappApiKey] = useState("");
+  const [whatsappSender, setWhatsappSender] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -23,6 +26,9 @@ export function PaymentConfigForm() {
       const config = await api.owner.paymentConfig.get();
       setSlug(config?.pakasirSlug ?? "");
       setApiKey(config?.pakasirApiKey ?? "");
+      setWhatsappProvider(config?.whatsappProvider ?? "");
+      setWhatsappApiKey(config?.whatsappApiKey ?? "");
+      setWhatsappSender(config?.whatsappSender ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat konfigurasi Pakasir");
     } finally {
@@ -42,6 +48,9 @@ export function PaymentConfigForm() {
       await api.owner.paymentConfig.save({
         pakasirSlug: slug.trim(),
         pakasirApiKey: apiKey.trim(),
+        whatsappProvider: whatsappProvider.trim(),
+        whatsappApiKey: whatsappApiKey.trim(),
+        whatsappSender: whatsappSender.trim(),
       });
       setMessage("Konfigurasi Pakasir berhasil disimpan.");
     } catch (err) {
@@ -73,6 +82,22 @@ export function PaymentConfigForm() {
               <div className="space-y-2">
                 <Label>API Key Pakasir</Label>
                 <Input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="pk_live_xxxxxxxxx" autoCapitalize="none" autoCorrect="off" />
+              </div>
+              <div className="border-t border-[#bccac0] pt-4">
+                <h3 className="font-extrabold text-[#0b1c30]">Konfigurasi WhatsApp Bot</h3>
+                <p className="mt-1 text-xs text-[#3d4a42]">Opsional. Disimpan di akun owner untuk integrasi WA otomatis setelah provider dipilih.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Provider WhatsApp</Label>
+                <Input value={whatsappProvider} onChange={(event) => setWhatsappProvider(event.target.value)} placeholder="contoh: fonnte / wablas / custom" autoCapitalize="none" autoCorrect="off" />
+              </div>
+              <div className="space-y-2">
+                <Label>API Key WhatsApp</Label>
+                <Input value={whatsappApiKey} onChange={(event) => setWhatsappApiKey(event.target.value)} placeholder="token provider WhatsApp" autoCapitalize="none" autoCorrect="off" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sender / Device ID</Label>
+                <Input value={whatsappSender} onChange={(event) => setWhatsappSender(event.target.value)} placeholder="opsional sesuai provider" autoCapitalize="none" autoCorrect="off" />
               </div>
               <Button className="w-full" onClick={saveConfig} disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Simpan Konfigurasi

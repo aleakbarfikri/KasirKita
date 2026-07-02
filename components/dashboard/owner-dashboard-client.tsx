@@ -1,29 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  Archive,
+  DatabaseBackup,
   Download,
   Landmark,
   Loader2,
   NotebookTabs,
+  TrendingUp,
+  UploadCloud,
   Users,
   Wallet,
 } from "lucide-react";
 
 import {
   api,
+  type BackupInfo,
   type OwnerAdminRow,
   type OwnerDebtRow,
   type OwnerWithdrawalRow,
   type TransactionRecord,
 } from "@/lib/api-client";
-import { MetricCard } from "@/components/layout/metric-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+
+function OwnerMetricRow({
+  title,
+  value,
+  helper,
+  icon: Icon,
+  tone = "green",
+}: {
+  title: string;
+  value: string;
+  helper: string;
+  icon: typeof Wallet;
+  tone?: "green" | "blue" | "navy";
+}) {
+  const toneClass = {
+    green: "text-primary bg-primary/10",
+    blue: "text-[#00628d] bg-[#c9e6ff]",
+    navy: "text-[#213145] bg-[#dae2fd]",
+  }[tone];
+  const valueClass = {
+    green: "text-primary",
+    blue: "text-[#0875c9]",
+    navy: "text-[#0b1c30]",
+  }[tone];
+
+  return (
+    <div className="grid min-w-0 gap-4 rounded-2xl border border-[#e7edf0] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(11,28,48,0.04)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${toneClass}`}>
+        <Icon className="h-8 w-8" />
+      </div>
+      <div className="min-w-0 border-[#dfe7e3] sm:border-l sm:pl-7">
+        <p className="text-lg font-black leading-tight text-[#0b1c30]">{title}</p>
+        <p className="mt-1 text-sm font-medium leading-relaxed text-[#4f5d56] sm:text-base">{helper}</p>
+      </div>
+      <p className={`min-w-0 break-words text-left text-3xl font-black tracking-normal sm:whitespace-nowrap sm:text-right sm:text-4xl ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
 
 export function OwnerDashboardClient() {
   const [admins, setAdmins] = useState<OwnerAdminRow[]>([]);
@@ -33,36 +75,43 @@ export function OwnerDashboardClient() {
   const [ownerName, setOwnerName] = useState("Owner");
   const [loading, setLoading] = useState(true);
   const [reportDownloading, setReportDownloading] = useState(false);
+  const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+
+    try {
+      const [me, adminRows, transactionRows, withdrawalRows, debtRows, backupRows] =
+        await Promise.all([
+          api.me(),
+          api.owner.admins.list(),
+          api.transactions.list(),
+          api.owner.withdrawals.list(),
+          api.owner.debts.list(),
+          api.owner.backups.list().catch(() => []),
+        ]);
+
+      setOwnerName(me.user.name || "Owner");
+      setAdmins(adminRows);
+      setTransactions(transactionRows);
+      setWithdrawals(withdrawalRows);
+      setDebts(debtRows);
+      setBackups(backupRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat dashboard owner");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-
-      try {
-        const [me, adminRows, transactionRows, withdrawalRows, debtRows] =
-          await Promise.all([
-            api.me(),
-            api.owner.admins.list(),
-            api.transactions.list(),
-            api.owner.withdrawals.list(),
-            api.owner.debts.list(),
-          ]);
-
-        setOwnerName(me.user.name || "Owner");
-        setAdmins(adminRows);
-        setTransactions(transactionRows);
-        setWithdrawals(withdrawalRows);
-        setDebts(debtRows);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Gagal memuat dashboard owner");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, []);
+    loadDashboard();
+  }, [loadDashboard]);
 
   async function downloadReport() {
     setReportDownloading(true);
@@ -109,10 +158,53 @@ export function OwnerDashboardClient() {
     }
   }
 
+  async function createBackup() {
+    setBackupBusy(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const backup = await api.owner.backups.create();
+      setBackups((current) => [backup, ...current.filter((row) => row.id !== backup.id)]);
+      setSuccessMessage("Backup berhasil dibuat. Klik nama backup untuk download file JSON.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuat backup");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function restoreBackup(file: File) {
+    const confirmed = window.confirm(
+      "Restore backup akan mengganti data KasirKita saat ini dengan isi file JSON. Sistem akan membuat backup kondisi sekarang dulu sebelum restore. Lanjutkan?",
+    );
+    if (!confirmed) return;
+
+    setRestoreBusy(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const result = await api.owner.backups.restore(file);
+      await loadDashboard();
+      setSuccessMessage(
+        `Restore berhasil. Data berisi ${result.counts.users} user, ${result.counts.products} produk, ${result.counts.transactions} transaksi, dan ${result.counts.debts} hutang. Backup kondisi sebelum restore: ${result.backupBeforeRestore.id}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal restore backup");
+    } finally {
+      setRestoreBusy(false);
+      if (restoreInputRef.current) restoreInputRef.current.value = "";
+    }
+  }
+
   const stats = useMemo(() => {
     const totalRevenue = transactions
       .filter((row) => row.status === "success")
       .reduce((sum, row) => sum + row.total, 0);
+    const grossProfit = transactions
+      .filter((row) => row.status === "success")
+      .reduce((sum, row) => sum + (row.grossProfit ?? 0), 0);
 
     const pendingWithdrawal = withdrawals
       .filter((row) => row.withdrawal.status !== "completed")
@@ -130,7 +222,7 @@ export function OwnerDashboardClient() {
       0,
     );
 
-    return { totalRevenue, pendingWithdrawal, outstandingDebt, totalDigital };
+    return { totalRevenue, grossProfit, pendingWithdrawal, outstandingDebt, totalDigital };
   }, [admins, debts, transactions, withdrawals]);
 
   return (
@@ -141,6 +233,12 @@ export function OwnerDashboardClient() {
         </p>
       ) : null}
 
+      {successMessage ? (
+        <p className="mb-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">
+          {successMessage}
+        </p>
+      ) : null}
+
       {loading ? (
         <p className="mb-4 flex items-center rounded-2xl bg-white p-3 text-sm text-[#3d4a42]">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -148,35 +246,33 @@ export function OwnerDashboardClient() {
         </p>
       ) : null}
 
-      <div className="mb-8 flex justify-end">
-        <Button onClick={downloadReport} disabled={reportDownloading || loading}>
-          {reportDownloading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="mr-2 h-4 w-4" />
-          )}
-          {reportDownloading ? "Menyiapkan Laporan..." : "Unduh Laporan"}
-        </Button>
-      </div>
-
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
-          <div className="grid gap-6 md:grid-cols-2">
-            <MetricCard
+          <Card className="overflow-hidden rounded-3xl border-[#d9e3de] bg-white/95 shadow-[0_18px_60px_rgba(11,28,48,0.07)]">
+            <CardContent className="space-y-2 p-3 sm:p-4">
+              <OwnerMetricRow
               title="Total Pendapatan"
               value={formatCurrency(stats.totalRevenue)}
               helper="Dari transaksi sukses semua cabang"
               icon={Wallet}
               tone="green"
             />
-            <MetricCard
+              <OwnerMetricRow
+              title="Laba Kotor"
+              value={formatCurrency(stats.grossProfit)}
+              helper="Pendapatan sukses dikurangi modal barang"
+              icon={TrendingUp}
+              tone="green"
+            />
+              <OwnerMetricRow
               title="Saldo QRIS Digital"
               value={formatCurrency(stats.totalDigital)}
               helper="Akumulasi QRIS Pakasir tersedia"
               icon={Landmark}
               tone="blue"
             />
-          </div>
+            </CardContent>
+          </Card>
 
           <section>
             <div className="mb-4 flex items-center justify-between">
@@ -286,6 +382,64 @@ export function OwnerDashboardClient() {
         </div>
 
         <aside className="space-y-6">
+          <Card className="bg-white">
+            <CardHeader className="border-b border-[#bccac0]">
+              <CardTitle className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-primary" />
+                Backup & Export
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-5">
+              <Button className="w-full" onClick={downloadReport} disabled={reportDownloading || loading}>
+                {reportDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Export CSV
+              </Button>
+              <Button className="w-full" variant="outline" onClick={createBackup} disabled={backupBusy || loading}>
+                {backupBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseBackup className="mr-2 h-4 w-4" />}
+                Buat Backup JSON
+              </Button>
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void restoreBackup(file);
+                }}
+              />
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => restoreInputRef.current?.click()}
+                disabled={restoreBusy || backupBusy || loading}
+              >
+                {restoreBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                Restore Backup JSON
+              </Button>
+
+              <div className="rounded-xl bg-[#eff4ff] p-3 text-xs font-semibold text-[#3d4a42]">
+                Backup menyimpan semua data utama. Restore akan membuat backup kondisi saat ini dulu sebelum mengganti data.
+              </div>
+
+              <div className="space-y-2">
+                {backups.slice(0, 3).map((backup) => (
+                  <a
+                    key={backup.id}
+                    href={`/api/owner/backups/${backup.id}`}
+                    className="block rounded-xl border border-[#bccac0] p-3 text-sm hover:bg-[#f8f9ff]"
+                  >
+                    <span className="block truncate font-bold text-[#0b1c30]">{backup.id}</span>
+                    <span className="text-xs text-[#3d4a42]">
+                      {new Date(backup.createdAt).toLocaleString("id-ID")} • {(backup.sizeBytes / 1024).toFixed(1)} KB
+                    </span>
+                  </a>
+                ))}
+                {backups.length === 0 ? <p className="text-sm text-[#3d4a42]">Belum ada backup tersimpan.</p> : null}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-[#213145] text-white">
             <CardHeader>
               <CardTitle className="text-white">Akses Cepat</CardTitle>

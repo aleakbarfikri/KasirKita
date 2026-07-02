@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Barcode, Camera, CheckCircle2, Clock, CreditCard, Loader2, Minus, NotebookPen, PackagePlus, Plus, QrCode, ScanLine, ShoppingCart, SlidersHorizontal, Trash2, WalletCards } from "lucide-react";
+import QRCode from "qrcode";
+import { Barcode, Camera, CheckCircle2, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
-import { api, type CheckoutItem, type CheckoutResponse, type PaymentMethod, type ProductRecord } from "@/lib/api-client";
+import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
+import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +14,13 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAppLanguage } from "@/lib/i18n";
 
 type CartItem = ProductRecord & { qty: number; isManual?: boolean };
 type ModalMethod = PaymentMethod | null;
 
 type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
+type SuccessSummary = { method: PaymentMethod; total: number; totalItems: number; queued?: boolean };
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
@@ -24,6 +28,13 @@ const methodLabel: Record<PaymentMethod, string> = {
   qris_pakasir: "QRIS Pakasir Dinamis",
   debt: "Catat Hutang Pelanggan",
 };
+
+function shortInvoiceId(id?: string | null) {
+  if (!id) return "-";
+  const cleanId = id.replace(/^trx_/i, "");
+  const shortId = cleanId.slice(0, 8).toUpperCase();
+  return shortId ? `TRX-${shortId}` : "-";
+}
 
 const emptyManualItem = {
   name: "",
@@ -33,6 +44,7 @@ const emptyManualItem = {
 };
 
 export function PosInterface() {
+  const { language, t } = useAppLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const scanHandledRef = useRef(false);
@@ -60,8 +72,12 @@ export function PosInterface() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineCheckout[]>([]);
+  const [syncingOffline, setSyncingOffline] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
-  const [successSummary, setSuccessSummary] = useState<{ method: PaymentMethod; total: number; totalItems: number } | null>(null);
+  const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptRecord | null>(null);
 
   const categories = useMemo(() => ["Semua", "Stok Rendah", "Terbaru"], []);
 
@@ -70,19 +86,88 @@ export function PosInterface() {
     setError(null);
     try {
       const [rows, me] = await Promise.all([api.products.list(), api.me().catch(() => null)]);
-      setProducts(rows.filter((product) => product.isActive !== false));
+      const activeProducts = rows.filter((product) => product.isActive !== false);
+      setProducts(activeProducts);
+      cacheProducts(activeProducts);
       if (me?.shop?.name) setShopName(me.shop.name);
       setShopQrisImage(me?.shop?.qrisStaticImageUrl ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat produk");
+      const cached = readCachedProducts();
+      if (cached?.products.length) {
+        setProducts(cached.products.filter((product) => product.isActive !== false));
+        setError(`Produk offline dipakai dari cache terakhir (${new Date(cached.cachedAt).toLocaleString("id-ID")}).`);
+      } else {
+        setError(err instanceof Error ? err.message : "Gagal memuat produk");
+      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    setIsOnline(typeof navigator === "undefined" ? true : navigator.onLine);
+    setOfflineQueue(readOfflineCheckouts());
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    function updateOnlineState() {
+      setIsOnline(navigator.onLine);
+      setOfflineQueue(readOfflineCheckouts());
+    }
+
+    window.addEventListener("online", updateOnlineState);
+    window.addEventListener("offline", updateOnlineState);
+    return () => {
+      window.removeEventListener("online", updateOnlineState);
+      window.removeEventListener("offline", updateOnlineState);
+    };
+  }, []);
+
+  const syncOfflineQueue = useCallback(async () => {
+    if (syncingOffline || typeof navigator !== "undefined" && !navigator.onLine) return;
+
+    const queued = readOfflineCheckouts();
+    if (queued.length === 0) {
+      setOfflineQueue([]);
+      return;
+    }
+
+    setSyncingOffline(true);
+    const remaining: OfflineCheckout[] = [];
+    let syncedCount = 0;
+
+    for (const item of queued) {
+      try {
+        await api.checkout(item.payload);
+        syncedCount += 1;
+      } catch (err) {
+        remaining.push({
+          ...item,
+          attempts: item.attempts + 1,
+          lastError: err instanceof Error ? err.message : "Gagal sync transaksi offline",
+        });
+      }
+    }
+
+    replaceOfflineCheckouts(remaining);
+    setOfflineQueue(remaining);
+    if (syncedCount > 0) await loadProducts();
+    setSyncingOffline(false);
+  }, [syncingOffline]);
+
+  useEffect(() => {
+    if (!isOnline || offlineQueue.length === 0) return;
+    syncOfflineQueue();
+  }, [isOnline, offlineQueue.length, syncOfflineQueue]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (navigator.onLine && readOfflineCheckouts().length > 0) syncOfflineQueue();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [syncOfflineQueue]);
 
   useEffect(() => {
     if (paymentMethod !== "qris_pakasir" || !pakasirPayment?.reference || paymentStatus !== "waiting") return;
@@ -92,6 +177,7 @@ export function PosInterface() {
         const result = await api.pollPakasir(pakasirPayment.reference);
         if (result.status === "paid") {
           setPaymentStatus("paid");
+          await loadProducts();
           showCheckoutSuccess("qris_pakasir");
         } else if (result.status === "failed" || result.status === "cancelled") {
           setPaymentStatus("failed");
@@ -155,12 +241,12 @@ export function PosInterface() {
       addToCart(exact);
       setQuery("");
       setError(null);
-      setScannerMessage(`SKU ${code} masuk ke keranjang.`);
+      setScannerMessage(language === "en" ? `SKU ${code} added to cart.` : `SKU ${code} masuk ke keranjang.`);
       setSkuScannerOpen(false);
       return;
     }
 
-    setScannerMessage(`SKU ${code} tidak ditemukan. Item manual dibuka.`);
+    setScannerMessage(language === "en" ? `SKU ${code} was not found. Manual item is opened.` : `SKU ${code} tidak ditemukan. Item manual dibuka.`);
     setManualItem((current) => ({ ...current, name: code, sku: code.toUpperCase() }));
     setSkuScannerOpen(false);
     setManualItemOpen(true);
@@ -226,8 +312,8 @@ export function PosInterface() {
         const message = err instanceof Error ? err.message : "Gagal membuka kamera.";
         setScannerMessage(
           message.includes("Permission") || message.includes("NotAllowed")
-            ? "Izin kamera ditolak. Aktifkan izin kamera di browser."
-            : `Gagal membuka kamera: ${message}`,
+            ? (language === "en" ? "Camera permission was denied. Enable camera access in the browser." : "Izin kamera ditolak. Aktifkan izin kamera di browser.")
+            : (language === "en" ? `Failed to open camera: ${message}` : `Gagal membuka kamera: ${message}`),
         );
       } finally {
         if (alive) setScannerStarting(false);
@@ -322,20 +408,148 @@ export function PosInterface() {
     setSubmitting(false);
   }
 
-  function showCheckoutSuccess(method: PaymentMethod) {
-    setSuccessSummary({ method, total, totalItems });
+  function showCheckoutSuccess(method: PaymentMethod, options: { queued?: boolean; receipt?: ReceiptRecord | null } = {}) {
+    if (options.receipt) setLastReceipt(options.receipt);
+    setSuccessSummary({ method, total, totalItems, queued: options.queued });
     setSuccessOpen(true);
     setPaymentMethod(null);
     setSubmitting(false);
-    window.setTimeout(() => {
-      resetTransaction();
-      setSuccessOpen(false);
-    }, 1900);
+    if (!options.receipt && !lastReceipt) {
+      window.setTimeout(() => {
+        resetTransaction();
+        setSuccessOpen(false);
+      }, 1900);
+    }
+  }
+
+  function startNewTransaction() {
+    resetTransaction();
+    setLastReceipt(null);
+    setSuccessOpen(false);
+  }
+
+  function receiptText(receipt: ReceiptRecord) {
+    const trx = receipt.transaction;
+    const lines = [
+      receipt.shop.name,
+      receipt.shop.address || "",
+      receipt.shop.phone ? `Telp: ${receipt.shop.phone}` : "",
+      "",
+      `Invoice: ${shortInvoiceId(trx.id)}`,
+      `Tanggal: ${new Date(trx.createdAt).toLocaleString("id-ID")}`,
+      `Kasir: ${receipt.cashier.name}`,
+      `Metode: ${methodLabel[trx.paymentMethod]}`,
+      "",
+      ...receipt.items.map((item) => `${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}`),
+      "",
+      `Total: ${formatCurrency(trx.total)}`,
+      trx.paidAmount !== null && trx.paidAmount !== undefined ? `Dibayar: ${formatCurrency(trx.paidAmount)}` : "",
+      trx.changeAmount !== null && trx.changeAmount !== undefined ? `Kembalian: ${formatCurrency(trx.changeAmount)}` : "",
+      receipt.publicUrl ? `Struk digital: ${receipt.publicUrl}` : "",
+      "",
+      "Terima kasih.",
+    ];
+    return lines.filter(Boolean).join("\n");
+  }
+
+  async function printThermalReceipt(receipt: ReceiptRecord) {
+    const trx = receipt.transaction;
+    const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
+    const qrDataUrl = receipt.publicUrl ? await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: 180 }) : "";
+    const itemRows = receipt.items.map((item) => `
+      <div class="item">
+        <div>${escapeHtml(item.name)}</div>
+        <div class="muted">${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</div>
+        <div class="right">${escapeHtml(formatCurrency(item.price * item.quantity))}</div>
+      </div>
+    `).join("");
+    const html = `<!doctype html>
+      <html><head><title>Struk ${escapeHtml(trx.id)}</title>
+      <style>
+        @page { size: 58mm auto; margin: 0; }
+        body { margin: 0; background: #fff; color: #000; font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+        .receipt { width: 58mm; padding: 7px; box-sizing: border-box; }
+        .center { text-align: center; }
+        .shop { font-weight: 800; font-size: 13px; text-transform: uppercase; }
+        .line { border-top: 1px dashed #000; margin: 8px 0; }
+        .row { display: flex; justify-content: space-between; gap: 8px; }
+        .row span:last-child { text-align: right; }
+        .item { margin: 6px 0; }
+        .right { text-align: right; font-weight: 700; }
+        .muted { color: #333; }
+        .total { font-size: 13px; font-weight: 900; }
+        .qr { display: block; width: 30mm; height: 30mm; margin: 4px auto 2px; }
+        .small { font-size: 9px; }
+      </style></head><body>
+        <div class="receipt">
+          <div class="center">
+            <div class="shop">${escapeHtml(receipt.shop.name)}</div>
+            ${receipt.shop.address ? `<div>${escapeHtml(receipt.shop.address)}</div>` : ""}
+            <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
+          </div>
+          <div class="line"></div>
+          <div class="row"><span>Invoice</span><span>${escapeHtml(shortInvoiceId(trx.id))}</span></div>
+          <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
+          <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
+          <div class="row"><span>Metode</span><span>${escapeHtml(methodLabel[trx.paymentMethod])}</span></div>
+          <div class="line"></div>
+          ${itemRows}
+          <div class="line"></div>
+          <div class="row total"><span>Total</span><span>${escapeHtml(formatCurrency(trx.total))}</span></div>
+          ${trx.paidAmount !== null && trx.paidAmount !== undefined ? `<div class="row"><span>Dibayar</span><span>${escapeHtml(formatCurrency(trx.paidAmount))}</span></div>` : ""}
+          ${trx.changeAmount !== null && trx.changeAmount !== undefined ? `<div class="row"><span>Kembalian</span><span>${escapeHtml(formatCurrency(trx.changeAmount))}</span></div>` : ""}
+          ${qrDataUrl ? `<div class="line"></div><div class="center"><div>Struk digital</div><img class="qr" src="${qrDataUrl}" alt="QR struk digital" /><div class="small">Scan / simpan QR ini</div></div>` : ""}
+          <div class="line"></div>
+          <div class="center">Terima kasih</div>
+        </div>
+        <script>window.print();</script>
+      </body></html>`;
+    const win = window.open("", "_blank", "width=360,height=720");
+    if (!win) {
+      setError("Popup print diblokir browser. Izinkan popup untuk mencetak struk.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }
+
+  function shareWhatsAppReceipt(receipt: ReceiptRecord) {
+    const url = `https://wa.me/?text=${encodeURIComponent(receiptText(receipt))}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyReceiptLink(receipt: ReceiptRecord) {
+    if (!receipt.publicUrl) return;
+    await navigator.clipboard.writeText(receipt.publicUrl);
+    setError("Link struk digital berhasil disalin.");
+  }
+
+  function shouldQueueOffline(err: unknown) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return true;
+    if (err instanceof ApiError) return err.status === 408 || err.status >= 500;
+    return true;
+  }
+
+  function queueOfflineTransaction(payload: CheckoutPayload) {
+    const queued = enqueueOfflineCheckout(payload);
+    const nextQueue = readOfflineCheckouts();
+    setOfflineQueue(nextQueue);
+    setIsOnline(typeof navigator === "undefined" ? true : navigator.onLine);
+    setPaymentStatus("paid");
+    setError(`Transaksi tersimpan offline (${queued.id.slice(-6)}). Akan sync otomatis saat internet stabil.`);
+    showCheckoutSuccess(payload.paymentMethod, { queued: true });
   }
 
   async function openPayment(method: PaymentMethod) {
     if (cart.length === 0) return;
     setError(null);
+
+    if (method === "qris_pakasir" && typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("QRIS Pakasir perlu internet untuk membuat QR dinamis. Gunakan Tunai, QRIS Statis, atau Hutang saat offline.");
+      return;
+    }
+
     setPaymentMethod(method);
     setPaymentStatus(method === "qris_pakasir" ? "waiting" : "idle");
     setPakasirPayment(null);
@@ -343,7 +557,8 @@ export function PosInterface() {
     if (method === "qris_pakasir") {
       setSubmitting(true);
       try {
-        const result = await api.checkout({ paymentMethod: "qris_pakasir", items: itemsPayload() });
+      const result = await api.checkout({ paymentMethod: "qris_pakasir", items: itemsPayload() });
+        if (result.receipt) setLastReceipt(result.receipt);
         setPakasirPayment(result.payment ?? null);
       } catch (err) {
         setPaymentStatus("failed");
@@ -357,19 +572,27 @@ export function PosInterface() {
   async function completeCheckout(method: Exclude<PaymentMethod, "qris_pakasir">) {
     setSubmitting(true);
     setError(null);
+    const payload: CheckoutPayload = {
+      paymentMethod: method,
+      paidAmount: method === "cash" ? cashReceived : undefined,
+      customerName: method === "debt" ? customerName : undefined,
+      customerPhone: method === "debt" ? customerPhone : undefined,
+      debtDueDate: method === "debt" ? dueDate : undefined,
+      note: method === "debt" ? debtNote : undefined,
+      items: itemsPayload(),
+    };
+
     try {
-      await api.checkout({
-        paymentMethod: method,
-        paidAmount: method === "cash" ? cashReceived : undefined,
-        customerName: method === "debt" ? customerName : undefined,
-        customerPhone: method === "debt" ? customerPhone : undefined,
-        debtDueDate: method === "debt" ? dueDate : undefined,
-        note: method === "debt" ? debtNote : undefined,
-        items: itemsPayload(),
-      });
+      const result = await api.checkout(payload);
       setPaymentStatus("paid");
-      showCheckoutSuccess(method);
+      await loadProducts();
+      showCheckoutSuccess(method, { receipt: result.receipt ?? null });
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        queueOfflineTransaction(payload);
+        return;
+      }
+
       setError(err instanceof Error ? err.message : "Gagal menyimpan transaksi");
       setPaymentStatus("failed");
     } finally {
@@ -383,49 +606,81 @@ export function PosInterface() {
         <div className="flex items-center justify-between border-b border-[#bccac0] bg-white px-4 py-3 lg:px-6 lg:py-4">
           <div>
             <h2 className="text-xl font-extrabold text-primary">{shopName}</h2>
-            <p className="text-xs text-[#3d4a42]">POS Kasir • Produk dari database</p>
+            <p className="text-xs text-[#3d4a42]">{t("POS Kasir")} • {t("Produk dari database dan cache offline")}</p>
           </div>
           <div className="hidden items-center gap-3 text-sm font-semibold text-primary md:flex">
-            <WalletCards className="h-5 w-5" /> API Checkout Aktif
+            {isOnline ? <WalletCards className="h-5 w-5" /> : <CloudOff className="h-5 w-5 text-amber-600" />}
+            {isOnline ? "Online" : "Offline"}
+            {offlineQueue.length > 0 ? (
+              <button
+                type="button"
+                onClick={syncOfflineQueue}
+                disabled={!isOnline || syncingOffline}
+                className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 disabled:opacity-60"
+              >
+                <RefreshCw className={`mr-1 h-3.5 w-3.5 ${syncingOffline ? "animate-spin" : ""}`} />
+                {offlineQueue.length} pending sync
+              </button>
+            ) : null}
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-visible p-4 custom-scrollbar lg:overflow-auto lg:p-6">
+          <div className="mb-4 flex flex-col gap-2 md:hidden">
+            <div className={isOnline ? "rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700" : "rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800"}>
+              {isOnline ? "Online - transaksi dikirim langsung." : "Offline - transaksi tunai, QRIS statis, dan hutang disimpan dulu di perangkat ini."}
+            </div>
+            {offlineQueue.length > 0 ? (
+              <Button variant="outline" onClick={syncOfflineQueue} disabled={!isOnline || syncingOffline}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${syncingOffline ? "animate-spin" : ""}`} />
+                Sync {offlineQueue.length} Transaksi Pending
+              </Button>
+            ) : null}
+          </div>
+          {offlineQueue.length > 0 ? (
+            <div className="mb-4 hidden items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900 md:flex">
+              <span>{offlineQueue.length} transaksi tersimpan offline di perangkat ini.</span>
+              <Button variant="outline" size="sm" onClick={syncOfflineQueue} disabled={!isOnline || syncingOffline}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${syncingOffline ? "animate-spin" : ""}`} />
+                Sync Sekarang
+              </Button>
+            </div>
+          ) : null}
           {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
-          <div className="mb-4 flex flex-col gap-3 lg:mb-6 lg:flex-row lg:items-center lg:gap-4">
-            <div className="relative flex-1">
-              <Barcode className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-[#3d4a42]" />
+          <div className="mb-4 grid grid-cols-1 gap-3 lg:mb-6 xl:grid-cols-[minmax(220px,1fr)_auto_auto_auto] xl:items-center">
+            <div className="relative min-w-0">
+              <Barcode className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3d4a42]" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" ? handleSkuSubmit() : undefined}
-                className="h-12 border-[#bccac0] bg-[#eff4ff] pl-12 text-base shadow-[0_0_0_1px_rgba(0,105,72,0.12)] lg:h-14 lg:text-lg"
-                placeholder="Scan SKU atau Cari Produk..."
+                className="h-14 min-w-0 rounded-2xl border-[#bccac0] bg-[#eff4ff] pl-12 pr-4 text-base shadow-[0_0_0_1px_rgba(0,105,72,0.12)] lg:text-lg"
+                placeholder={t("Scan SKU atau Cari Produk...")}
                 autoFocus
               />
             </div>
-            <Button variant="navy" size="lg" className="h-12 shrink-0 px-4 lg:h-14 lg:px-6" onClick={openSkuScanner}>
-              <Camera className="mr-2 h-5 w-5" /> Scan SKU
+            <Button variant="navy" size="lg" className="h-14 shrink-0 justify-center rounded-2xl px-5 xl:min-w-[170px]" onClick={openSkuScanner}>
+              <Camera className="mr-2 h-5 w-5" /> {t("Scan SKU")}
             </Button>
-            <Button variant="outline" size="lg" className="h-12 shrink-0 px-4 text-[#0b1c30] lg:h-14 lg:px-6" onClick={() => setManualItemOpen(true)}>
-              <PackagePlus className="mr-2 h-5 w-5" /> Add Item
+            <Button variant="outline" size="lg" className="h-14 shrink-0 justify-center rounded-2xl px-5 text-[#0b1c30] xl:min-w-[160px]" onClick={() => setManualItemOpen(true)}>
+              <PackagePlus className="mr-2 h-5 w-5" /> {t("Add Item")}
             </Button>
-            <Button variant="secondary" size="lg" className="h-12 shrink-0 px-4 text-[#0b1c30] lg:h-14 lg:px-6" onClick={loadProducts}>
-              <SlidersHorizontal className="mr-2 h-5 w-5" /> Refresh Produk
+            <Button variant="secondary" size="lg" className="h-14 shrink-0 justify-center rounded-2xl px-5 text-[#0b1c30] xl:min-w-[210px]" onClick={loadProducts}>
+              <RefreshCw className="mr-2 h-5 w-5" /> {t("Refresh Produk")}
             </Button>
           </div>
 
 
           <div className="mb-6 flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
             {categories.map((item) => (
-              <button key={item} onClick={() => setCategory(item)} className={category === item ? "shrink-0 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white" : "shrink-0 rounded-full bg-[#dae2fd] px-5 py-2.5 text-sm font-semibold text-[#3d4a42] hover:bg-[#d3e4fe]"}>{item}</button>
+              <button key={item} onClick={() => setCategory(item)} className={category === item ? "shrink-0 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white" : "shrink-0 rounded-full bg-[#dae2fd] px-5 py-2.5 text-sm font-semibold text-[#3d4a42] hover:bg-[#d3e4fe]"}>{t(item)}</button>
             ))}
           </div>
 
           {loading ? (
-            <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-white text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat produk...</div>
+            <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-white text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat produk...")}</div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-white text-center text-sm text-[#3d4a42]">Belum ada produk. Tambahkan produk di halaman Inventaris, atau klik Add Item untuk item manual.</div>
+            <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-white text-center text-sm text-[#3d4a42]">{t("Belum ada produk. Tambahkan produk di halaman Inventaris, atau klik Add Item untuk item manual.")}</div>
           ) : (
             <div className="pos-grid">
               {filteredProducts.map((product) => {
@@ -435,7 +690,7 @@ export function PosInterface() {
                   <button key={product.id} onClick={() => addToCart(product)} className="group overflow-hidden rounded-xl border border-[#bccac0] bg-white text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(33,49,69,0.10)] active:scale-[0.98]">
                     <div className="relative h-28 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 sm:h-32 lg:h-36">
                       <div className="flex h-full w-full items-center justify-center px-3 text-center text-xl font-black leading-tight text-primary sm:text-2xl lg:text-3xl"><span className="line-clamp-3">{product.name}</span></div>
-                      <Badge variant={(product.stock ?? 0) < 8 ? "danger" : "default"} className="absolute right-3 top-3 normal-case tracking-normal">Stok: {product.stock ?? "-"}</Badge>
+                      <Badge variant={(product.stock ?? 0) < 8 ? "danger" : "default"} className="absolute right-3 top-3 normal-case tracking-normal">{t("Stok")}: {product.stock ?? "-"}</Badge>
                       {cartQty > 0 ? <Badge variant="success" className="absolute left-3 top-3 normal-case tracking-normal">Di cart: {cartQty}</Badge> : null}
                     </div>
                     <div className="p-3 lg:p-4">
@@ -455,13 +710,13 @@ export function PosInterface() {
 
       <aside className="flex min-h-[360px] shrink-0 flex-col border-t border-[#bccac0] bg-white lg:h-full lg:max-h-none lg:w-[460px] lg:border-l lg:border-t-0">
         <div className="flex items-center justify-between border-b border-[#bccac0] p-4 lg:p-6">
-          <div className="flex items-center gap-3"><ShoppingCart className="h-6 w-6 text-primary" /><div><h3 className="text-xl font-bold">Keranjang</h3><p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} jenis barang</p></div></div>
-          <button onClick={() => setCart([])} className="flex items-center gap-2 text-sm font-semibold text-red-600"><Trash2 className="h-4 w-4" /> Bersihkan</button>
+          <div className="flex items-center gap-3"><ShoppingCart className="h-6 w-6 text-primary" /><div><h3 className="text-xl font-bold">{t("Keranjang")}</h3><p className="text-xs font-semibold text-[#3d4a42]">{totalItems} item • {cart.length} {t("jenis barang")}</p></div></div>
+          <button onClick={() => setCart([])} className="flex items-center gap-2 text-sm font-semibold text-red-600"><Trash2 className="h-4 w-4" /> {t("Bersihkan")}</button>
         </div>
 
         <div className="max-h-[55vh] flex-1 overflow-auto p-4 custom-scrollbar lg:max-h-none lg:p-5">
           {cart.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] text-center text-sm text-[#3d4a42]">Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.</div>
+            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] text-center text-sm text-[#3d4a42]">{t("Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.")}</div>
           ) : (
             <div className="space-y-3">
               {cart.map((item) => (
@@ -502,23 +757,23 @@ export function PosInterface() {
 
         <div className="border-t border-[#bccac0] bg-[#dce9ff] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6">
           <div className="space-y-3 text-base">
-            <div className="flex justify-between"><span>Total qty</span><span>{totalItems} item</span></div>
-            <div className="flex justify-between"><span>Subtotal barang × qty</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className="border-t border-[#bccac0] pt-3 flex justify-between font-extrabold"><span>Total</span><span className="text-primary">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between"><span>{t("Total qty")}</span><span>{totalItems} item</span></div>
+            <div className="flex justify-between"><span>{t("Subtotal barang × qty")}</span><span>{formatCurrency(subtotal)}</span></div>
+            <div className="border-t border-[#bccac0] pt-3 flex justify-between font-extrabold"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
           </div>
 
           <div className="mt-6 grid gap-3">
-            <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="w-full"><CreditCard className="mr-2 h-5 w-5" /> Tunai (Cash)</Button>
+            <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="w-full"><CreditCard className="mr-2 h-5 w-5" /> {t("Tunai (Cash)")}</Button>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="px-3"><QrCode className="mr-2 h-4 w-4" /> QRIS Statis</Button>
-              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0} className="px-3"><WalletCards className="mr-2 h-4 w-4" /> QRIS Pakasir</Button>
+              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="px-3"><WalletCards className="mr-2 h-4 w-4" /> QRIS Pakasir</Button>
             </div>
-            <Button size="lg" variant="navy" onClick={() => openPayment("debt")} disabled={cart.length === 0} className="w-full"><NotebookPen className="mr-2 h-5 w-5" /> Catat Hutang</Button>
+            <Button size="lg" variant="navy" onClick={() => openPayment("debt")} disabled={cart.length === 0} className="w-full"><NotebookPen className="mr-2 h-5 w-5" /> {t("Catat Hutang")}</Button>
           </div>
         </div>
       </aside>
 
-      <Modal open={skuScannerOpen} title="Scan SKU Kamera" description="Arahkan kamera ke barcode produk. SKU yang cocok langsung masuk keranjang." onClose={() => setSkuScannerOpen(false)}>
+      <Modal open={skuScannerOpen} title={t("Scan SKU Kamera")} description={t("Arahkan kamera ke barcode produk. SKU yang cocok langsung masuk keranjang.")} onClose={() => setSkuScannerOpen(false)}>
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-3xl border border-[#bccac0] bg-[#0b1c30]">
             <video ref={videoRef} className="aspect-[4/3] w-full object-cover" muted playsInline autoPlay />
@@ -528,59 +783,59 @@ export function PosInterface() {
             </div>
             {scannerStarting ? (
               <div className="absolute inset-0 flex items-center justify-center bg-[#0b1c30]/50 text-white">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Membuka kamera...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t("Membuka kamera...")}
               </div>
             ) : null}
           </div>
 
           <div className="rounded-2xl bg-[#eff4ff] p-4 text-sm font-semibold text-[#3d4a42]">
-            <p>{scannerMessage}</p>
-            {lastScannedSku ? <p className="mt-2 text-primary">Terakhir terbaca: {lastScannedSku}</p> : null}
+            <p>{t(scannerMessage)}</p>
+            {lastScannedSku ? <p className="mt-2 text-primary">{t("Terakhir terbaca")}: {lastScannedSku}</p> : null}
             <p className="mt-2 text-xs font-medium">
-              Di HP, kamera hanya aktif pada HTTPS. Gunakan domain Vercel/HTTPS untuk testing dari perangkat lain.
+              {t("Di HP, kamera hanya aktif pada HTTPS. Gunakan domain Vercel/HTTPS untuk testing dari perangkat lain.")}
             </p>
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setSkuScannerOpen(false)}>
-              Tutup
+              {t("Tutup")}
             </Button>
             <Button onClick={openSkuScanner} disabled={scannerStarting}>
               {scannerStarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-              Scan Ulang
+              {t("Scan Ulang")}
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={manualItemOpen} title="Add Item Manual" description="Tambahkan item langsung ke keranjang tanpa harus terdaftar di inventaris." onClose={() => setManualItemOpen(false)}>
+      <Modal open={manualItemOpen} title={t("Add Item Manual")} description={t("Tambahkan item langsung ke keranjang tanpa harus terdaftar di inventaris.")} onClose={() => setManualItemOpen(false)}>
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>Nama item</Label>
-              <Input value={manualItem.name} onChange={(event) => setManualItem((current) => ({ ...current, name: event.target.value }))} placeholder="Contoh: Es batu tambahan" autoFocus />
+              <Label>{t("Nama item")}</Label>
+              <Input value={manualItem.name} onChange={(event) => setManualItem((current) => ({ ...current, name: event.target.value }))} placeholder={t("Contoh: Es batu tambahan")} autoFocus />
             </div>
             <div className="space-y-2">
-              <Label>SKU / Kode opsional</Label>
-              <Input value={manualItem.sku} onChange={(event) => setManualItem((current) => ({ ...current, sku: event.target.value }))} placeholder="Auto jika kosong" />
+              <Label>{t("SKU / Kode opsional")}</Label>
+              <Input value={manualItem.sku} onChange={(event) => setManualItem((current) => ({ ...current, sku: event.target.value }))} placeholder={t("Auto jika kosong")} />
             </div>
             <div className="space-y-2">
-              <Label>Quantity</Label>
+              <Label>{t("Quantity")}</Label>
               <Input type="number" min={1} value={manualItem.quantity} onChange={(event) => setManualItem((current) => ({ ...current, quantity: event.target.value }))} />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Harga per item</Label>
-              <Input type="number" min={0} value={manualItem.price} onChange={(event) => setManualItem((current) => ({ ...current, price: event.target.value }))} placeholder="Contoh 15000" />
+              <Label>{t("Harga per item")}</Label>
+              <Input type="number" min={0} value={manualItem.price} onChange={(event) => setManualItem((current) => ({ ...current, price: event.target.value }))} placeholder={t("Contoh 15000")} />
             </div>
           </div>
           <div className="rounded-2xl bg-[#eff4ff] p-4">
-            <p className="text-sm font-semibold text-[#3d4a42]">Subtotal manual</p>
+            <p className="text-sm font-semibold text-[#3d4a42]">{t("Subtotal manual")}</p>
             <p className="text-3xl font-extrabold text-primary">{formatCurrency((Number(manualItem.price) || 0) * (Number(manualItem.quantity) || 0))}</p>
-            <p className="mt-1 text-xs text-[#3d4a42]">Rumus: harga per item × quantity.</p>
+            <p className="mt-1 text-xs text-[#3d4a42]">{t("Rumus: harga per item × quantity.")}</p>
           </div>
           <Button className="w-full" size="lg" onClick={addManualItem}>
-            <PackagePlus className="mr-2 h-5 w-5" /> Tambahkan ke Keranjang
+            <PackagePlus className="mr-2 h-5 w-5" /> {t("Tambahkan ke Keranjang")}
           </Button>
         </div>
       </Modal>
@@ -667,24 +922,45 @@ export function PosInterface() {
 
       {successOpen && successSummary ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0b1c30]/45 px-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-emerald-200 bg-white p-8 text-center shadow-[0_24px_80px_rgba(11,28,48,0.28)]">
-            <div className="absolute left-8 top-8 h-5 w-5 animate-ping rounded-full bg-emerald-300/80" />
-            <div className="absolute right-10 top-12 h-3 w-3 animate-ping rounded-full bg-[#dae2fd]" />
-            <div className="absolute bottom-10 left-12 h-4 w-4 animate-ping rounded-full bg-primary/30" />
-
-            <div className="mx-auto mb-5 flex h-24 w-24 animate-bounce items-center justify-center rounded-full bg-emerald-100 text-primary ring-8 ring-emerald-50">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-200 bg-white p-8 text-center shadow-[0_24px_80px_rgba(11,28,48,0.28)]">
+            <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-primary ring-8 ring-emerald-50">
               <CheckCircle2 className="h-14 w-14" />
             </div>
 
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#3d4a42]">Pembayaran selesai</p>
-            <h3 className="mt-2 text-3xl font-extrabold text-[#0b1c30]">Transaksi Berhasil</h3>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#3d4a42]">{successSummary.queued ? "Tersimpan offline" : "Pembayaran selesai"}</p>
+            <h3 className="mt-2 text-3xl font-extrabold text-[#0b1c30]">{successSummary.queued ? "Masuk Antrean" : "Transaksi Berhasil"}</h3>
             <p className="mt-3 text-sm text-[#3d4a42]">
               {methodLabel[successSummary.method]} • {successSummary.totalItems} item
             </p>
+            {successSummary.queued ? <p className="mt-2 text-sm font-semibold text-amber-700">Akan dikirim otomatis saat internet kembali.</p> : null}
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
-            <div className="mt-6 h-2 overflow-hidden rounded-full bg-[#eff4ff]">
-              <div className="h-full w-full animate-pulse rounded-full bg-primary" />
-            </div>
+            {lastReceipt ? (
+              <div className="mt-6 grid gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" onClick={() => printThermalReceipt(lastReceipt)}>
+                    <Printer className="mr-2 h-4 w-4" /> Print
+                  </Button>
+                  <Button variant="outline" onClick={() => shareWhatsAppReceipt(lastReceipt)}>
+                    <Send className="mr-2 h-4 w-4" /> WhatsApp
+                  </Button>
+                </div>
+                {lastReceipt.publicUrl ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <a href={lastReceipt.publicUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                      <LinkIcon className="mr-2 h-4 w-4" /> Link Struk
+                    </a>
+                    <Button variant="outline" onClick={() => copyReceiptLink(lastReceipt)}>
+                      <Copy className="mr-2 h-4 w-4" /> Salin Link
+                    </Button>
+                  </div>
+                ) : null}
+                <Button onClick={startNewTransaction}>Transaksi Baru</Button>
+              </div>
+            ) : (
+              <div className="mt-6 h-2 overflow-hidden rounded-full bg-[#eff4ff]">
+                <div className="h-full w-full animate-pulse rounded-full bg-primary" />
+              </div>
+            )}
           </div>
         </div>
       ) : null}

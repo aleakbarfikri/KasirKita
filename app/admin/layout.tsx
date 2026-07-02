@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/server/auth-guard";
 
 function getRole(session: Awaited<ReturnType<typeof getCurrentSession>>) {
-  return (session?.user as { role?: "owner" | "admin" } | undefined)?.role;
+  return (session?.user as { role?: "owner" | "admin" | "cashier" } | undefined)?.role;
 }
 
 export default async function AdminProtectedLayout({ children }: { children: ReactNode }) {
@@ -14,7 +14,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     redirect("/login?next=/admin");
   }
 
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "cashier") {
     redirect(role === "owner" ? "/owner" : "/login?next=/admin");
   }
 

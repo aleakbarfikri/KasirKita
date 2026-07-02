@@ -23,18 +23,18 @@ export function MetricCard({
   }[tone];
 
   return (
-    <Card className="overflow-hidden bg-white">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-[#3d4a42]">{title}</p>
-            <p className="mt-3 text-4xl font-extrabold tracking-tight text-[#0b1c30] md:text-5xl">{value}</p>
+    <Card className="min-w-0 overflow-hidden bg-white">
+      <CardContent className="flex min-h-[170px] flex-col p-5">
+        <div className="flex min-w-0 items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-snug text-[#3d4a42]">{title}</p>
+            <p className="mt-3 max-w-full break-words text-3xl font-extrabold leading-tight tracking-normal text-[#0b1c30] xl:text-[2.15rem]">{value}</p>
           </div>
-          <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", toneClass)}>
+          <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", toneClass)}>
             <Icon className="h-6 w-6" />
           </div>
         </div>
-        <p className="mt-4 text-sm font-medium text-[#3d4a42]">{helper}</p>
+        <p className="mt-auto pt-4 text-sm font-medium leading-relaxed text-[#3d4a42]">{helper}</p>
       </CardContent>
     </Card>
   );
