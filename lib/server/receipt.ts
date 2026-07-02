@@ -15,7 +15,9 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
       productId: item.productId ?? undefined,
       sku: item.sku,
       name: item.name,
+      originalPrice: item.originalPrice ?? item.price,
       price: item.price,
+      discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - item.price),
       quantity: item.quantity,
     }));
 

@@ -52,6 +52,8 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.name !== undefined) product.name = body.name;
     if (body.price !== undefined) product.price = body.price;
     if (body.costPrice !== undefined) product.costPrice = body.costPrice;
+    if (body.discountType !== undefined) product.discountType = body.discountType;
+    if (body.discountValue !== undefined) product.discountValue = body.discountType === "none" ? 0 : body.discountValue;
     if (body.stock !== undefined) product.stock = body.stock;
     if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
     product.updatedAt = now();

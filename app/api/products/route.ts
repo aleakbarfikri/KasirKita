@@ -4,7 +4,7 @@ import { createId } from "@/lib/server/ids";
 import { productSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, sortDesc, writeDb, type Product } from "@/lib/server/data-store";
 
-const productCsvHeaders = ["sku", "nama_barang", "harga_jual", "harga_modal", "stok"];
+const productCsvHeaders = ["sku", "nama_barang", "harga_jual", "harga_modal", "stok", "diskon_tipe", "diskon_nilai"];
 
 function csvEscape(value: unknown, delimiter = ";") {
   const text = String(value ?? "");
@@ -27,8 +27,8 @@ export async function GET(request: Request) {
       if (session.user.role !== "admin") return fail("Only admin can download product template", 403);
       const csv = toCsv([
         productCsvHeaders,
-        ["SKU-001", "Gula 1kg", 15000, 12500, 50],
-        ["SKU-002", "Kopi Sachet", 3000, 2000, 100],
+        ["SKU-001", "Gula 1kg", 15000, 12500, 50, "percent", 10],
+        ["SKU-002", "Kopi Sachet", 3000, 2000, 100, "amount", 500],
       ]);
       return new Response(csv, {
         status: 200,
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       if (mode === "csv") {
         const csv = toCsv([
           ["shop_name", ...productCsvHeaders],
-          ...sortDesc(rows).map((product) => [product.shopName ?? "", product.sku, product.name, product.price, product.costPrice, product.stock ?? ""]),
+          ...sortDesc(rows).map((product) => [product.shopName ?? "", product.sku, product.name, product.price, product.costPrice, product.stock ?? "", product.discountType ?? "none", product.discountValue ?? 0]),
         ]);
         return new Response(csv, {
           status: 200,
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     if (mode === "csv") {
       const csv = toCsv([
         productCsvHeaders,
-        ...sortDesc([...rows]).map((product) => [product.sku, product.name, product.price, product.costPrice, product.stock ?? ""]),
+        ...sortDesc([...rows]).map((product) => [product.sku, product.name, product.price, product.costPrice, product.stock ?? "", product.discountType ?? "none", product.discountValue ?? 0]),
       ]);
       return new Response(csv, {
         status: 200,
@@ -104,6 +104,8 @@ export async function POST(request: Request) {
       name: body.name,
       price: body.price,
       costPrice: body.costPrice,
+      discountType: body.discountType === "none" ? "none" : body.discountType,
+      discountValue: body.discountType === "none" ? 0 : body.discountValue,
       stock: body.stock ?? null,
       photoUrl: body.photoUrl || null,
       isActive: true,

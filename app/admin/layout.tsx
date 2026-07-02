@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/server/auth-guard";
+import { getAdminScope, getCurrentSession } from "@/lib/server/auth-guard";
 
 function getRole(session: Awaited<ReturnType<typeof getCurrentSession>>) {
   return (session?.user as { role?: "owner" | "admin" | "cashier" } | undefined)?.role;
@@ -16,6 +16,12 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
 
   if (role !== "admin" && role !== "cashier") {
     redirect(role === "owner" ? "/owner" : "/login?next=/admin");
+  }
+
+  try {
+    await getAdminScope(session.user.id);
+  } catch {
+    redirect("/login?next=/admin");
   }
 
   return <>{children}</>;

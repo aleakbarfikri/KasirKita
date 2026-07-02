@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CheckCircle2, Edit3, ImagePlus, Loader2, MessageCircle, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserX, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, Edit3, ImagePlus, Loader2, MessageCircle, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserCheck, UserX, X } from "lucide-react";
 import { api, type CashierRow, type OwnerAdminRow } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,36 @@ function whatsappHref(phone?: string | null) {
   return `https://wa.me/${normalized}`;
 }
 
+function todayJakarta() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function isExpired(activeUntil?: string | null) {
+  return Boolean(activeUntil && activeUntil < todayJakarta());
+}
+
+function formatActiveUntil(activeUntil?: string | null) {
+  if (!activeUntil) return "Tanpa batas";
+  return new Date(`${activeUntil}T00:00:00+07:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function adminEffectiveActive(row?: OwnerAdminRow) {
+  return Boolean(row?.profile.isActive && !isExpired(row.profile.activeUntil));
+}
+
+function cashierStatus(row: CashierRow, admin?: OwnerAdminRow) {
+  if (row.profile.approvalStatus === "pending") return { label: "Menunggu Approval", variant: "warning" as const };
+  if (row.profile.approvalStatus === "rejected") return { label: "Ditolak", variant: "danger" as const };
+  if (!row.profile.isActive) return { label: "Nonaktif", variant: "secondary" as const };
+  if (!adminEffectiveActive(admin)) return { label: "Admin Nonaktif", variant: "warning" as const };
+  return { label: "Aktif", variant: "success" as const };
+}
+
 export function AdminManagement() {
   const [admins, setAdmins] = useState<OwnerAdminRow[]>([]);
   const [cashiers, setCashiers] = useState<CashierRow[]>([]);
@@ -37,6 +67,7 @@ export function AdminManagement() {
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
   const [shopPhone, setShopPhone] = useState("");
+  const [activeUntil, setActiveUntil] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,6 +77,7 @@ export function AdminManagement() {
   const [editShopName, setEditShopName] = useState("");
   const [editShopAddress, setEditShopAddress] = useState("");
   const [editShopPhone, setEditShopPhone] = useState("");
+  const [editActiveUntil, setEditActiveUntil] = useState("");
   const [editQrisImage, setEditQrisImage] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -91,6 +123,7 @@ export function AdminManagement() {
         shopName: shopName.trim(),
         shopAddress: shopAddress.trim(),
         shopPhone: shopPhone.trim(),
+        activeUntil,
       });
       setAdmins((current) => [created, ...current]);
       setName("");
@@ -100,6 +133,7 @@ export function AdminManagement() {
       setShopName("");
       setShopAddress("");
       setShopPhone("");
+      setActiveUntil("");
       setMessage(`Admin berhasil dibuat. Username login: ${created.admin.username || normalizedUsername}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat admin");
@@ -113,6 +147,7 @@ export function AdminManagement() {
     setEditShopName(row.shop.name ?? "");
     setEditShopAddress(row.shop.address ?? "");
     setEditShopPhone(row.shop.phone ?? "");
+    setEditActiveUntil(row.profile.activeUntil ?? "");
     setEditQrisImage(row.shop.qrisStaticImageUrl ?? "");
     setEditError(null);
   }
@@ -143,6 +178,7 @@ export function AdminManagement() {
         shopName: editShopName.trim(),
         shopAddress: editShopAddress.trim(),
         shopPhone: editShopPhone.trim(),
+        activeUntil: editActiveUntil || null,
         qrisStaticImageUrl: editQrisImage,
       });
       setAdmins((current) => current.map((row) => row.admin.id === updated.admin.id ? updated : row));
@@ -155,14 +191,15 @@ export function AdminManagement() {
     }
   }
 
-  async function deactivateAdmin(id: string) {
+  async function setAdminActive(id: string, isActive: boolean) {
     setError(null);
+    setMessage(null);
     try {
-      await api.owner.admins.deactivate(id);
-      setAdmins((current) => current.map((row) => row.admin.id === id ? { ...row, profile: { ...row.profile, isActive: false } } : row));
-      setMessage("Admin berhasil dinonaktifkan.");
+      const updated = await api.owner.admins.update(id, { isActive });
+      setAdmins((current) => current.map((row) => row.admin.id === id ? updated : row));
+      setMessage(isActive ? "Admin berhasil diaktifkan kembali." : "Admin berhasil dinonaktifkan.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menonaktifkan admin");
+      setError(err instanceof Error ? err.message : isActive ? "Gagal mengaktifkan admin" : "Gagal menonaktifkan admin");
     }
   }
 
@@ -229,12 +266,17 @@ export function AdminManagement() {
           <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="UMKM Sumber Rezeki" /></div>
           <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" /></div>
           <div className="space-y-2"><Label>Nomer Telpon</Label><Input value={shopPhone} onChange={(event) => setShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
+          <div className="space-y-2">
+            <Label>Masa Aktif Sampai</Label>
+            <Input type="date" value={activeUntil} onChange={(event) => setActiveUntil(event.target.value)} min={todayJakarta()} />
+            <p className="text-xs text-[#3d4a42]">Kosongkan jika admin tidak memakai batas subscription.</p>
+          </div>
           <Button className="w-full" onClick={addAdmin} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Buat Admin</Button>
           <div className="rounded-2xl bg-secondary p-4 text-sm text-secondary-foreground"><ShieldCheck className="mb-2 h-5 w-5" /> QRIS statis per cabang bisa ditambahkan setelah admin dibuat lewat tombol Edit.</div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="xl:col-span-2">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -257,6 +299,7 @@ export function AdminManagement() {
                   <TableHead>Nomer Telpon</TableHead>
                   <TableHead>QRIS Statis</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Masa Aktif</TableHead>
                   <TableHead>Saldo QRIS Pakasir</TableHead>
                   <TableHead>Total Withdrawn</TableHead>
                   <TableHead>Aksi</TableHead>
@@ -267,6 +310,8 @@ export function AdminManagement() {
                   const balance = row.balance;
                   const available = (balance?.totalEarnedQrisApi ?? 0) - (balance?.totalWithdrawn ?? 0);
                   const waHref = whatsappHref(row.shop.phone);
+                  const expired = isExpired(row.profile.activeUntil);
+                  const effectiveActive = row.profile.isActive && !expired;
                   return (
                     <TableRow key={row.admin.id}>
                       <TableCell><p className="font-medium">{row.admin.username || row.admin.email}</p><p className="text-xs text-[#3d4a42]">{row.admin.name}</p></TableCell>
@@ -283,13 +328,78 @@ export function AdminManagement() {
                         )}
                       </TableCell>
                       <TableCell>{row.shop.qrisStaticImageUrl ? <Badge variant="success" className="normal-case tracking-normal"><QrCode className="mr-1 h-3.5 w-3.5" /> Ada QRIS</Badge> : <Badge variant="secondary" className="normal-case tracking-normal">Belum ada</Badge>}</TableCell>
-                      <TableCell><Badge variant={row.profile.isActive ? "success" : "secondary"}>{row.profile.isActive ? "Aktif" : "Nonaktif"}</Badge></TableCell>
+                      <TableCell><Badge variant={effectiveActive ? "success" : expired ? "warning" : "secondary"}>{effectiveActive ? "Aktif" : expired ? "Expired" : "Nonaktif"}</Badge></TableCell>
+                      <TableCell>
+                        <div className="inline-flex items-center gap-2 rounded-full bg-[#eff4ff] px-3 py-1.5 text-sm font-bold text-[#0b1c30]">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                          {formatActiveUntil(row.profile.activeUntil)}
+                        </div>
+                      </TableCell>
                       <TableCell>{formatCurrency(Math.max(available, 0))}</TableCell>
                       <TableCell>{formatCurrency(balance?.totalWithdrawn ?? 0)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEdit(row)}><Edit3 className="mr-2 h-4 w-4" /> Edit</Button>
-                          <Button variant="outline" size="sm" disabled={!row.profile.isActive} onClick={() => deactivateAdmin(row.admin.id)}><UserX className="mr-2 h-4 w-4" /> Nonaktifkan</Button>
+                          {row.profile.isActive ? (
+                            <Button variant="outline" size="sm" onClick={() => setAdminActive(row.admin.id, false)}><UserX className="mr-2 h-4 w-4" /> Nonaktifkan</Button>
+                          ) : (
+                            <Button variant="secondary" size="sm" onClick={() => setAdminActive(row.admin.id, true)}><UserCheck className="mr-2 h-4 w-4" /> Aktifkan</Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="xl:col-span-2">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Daftar Akun Kasir</CardTitle>
+              <CardDescription>Semua kasir yang dibuat admin. Jika admin nonaktif atau expired, kasir otomatis ikut tidak bisa login.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadAdmins}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {loading ? (
+            <div className="flex min-h-48 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memuat kasir...</div>
+          ) : cashiers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#bccac0] bg-[#f8f9ff] p-8 text-center text-sm font-semibold text-[#3d4a42]">Belum ada akun kasir yang dibuat admin.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kasir</TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>UMKM</TableHead>
+                  <TableHead>Admin Pembuat</TableHead>
+                  <TableHead>Status Kasir</TableHead>
+                  <TableHead>Status Admin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cashiers.map((row) => {
+                  const admin = admins.find((item) => item.admin.id === row.profile.adminId);
+                  const status = cashierStatus(row, admin);
+                  const adminExpired = isExpired(admin?.profile.activeUntil);
+                  const adminStatus = adminEffectiveActive(admin) ? "Aktif" : adminExpired ? "Expired" : "Nonaktif";
+                  return (
+                    <TableRow key={row.cashier.id}>
+                      <TableCell><p className="font-bold text-[#0b1c30]">{row.cashier.name}</p><p className="text-xs text-[#3d4a42]">{row.cashier.email}</p></TableCell>
+                      <TableCell>{row.cashier.username || "-"}</TableCell>
+                      <TableCell>{row.shop.name}</TableCell>
+                      <TableCell>{admin?.admin.name || "-"}</TableCell>
+                      <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant={adminEffectiveActive(admin) ? "success" : adminExpired ? "warning" : "secondary"}>{adminStatus}</Badge>
+                          <p className="text-xs text-[#3d4a42]">Masa aktif: {formatActiveUntil(admin?.profile.activeUntil)}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -312,6 +422,11 @@ export function AdminManagement() {
             <div className="space-y-2"><Label>Nama UMKM/Cabang</Label><Input value={editShopName} onChange={(event) => setEditShopName(event.target.value)} placeholder="UMKM Melati" /></div>
             <div className="space-y-2"><Label>Alamat Cabang</Label><Input value={editShopAddress} onChange={(event) => setEditShopAddress(event.target.value)} placeholder="Jl. Melati No. 12" /></div>
             <div className="space-y-2"><Label>Nomer Telpon</Label><Input value={editShopPhone} onChange={(event) => setEditShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
+            <div className="space-y-2">
+              <Label>Masa Aktif Subscription</Label>
+              <Input type="date" value={editActiveUntil} onChange={(event) => setEditActiveUntil(event.target.value)} min={todayJakarta()} />
+              <p className="text-xs text-[#3d4a42]">Kalau tanggal lewat, admin otomatis tidak bisa login/akses dashboard. Kosongkan untuk tanpa batas.</p>
+            </div>
 
             <div className="space-y-2">
               <Label>QRIS Statis Pemilik UMKM</Label>

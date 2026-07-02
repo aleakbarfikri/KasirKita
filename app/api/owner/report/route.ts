@@ -61,7 +61,7 @@ export async function GET() {
     lines.push("");
 
     lines.push(csvRow(["ADMIN UMKM"]));
-    lines.push(csvRow(["Nama Admin", "Username", "Email", "UMKM", "Alamat", "Status", "Saldo QRIS", "Total Withdrawn"]));
+    lines.push(csvRow(["Nama Admin", "Username", "Email", "UMKM", "Alamat", "Status", "Masa Aktif Sampai", "Saldo QRIS", "Total Withdrawn"]));
     admins.forEach((row) => {
       const user = row.user!;
       const shop = row.shop!;
@@ -73,6 +73,7 @@ export async function GET() {
         shop.name,
         shop.address,
         row.profile.isActive ? "Aktif" : "Nonaktif",
+        row.profile.activeUntil || "Tanpa batas",
         rupiahNumber((balance?.totalEarnedQrisApi ?? 0) - (balance?.totalWithdrawn ?? 0)),
         rupiahNumber(balance?.totalWithdrawn ?? 0),
       ]));

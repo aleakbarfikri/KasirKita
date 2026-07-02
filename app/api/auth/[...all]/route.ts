@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createId } from "@/lib/server/ids";
-import { createSignedSessionToken, now, publicUser, readDb, verifyPassword, verifySignedSessionToken, writeDb } from "@/lib/server/data-store";
+import { createSignedSessionToken, isAdminProfileActive, now, publicUser, readDb, verifyPassword, verifySignedSessionToken, writeDb } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 
 const COOKIE_NAME = "kasirkita_session";
@@ -36,10 +36,20 @@ export async function POST(request: Request, { params }: Params) {
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return fail("Username atau password salah.", 401);
     }
+    if (user.role === "admin") {
+      const profile = db.adminProfiles.find((row) => row.userId === user.id);
+      if (!profile || !isAdminProfileActive(profile)) {
+        return fail("Akun admin sedang nonaktif atau masa aktif subscription sudah habis. Minta owner mengaktifkan/perpanjang akun terlebih dahulu.", 403);
+      }
+    }
     if (user.role === "cashier") {
       const profile = db.cashierProfiles.find((row) => row.userId === user.id);
       if (!profile || !profile.isActive || profile.approvalStatus !== "approved") {
         return fail("Akun kasir belum aktif. Minta owner melakukan approval terlebih dahulu.", 403);
+      }
+      const adminProfile = db.adminProfiles.find((row) => row.userId === profile.adminId);
+      if (!adminProfile || !isAdminProfileActive(adminProfile)) {
+        return fail("Akun kasir ikut nonaktif karena admin/UMKM induk sedang nonaktif atau subscription sudah habis.", 403);
       }
     }
 

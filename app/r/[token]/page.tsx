@@ -45,13 +45,18 @@ export default async function DigitalReceiptPage({ params }: { params: { token: 
                 <span className="font-semibold">{item.name}</span>
                 <span>{formatCurrency(item.price * item.quantity)}</span>
               </div>
-              <p className="text-xs text-[#3d4a42]">{item.quantity} x {formatCurrency(item.price)}</p>
+              <p className="text-xs text-[#3d4a42]">
+                {item.quantity} x {formatCurrency(item.price)}
+                {item.discountAmount ? ` • Diskon ${formatCurrency(item.discountAmount)} / item` : ""}
+              </p>
             </div>
           ))}
         </div>
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
         <div className="space-y-1 text-sm">
+          {transaction.subtotal !== undefined ? <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(transaction.subtotal)}</span></div> : null}
+          {transaction.discountAmount ? <div className="flex justify-between"><span>Diskon Transaksi</span><span>-{formatCurrency(transaction.discountAmount)}</span></div> : null}
           <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatCurrency(transaction.total)}</span></div>
           {transaction.paidAmount !== null && transaction.paidAmount !== undefined ? <div className="flex justify-between"><span>Dibayar</span><span>{formatCurrency(transaction.paidAmount)}</span></div> : null}
           {transaction.changeAmount !== null && transaction.changeAmount !== undefined ? <div className="flex justify-between"><span>Kembalian</span><span>{formatCurrency(transaction.changeAmount)}</span></div> : null}

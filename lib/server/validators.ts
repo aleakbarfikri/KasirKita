@@ -15,6 +15,8 @@ export const productSchema = z.object({
   name: z.string().min(2),
   price: z.coerce.number().int().min(0),
   costPrice: z.coerce.number().int().min(0).default(0),
+  discountType: z.enum(["none", "percent", "amount"]).optional().default("none"),
+  discountValue: z.coerce.number().int().min(0).optional().default(0),
   stock: z.coerce.number().int().min(0).optional().nullable(),
   photoUrl: z.string().max(2_000_000).optional().or(z.literal("")),
 });
@@ -25,13 +27,17 @@ export const cartItemSchema = z.object({
   productId: z.string().optional(),
   sku: z.string().trim().optional().or(z.literal("")),
   name: z.string().min(1),
+  originalPrice: z.coerce.number().int().min(0).optional(),
   price: z.coerce.number().int().min(0),
+  discountAmount: z.coerce.number().int().min(0).optional(),
   quantity: z.coerce.number().int().min(1),
 });
 
 export const checkoutSchema = z.object({
   paymentMethod: z.enum(["cash", "qris_static", "qris_pakasir", "debt"]),
   paidAmount: z.coerce.number().int().min(0).optional(),
+  discountType: z.enum(["none", "percent", "amount"]).optional().default("none"),
+  discountValue: z.coerce.number().int().min(0).optional().default(0),
   note: z.string().optional(),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -47,6 +53,7 @@ export const adminCreateSchema = z.object({
   shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter"),
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),
+  activeUntil: z.string().trim().optional().or(z.literal("")),
 });
 
 export const cashierCreateSchema = z.object({
@@ -68,6 +75,7 @@ export const adminUpdateSchema = z.object({
   shopPhone: z.string().trim().optional(),
   qrisStaticImageUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
+  activeUntil: z.string().trim().optional().nullable().or(z.literal("")),
 });
 
 export const paymentConfigSchema = z.object({
