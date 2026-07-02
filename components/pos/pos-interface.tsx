@@ -21,6 +21,8 @@ type ModalMethod = PaymentMethod | null;
 
 type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
 type SuccessSummary = { method: PaymentMethod; total: number; totalItems: number; queued?: boolean };
+type DiscountType = "none" | "percent" | "amount";
+type ReceiptPaperWidth = "58mm" | "80mm";
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
@@ -54,6 +56,9 @@ export function PosInterface() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
+  const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
+  const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
   const [paymentMethod, setPaymentMethod] = useState<ModalMethod>(null);
   const [cashReceived, setCashReceived] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
@@ -203,8 +208,37 @@ export function PosInterface() {
   }, [query, category, products]);
 
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const total = subtotal;
+  function productDiscountAmount(product: ProductRecord) {
+    const type = product.discountType ?? "none";
+    const value = Math.max(0, Math.round(product.discountValue ?? 0));
+    const price = Math.max(0, Math.round(product.price ?? 0));
+    if (type === "percent") return Math.min(price, Math.round(price * Math.min(value, 100) / 100));
+    if (type === "amount") return Math.min(price, value);
+    return 0;
+  }
+
+  function productFinalPrice(product: ProductRecord) {
+    return Math.max(0, Math.round((product.price ?? 0) - productDiscountAmount(product)));
+  }
+
+  function discountLabel(product: ProductRecord) {
+    const type = product.discountType ?? "none";
+    const value = product.discountValue ?? 0;
+    if (type === "percent" && value > 0) return `${value}%`;
+    if (type === "amount" && value > 0) return formatCurrency(value);
+    return "";
+  }
+
+  function calculateCheckoutDiscount(base: number) {
+    const value = Math.max(0, Math.round(Number(checkoutDiscountValue) || 0));
+    if (checkoutDiscountType === "percent") return Math.min(base, Math.round(base * Math.min(value, 100) / 100));
+    if (checkoutDiscountType === "amount") return Math.min(base, value);
+    return 0;
+  }
+
+  const subtotal = cart.reduce((sum, item) => sum + productFinalPrice(item) * item.qty, 0);
+  const checkoutDiscountAmount = calculateCheckoutDiscount(subtotal);
+  const total = Math.max(0, subtotal - checkoutDiscountAmount);
   const change = Math.max(cashReceived - total, 0);
 
   const addToCart = useCallback((product: ProductRecord, quantity = 1) => {
@@ -388,7 +422,9 @@ export function PosInterface() {
       productId: item.isManual ? undefined : item.id,
       sku: item.sku,
       name: item.name,
-      price: item.price,
+      originalPrice: item.price,
+      price: productFinalPrice(item),
+      discountAmount: productDiscountAmount(item),
       quantity: item.qty,
     }));
   }
@@ -397,6 +433,8 @@ export function PosInterface() {
     setCart([]);
     setPaymentMethod(null);
     setCashReceived(0);
+    setCheckoutDiscountType("none");
+    setCheckoutDiscountValue("");
     setPaymentStatus("idle");
     setPakasirPayment(null);
     setCustomerName("");
@@ -440,8 +478,10 @@ export function PosInterface() {
       `Kasir: ${receipt.cashier.name}`,
       `Metode: ${methodLabel[trx.paymentMethod]}`,
       "",
-      ...receipt.items.map((item) => `${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}`),
+      ...receipt.items.map((item) => `${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}${item.discountAmount ? ` (diskon ${formatCurrency(item.discountAmount)}/item)` : ""}`),
       "",
+      receipt.transaction.subtotal !== undefined ? `Subtotal: ${formatCurrency(receipt.transaction.subtotal)}` : "",
+      receipt.transaction.discountAmount ? `Diskon transaksi: -${formatCurrency(receipt.transaction.discountAmount)}` : "",
       `Total: ${formatCurrency(trx.total)}`,
       trx.paidAmount !== null && trx.paidAmount !== undefined ? `Dibayar: ${formatCurrency(trx.paidAmount)}` : "",
       trx.changeAmount !== null && trx.changeAmount !== undefined ? `Kembalian: ${formatCurrency(trx.changeAmount)}` : "",
@@ -455,30 +495,36 @@ export function PosInterface() {
   async function printThermalReceipt(receipt: ReceiptRecord) {
     const trx = receipt.transaction;
     const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
-    const qrDataUrl = receipt.publicUrl ? await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: 180 }) : "";
+    const paperWidth = receiptPaperWidth;
+    const contentPadding = paperWidth === "80mm" ? "10px" : "7px";
+    const qrSize = paperWidth === "80mm" ? 160 : 132;
+    const qrDataUrl = receipt.publicUrl ? await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: qrSize }) : "";
     const itemRows = receipt.items.map((item) => `
       <div class="item">
-        <div>${escapeHtml(item.name)}</div>
-        <div class="muted">${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</div>
-        <div class="right">${escapeHtml(formatCurrency(item.price * item.quantity))}</div>
+        <div class="item-name">${escapeHtml(item.name)}</div>
+        <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.price * item.quantity))}</span></div>
+        ${item.discountAmount ? `<div class="muted small">Diskon item: ${escapeHtml(formatCurrency(item.discountAmount))} / pcs</div>` : ""}
       </div>
     `).join("");
     const html = `<!doctype html>
       <html><head><title>Struk ${escapeHtml(trx.id)}</title>
       <style>
-        @page { size: 58mm auto; margin: 0; }
-        body { margin: 0; background: #fff; color: #000; font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-        .receipt { width: 58mm; padding: 7px; box-sizing: border-box; }
+        @page { size: ${paperWidth} auto; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #fff; color: #000; font: 11px "Courier New", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.28; }
+        .receipt { width: ${paperWidth}; max-width: ${paperWidth}; padding: ${contentPadding}; box-sizing: border-box; }
         .center { text-align: center; }
         .shop { font-weight: 800; font-size: 13px; text-transform: uppercase; }
         .line { border-top: 1px dashed #000; margin: 8px 0; }
         .row { display: flex; justify-content: space-between; gap: 8px; }
+        .row span:first-child { min-width: 0; overflow-wrap: anywhere; }
         .row span:last-child { text-align: right; }
         .item { margin: 6px 0; }
+        .item-name { font-weight: 700; overflow-wrap: anywhere; }
         .right { text-align: right; font-weight: 700; }
         .muted { color: #333; }
         .total { font-size: 13px; font-weight: 900; }
-        .qr { display: block; width: 30mm; height: 30mm; margin: 4px auto 2px; }
+        .qr { display: block; width: ${paperWidth === "80mm" ? "34mm" : "28mm"}; height: ${paperWidth === "80mm" ? "34mm" : "28mm"}; margin: 4px auto 2px; }
         .small { font-size: 9px; }
       </style></head><body>
         <div class="receipt">
@@ -495,6 +541,8 @@ export function PosInterface() {
           <div class="line"></div>
           ${itemRows}
           <div class="line"></div>
+          ${trx.subtotal !== undefined ? `<div class="row"><span>Subtotal</span><span>${escapeHtml(formatCurrency(trx.subtotal))}</span></div>` : ""}
+          ${trx.discountAmount ? `<div class="row"><span>Diskon</span><span>-${escapeHtml(formatCurrency(trx.discountAmount))}</span></div>` : ""}
           <div class="row total"><span>Total</span><span>${escapeHtml(formatCurrency(trx.total))}</span></div>
           ${trx.paidAmount !== null && trx.paidAmount !== undefined ? `<div class="row"><span>Dibayar</span><span>${escapeHtml(formatCurrency(trx.paidAmount))}</span></div>` : ""}
           ${trx.changeAmount !== null && trx.changeAmount !== undefined ? `<div class="row"><span>Kembalian</span><span>${escapeHtml(formatCurrency(trx.changeAmount))}</span></div>` : ""}
@@ -557,7 +605,7 @@ export function PosInterface() {
     if (method === "qris_pakasir") {
       setSubmitting(true);
       try {
-      const result = await api.checkout({ paymentMethod: "qris_pakasir", items: itemsPayload() });
+      const result = await api.checkout({ paymentMethod: "qris_pakasir", discountType: checkoutDiscountType, discountValue: Number(checkoutDiscountValue || 0), items: itemsPayload() });
         if (result.receipt) setLastReceipt(result.receipt);
         setPakasirPayment(result.payment ?? null);
       } catch (err) {
@@ -575,6 +623,8 @@ export function PosInterface() {
     const payload: CheckoutPayload = {
       paymentMethod: method,
       paidAmount: method === "cash" ? cashReceived : undefined,
+      discountType: checkoutDiscountType,
+      discountValue: Number(checkoutDiscountValue || 0),
       customerName: method === "debt" ? customerName : undefined,
       customerPhone: method === "debt" ? customerPhone : undefined,
       debtDueDate: method === "debt" ? dueDate : undefined,
@@ -692,11 +742,15 @@ export function PosInterface() {
                       <div className="flex h-full w-full items-center justify-center px-3 text-center text-xl font-black leading-tight text-primary sm:text-2xl lg:text-3xl"><span className="line-clamp-3">{product.name}</span></div>
                       <Badge variant={(product.stock ?? 0) < 8 ? "danger" : "default"} className="absolute right-3 top-3 normal-case tracking-normal">{t("Stok")}: {product.stock ?? "-"}</Badge>
                       {cartQty > 0 ? <Badge variant="success" className="absolute left-3 top-3 normal-case tracking-normal">Di cart: {cartQty}</Badge> : null}
+                      {discountLabel(product) ? <Badge variant="warning" className="absolute bottom-3 left-3 normal-case tracking-normal">Diskon {discountLabel(product)}</Badge> : null}
                     </div>
                     <div className="p-3 lg:p-4">
                       <p className="line-clamp-2 min-h-[52px] text-lg font-extrabold leading-tight text-[#0b1c30] lg:min-h-[60px] lg:text-xl">{product.name}</p>
                       <div className="mt-2 flex items-center justify-between">
-                        <p className="text-base font-extrabold text-primary lg:text-lg">{formatCurrency(product.price)}</p>
+                        <div>
+                          {productDiscountAmount(product) > 0 ? <p className="text-xs font-bold text-[#3d4a42] line-through">{formatCurrency(product.price)}</p> : null}
+                          <p className="text-base font-extrabold text-primary lg:text-lg">{formatCurrency(productFinalPrice(product))}</p>
+                        </div>
                         <span className="rounded-full bg-[#eff4ff] px-2 py-1 text-[11px] font-semibold text-[#3d4a42]">SKU {product.sku.slice(-4)}</span>
                       </div>
                     </div>
@@ -727,7 +781,8 @@ export function PosInterface() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2"><p className="truncate font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>
-                      <p className="text-sm font-bold text-primary">{formatCurrency(item.price)} × {item.qty}</p>
+                      <p className="text-sm font-bold text-primary">{formatCurrency(productFinalPrice(item))} × {item.qty}</p>
+                      {productDiscountAmount(item) > 0 ? <p className="text-xs font-semibold text-amber-700">{t("Diskon item")} {formatCurrency(productDiscountAmount(item))} / pcs</p> : null}
                     </div>
                     <button onClick={() => updateQty(item.id, 0)} className="flex h-9 w-9 items-center justify-center rounded-full text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                   </div>
@@ -746,7 +801,7 @@ export function PosInterface() {
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3d4a42]">Subtotal</p>
-                      <p className="text-lg font-extrabold text-[#0b1c30]">{formatCurrency(item.price * item.qty)}</p>
+                      <p className="text-lg font-extrabold text-[#0b1c30]">{formatCurrency(productFinalPrice(item) * item.qty)}</p>
                     </div>
                   </div>
                 </div>
@@ -759,6 +814,29 @@ export function PosInterface() {
           <div className="space-y-3 text-base">
             <div className="flex justify-between"><span>{t("Total qty")}</span><span>{totalItems} item</span></div>
             <div className="flex justify-between"><span>{t("Subtotal barang × qty")}</span><span>{formatCurrency(subtotal)}</span></div>
+            <div className="rounded-2xl border border-[#bccac0] bg-white p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Label className="text-sm">{t("Diskon Transaksi")}</Label>
+                {checkoutDiscountAmount > 0 ? <span className="text-sm font-bold text-amber-700">-{formatCurrency(checkoutDiscountAmount)}</span> : null}
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+                <select value={checkoutDiscountType} onChange={(event) => setCheckoutDiscountType(event.target.value as DiscountType)} className="h-10 rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold">
+                  <option value="none">{t("Tanpa Diskon")}</option>
+                  <option value="percent">{t("Persen")}</option>
+                  <option value="amount">{t("Nominal Rupiah")}</option>
+                </select>
+                <Input
+                  type="number"
+                  min={0}
+                  max={checkoutDiscountType === "percent" ? 100 : undefined}
+                  value={checkoutDiscountValue}
+                  onChange={(event) => setCheckoutDiscountValue(event.target.value)}
+                  disabled={checkoutDiscountType === "none"}
+                  placeholder={checkoutDiscountType === "percent" ? "10" : "5000"}
+                  className="h-10"
+                />
+              </div>
+            </div>
             <div className="border-t border-[#bccac0] pt-3 flex justify-between font-extrabold"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
           </div>
 
@@ -845,7 +923,11 @@ export function PosInterface() {
 
         {paymentMethod === "cash" ? (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-[#eff4ff] p-4"><p className="text-sm text-[#3d4a42]">Total</p><p className="text-4xl font-extrabold text-primary">{formatCurrency(total)}</p></div>
+            <div className="rounded-2xl bg-[#eff4ff] p-4">
+              <p className="text-sm text-[#3d4a42]">Total</p>
+              {checkoutDiscountAmount > 0 ? <p className="text-sm font-semibold text-[#3d4a42]">Subtotal {formatCurrency(subtotal)} • Diskon -{formatCurrency(checkoutDiscountAmount)}</p> : null}
+              <p className="text-4xl font-extrabold text-primary">{formatCurrency(total)}</p>
+            </div>
             <div className="space-y-2"><Label>Uang diterima</Label><Input type="number" value={cashReceived || ""} onChange={(event) => setCashReceived(Number(event.target.value))} placeholder="Contoh 100000" /></div>
             <div className="rounded-2xl border border-[#bccac0] p-4"><p className="text-sm text-[#3d4a42]">Kembalian</p><p className="text-3xl font-extrabold text-primary">{formatCurrency(change)}</p></div>
             <Button className="w-full" size="lg" disabled={cashReceived < total || submitting} onClick={() => completeCheckout("cash")}>{submitting ? "Menyimpan..." : "Selesaikan Transaksi"}</Button>
@@ -868,6 +950,7 @@ export function PosInterface() {
             <div>
               <p className="font-bold">QRIS Statis {shopName}</p>
               <p className="text-sm text-[#3d4a42]">Total {formatCurrency(total)}</p>
+              {checkoutDiscountAmount > 0 ? <p className="text-xs text-[#3d4a42]">Diskon -{formatCurrency(checkoutDiscountAmount)}</p> : null}
             </div>
             <p className="text-sm text-[#3d4a42]">Admin konfirmasi setelah pembeli menunjukkan pembayaran berhasil.</p>
             <Button className="w-full" size="lg" disabled={submitting} onClick={() => completeCheckout("qris_static")}>{submitting ? "Menyimpan..." : "Pembayaran Diterima"}</Button>
@@ -910,7 +993,7 @@ export function PosInterface() {
 
         {paymentMethod === "debt" ? (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-[#213145] p-4 text-white"><div className="flex items-center justify-between"><div><p className="text-sm text-white/70">Nominal Hutang</p><p className="text-4xl font-extrabold">{formatCurrency(total)}</p></div><NotebookPen className="h-10 w-10 text-emerald-200" /></div></div>
+            <div className="rounded-2xl bg-[#213145] p-4 text-white"><div className="flex items-center justify-between"><div><p className="text-sm text-white/70">Nominal Hutang</p>{checkoutDiscountAmount > 0 ? <p className="text-xs text-white/70">Diskon -{formatCurrency(checkoutDiscountAmount)}</p> : null}<p className="text-4xl font-extrabold">{formatCurrency(total)}</p></div><NotebookPen className="h-10 w-10 text-emerald-200" /></div></div>
             <div className="grid gap-3 md:grid-cols-2"><div className="space-y-2"><Label>Nama pelanggan</Label><Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Contoh Pak Rudi" /></div><div className="space-y-2"><Label>No. HP</Label><Input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div></div>
             <div className="grid gap-3 md:grid-cols-2"><div className="space-y-2"><Label>Jatuh tempo</Label><Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div><div className="space-y-2"><Label>Status awal</Label><Select defaultValue="Belum Lunas" disabled><option>Belum Lunas</option></Select></div></div>
             <div className="space-y-2"><Label>Catatan</Label><Textarea value={debtNote} onChange={(event) => setDebtNote(event.target.value)} placeholder="Alamat, alasan, atau catatan pelanggan..." /></div>
@@ -936,6 +1019,13 @@ export function PosInterface() {
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
             {lastReceipt ? (
               <div className="mt-6 grid gap-3">
+                <div className="rounded-2xl bg-[#eff4ff] p-3 text-left">
+                  <Label className="text-xs font-bold uppercase tracking-[0.16em] text-[#3d4a42]">{t("Ukuran Struk")}</Label>
+                  <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(event.target.value as ReceiptPaperWidth)} className="mt-2 h-10 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-bold">
+                    <option value="58mm">58mm ({t("thermal kecil")})</option>
+                    <option value="80mm">80mm ({t("thermal besar")})</option>
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Button variant="outline" onClick={() => printThermalReceipt(lastReceipt)}>
                     <Printer className="mr-2 h-4 w-4" /> Print

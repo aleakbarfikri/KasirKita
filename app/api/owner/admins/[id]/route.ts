@@ -42,6 +42,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.shopPhone !== undefined) shop.phone = body.shopPhone || null;
     if (body.qrisStaticImageUrl !== undefined) shop.qrisStaticImageUrl = body.qrisStaticImageUrl || null;
     if (typeof body.isActive === "boolean") profile.isActive = body.isActive;
+    if (body.activeUntil !== undefined) profile.activeUntil = body.activeUntil || null;
 
     const t = now();
     user.updatedAt = t;

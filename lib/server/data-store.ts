@@ -47,6 +47,7 @@ export type AdminProfile = {
   ownerId: string;
   shopId: string;
   isActive: boolean;
+  activeUntil?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -81,6 +82,8 @@ export type Product = {
   name: string;
   price: number;
   costPrice: number;
+  discountType?: "none" | "percent" | "amount";
+  discountValue?: number;
   stock?: number | null;
   photoUrl?: string | null;
   isActive: boolean;
@@ -93,6 +96,10 @@ export type Transaction = {
   shopId: string;
   cashierId: string;
   paymentMethod: "cash" | "qris_static" | "qris_pakasir" | "debt";
+  subtotal?: number;
+  discountType?: "none" | "percent" | "amount";
+  discountValue?: number;
+  discountAmount?: number;
   total: number;
   paidAmount?: number | null;
   changeAmount?: number | null;
@@ -110,8 +117,10 @@ export type TransactionItem = {
   productId?: string | null;
   sku: string;
   name: string;
+  originalPrice?: number;
   price: number;
   costPrice?: number | null;
+  discountAmount?: number;
   quantity: number;
   subtotal: number;
 };
@@ -228,6 +237,23 @@ const AUTH_SECRET = process.env.KASIRKITA_AUTH_SECRET || process.env.NEXTAUTH_SE
 
 export function now() {
   return new Date().toISOString();
+}
+
+export function jakartaDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function isAdminProfileActive(profile: Pick<AdminProfile, "isActive" | "activeUntil">, date = new Date()) {
+  if (!profile.isActive) return false;
+  if (!profile.activeUntil) return true;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(profile.activeUntil)) return profile.activeUntil >= jakartaDateString(date);
+  const expiresAt = new Date(profile.activeUntil).getTime();
+  return Number.isFinite(expiresAt) ? expiresAt >= date.getTime() : true;
 }
 
 export function createToken() {

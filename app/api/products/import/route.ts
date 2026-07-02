@@ -9,6 +9,8 @@ type ImportRow = {
   price: number;
   costPrice: number;
   stock: number | null;
+  discountType: "none" | "percent" | "amount";
+  discountValue: number;
 };
 
 function detectDelimiter(text: string) {
@@ -76,6 +78,13 @@ function numberValue(value: string, rowNumber: number, label: string) {
   return Math.round(parsed);
 }
 
+function discountTypeValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (["percent", "persen", "%"].includes(normalized)) return "percent";
+  if (["amount", "nominal", "rupiah", "rp"].includes(normalized)) return "amount";
+  return "none";
+}
+
 function rowsFromCsv(text: string): ImportRow[] {
   const cleanText = text.replace(/^\uFEFF/, "");
   const rows = parseCsv(cleanText).filter((row) => !/^sep\s*=/i.test(String(row[0] ?? "")));
@@ -87,6 +96,8 @@ function rowsFromCsv(text: string): ImportRow[] {
     price: headers.findIndex((header) => ["harga_jual", "harga", "price"].includes(header)),
     costPrice: headers.findIndex((header) => ["harga_modal", "modal", "cost_price"].includes(header)),
     stock: headers.findIndex((header) => ["stok", "stock"].includes(header)),
+    discountType: headers.findIndex((header) => ["diskon_tipe", "tipe_diskon", "discount_type"].includes(header)),
+    discountValue: headers.findIndex((header) => ["diskon_nilai", "nilai_diskon", "discount_value"].includes(header)),
   };
 
   if (index.name === -1 || index.price === -1) {
@@ -100,6 +111,8 @@ function rowsFromCsv(text: string): ImportRow[] {
     const price = numberValue(String(row[index.price] ?? ""), rowNumber, "harga_jual");
     const costPrice = index.costPrice === -1 || !row[index.costPrice] ? 0 : numberValue(String(row[index.costPrice]), rowNumber, "harga_modal");
     const stock = index.stock === -1 || row[index.stock] === "" || row[index.stock] === undefined ? null : numberValue(String(row[index.stock]), rowNumber, "stok");
+    const discountType = index.discountType === -1 ? "none" : discountTypeValue(String(row[index.discountType] ?? ""));
+    const discountValue = index.discountValue === -1 || !row[index.discountValue] ? 0 : numberValue(String(row[index.discountValue]), rowNumber, "diskon_nilai");
 
     return {
       sku: index.sku === -1 ? "" : String(row[index.sku] ?? "").trim(),
@@ -107,6 +120,8 @@ function rowsFromCsv(text: string): ImportRow[] {
       price,
       costPrice,
       stock,
+      discountType,
+      discountValue: discountType === "none" ? 0 : discountValue,
     };
   });
 }
@@ -149,6 +164,8 @@ export async function POST(request: Request) {
         existing.price = row.price;
         existing.costPrice = row.costPrice;
         existing.stock = row.stock;
+        existing.discountType = row.discountType;
+        existing.discountValue = row.discountValue;
         existing.isActive = true;
         existing.updatedAt = timestamp;
         updated += 1;
@@ -160,6 +177,8 @@ export async function POST(request: Request) {
           name: row.name,
           price: row.price,
           costPrice: row.costPrice,
+          discountType: row.discountType,
+          discountValue: row.discountValue,
           stock: row.stock,
           photoUrl: null,
           isActive: true,

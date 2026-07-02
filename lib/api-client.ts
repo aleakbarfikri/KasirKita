@@ -29,6 +29,8 @@ export type ProductRecord = {
   name: string;
   price: number;
   costPrice: number;
+  discountType?: "none" | "percent" | "amount";
+  discountValue?: number;
   stock?: number | null;
   photoUrl?: string | null;
   isActive?: boolean;
@@ -45,6 +47,10 @@ export type TransactionRecord = {
   shopId?: string;
   cashierId?: string;
   paymentMethod: PaymentMethod;
+  subtotal?: number;
+  discountType?: "none" | "percent" | "amount";
+  discountValue?: number;
+  discountAmount?: number;
   total: number;
   paidAmount?: number | null;
   changeAmount?: number | null;
@@ -61,8 +67,10 @@ export type TransactionRecord = {
     productId?: string | null;
     sku: string;
     name: string;
+    originalPrice?: number;
     price: number;
     costPrice?: number | null;
+    discountAmount?: number;
     quantity: number;
     subtotal: number;
   }>;
@@ -154,6 +162,7 @@ export type AdminProfile = {
   ownerId: string;
   shopId: string;
   isActive: boolean;
+  activeUntil?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -233,13 +242,17 @@ export type CheckoutItem = {
   productId?: string;
   sku?: string;
   name: string;
+  originalPrice?: number;
   price: number;
+  discountAmount?: number;
   quantity: number;
 };
 
 export type CheckoutPayload = {
   paymentMethod: PaymentMethod;
   paidAmount?: number;
+  discountType?: "none" | "percent" | "amount";
+  discountValue?: number;
   note?: string;
   customerName?: string;
   customerPhone?: string;
@@ -404,9 +417,9 @@ export const api = {
   owner: {
     admins: {
       list: () => apiFetch<OwnerAdminRow[]>("/api/owner/admins"),
-      create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string; shopPhone?: string }) =>
+      create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string; shopPhone?: string; activeUntil?: string }) =>
         apiFetch<OwnerAdminRow>("/api/owner/admins", { method: "POST", body: JSON.stringify(body) }),
-      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string }) =>
+      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null }) =>
         apiFetch<OwnerAdminRow>(`/api/owner/admins/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
       deactivate: (id: string) => apiFetch<AdminProfile>(`/api/owner/admins/${id}`, { method: "DELETE" }),
     },

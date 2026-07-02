@@ -7,13 +7,23 @@ import { buildReceipt } from "@/lib/server/receipt";
 import { checkoutSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, writeDb, type Debt, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 
+function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
+  const safeSubtotal = Math.max(0, Math.round(subtotal));
+  const safeValue = Math.max(0, Math.round(value || 0));
+  if (type === "percent") return Math.min(safeSubtotal, Math.round(safeSubtotal * Math.min(safeValue, 100) / 100));
+  if (type === "amount") return Math.min(safeSubtotal, safeValue);
+  return 0;
+}
+
 export async function POST(request: Request) {
   try {
     const session = await requirePosUser();
     const scope = await getAdminScope(session.user.id);
     const body = checkoutSchema.parse(await readJson(request));
 
-    const total = body.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = body.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const discountAmount = calculateDiscount(subtotal, body.discountType, body.discountValue);
+    const total = Math.max(0, subtotal - discountAmount);
     const paidAmount = body.paidAmount ?? 0;
     const transactionId = createId("trx");
     const receiptToken = createId("rcpt");
@@ -35,6 +45,10 @@ export async function POST(request: Request) {
       shopId: scope.shopId,
       cashierId: session.user.id,
       paymentMethod: body.paymentMethod,
+      subtotal,
+      discountType: body.discountType ?? "none",
+      discountValue: body.discountValue ?? 0,
+      discountAmount,
       total,
       paidAmount: body.paymentMethod === "cash" ? paidAmount : null,
       changeAmount: body.paymentMethod === "cash" ? paidAmount - total : null,
@@ -54,8 +68,10 @@ export async function POST(request: Request) {
         productId: item.productId ?? null,
         sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
         name: item.name,
+        originalPrice: item.originalPrice ?? item.price,
         price: item.price,
         costPrice: product?.costPrice ?? 0,
+        discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - item.price),
         quantity: item.quantity,
         subtotal: item.price * item.quantity,
       };
@@ -97,7 +113,7 @@ export async function POST(request: Request) {
       entityType: "transaction",
       entityId: transactionId,
       message: `${session.user.name || session.user.username || "Kasir"} membuat transaksi ${body.paymentMethod} senilai ${total}.`,
-      metadata: { paymentMethod: body.paymentMethod, total, itemCount: items.length, status },
+      metadata: { paymentMethod: body.paymentMethod, subtotal, discountAmount, total, itemCount: items.length, status },
     });
     if (debt) {
       addAuditLog(db, {

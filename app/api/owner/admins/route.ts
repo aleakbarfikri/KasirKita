@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       ownerId: session.user.id,
       shopId: shop.id,
       isActive: true,
+      activeUntil: body.activeUntil || null,
       createdAt: t,
       updatedAt: t,
     };

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getShopByIdFromDb, getUserByIdFromDb, publicUser, readDb, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
+import { getShopByIdFromDb, getUserByIdFromDb, isAdminProfileActive, publicUser, readDb, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
 
 type SessionUser = {
   id: string;
@@ -73,7 +73,7 @@ export function authError(error: unknown) {
 
 export async function getAdminScope(adminId: string) {
   const db = await readDb();
-  const profile = db.adminProfiles.find((row) => row.userId === adminId && row.isActive);
+  const profile = db.adminProfiles.find((row) => row.userId === adminId && isAdminProfileActive(row));
   if (profile) {
     const shop = getShopByIdFromDb(db, profile.shopId);
     if (!shop) {
@@ -92,6 +92,10 @@ export async function getAdminScope(adminId: string) {
   const cashierProfile = db.cashierProfiles.find((row) => row.userId === adminId && row.isActive && row.approvalStatus === "approved");
   if (!cashierProfile) {
     throw Object.assign(new Error("Admin profile is not active or has no shop"), { status: 403 });
+  }
+  const parentAdminProfile = db.adminProfiles.find((row) => row.userId === cashierProfile.adminId && isAdminProfileActive(row));
+  if (!parentAdminProfile) {
+    throw Object.assign(new Error("Parent admin subscription is inactive or expired"), { status: 403 });
   }
   const shop = getShopByIdFromDb(db, cashierProfile.shopId);
   if (!shop) {

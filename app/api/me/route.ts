@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/server/http";
 import { authError, requireAuth } from "@/lib/server/auth-guard";
-import { readDb } from "@/lib/server/data-store";
+import { isAdminProfileActive, readDb } from "@/lib/server/data-store";
 
 export async function GET() {
   try {
@@ -9,12 +9,13 @@ export async function GET() {
 
     if (session.user.role === "admin") {
       const db = await readDb();
-      const profile = db.adminProfiles.find((row) => row.userId === session.user.id && row.isActive);
+      const profile = db.adminProfiles.find((row) => row.userId === session.user.id && isAdminProfileActive(row));
       shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
     } else if (session.user.role === "cashier") {
       const db = await readDb();
       const profile = db.cashierProfiles.find((row) => row.userId === session.user.id && row.isActive && row.approvalStatus === "approved");
-      shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
+      const adminProfile = profile ? db.adminProfiles.find((row) => row.userId === profile.adminId && isAdminProfileActive(row)) : null;
+      shop = profile && adminProfile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
     }
 
     return ok({ user: session.user, session: session.session, shop });

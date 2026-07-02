@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Download, FileSpreadsheet, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Download, FileSpreadsheet, Loader2, Pencil, Plus, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
 import { api, type ProductRecord } from "@/lib/api-client";
 import { cacheProducts, readCachedProducts } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
@@ -22,8 +22,11 @@ export function InventoryManager() {
   const [sku, setSku] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
+  const [discountType, setDiscountType] = useState<"none" | "percent" | "amount">("none");
+  const [discountValue, setDiscountValue] = useState("");
   const [stock, setStock] = useState("");
-const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -34,6 +37,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   const [editSku, setEditSku] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editCostPrice, setEditCostPrice] = useState("");
+  const [editDiscountType, setEditDiscountType] = useState<"none" | "percent" | "amount">("none");
+  const [editDiscountValue, setEditDiscountValue] = useState("");
   const [editStock, setEditStock] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -66,7 +71,23 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setSku("");
     setPrice("");
     setCostPrice("");
+    setDiscountType("none");
+    setDiscountValue("");
     setStock("");
+  }
+
+  const filteredItems = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return items;
+    return items.filter((item) => item.name.toLowerCase().includes(keyword) || item.sku.toLowerCase().includes(keyword) || item.shopName?.toLowerCase().includes(keyword));
+  }, [items, search]);
+
+  function discountLabel(product: ProductRecord) {
+    const type = product.discountType ?? "none";
+    const value = product.discountValue ?? 0;
+    if (type === "percent" && value > 0) return `${value}%`;
+    if (type === "amount" && value > 0) return formatCurrency(value);
+    return "-";
   }
 
   async function addProduct() {
@@ -84,6 +105,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         sku,
         price: Number(price),
         costPrice: Number(costPrice || 0),
+        discountType,
+        discountValue: discountType === "none" ? 0 : Number(discountValue || 0),
         stock: stock ? Number(stock) : null,
         photoUrl: "",
       });
@@ -104,6 +127,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setEditSku(product.sku || "");
     setEditPrice(String(product.price ?? ""));
     setEditCostPrice(String(product.costPrice ?? 0));
+    setEditDiscountType(product.discountType ?? "none");
+    setEditDiscountValue(String(product.discountValue ?? ""));
     setEditStock(product.stock === null || product.stock === undefined ? "" : String(product.stock));
     setEditError(null);
   }
@@ -131,6 +156,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         sku: editSku,
         price: Number(editPrice),
         costPrice: Number(editCostPrice || 0),
+        discountType: editDiscountType,
+        discountValue: editDiscountType === "none" ? 0 : Number(editDiscountValue || 0),
         stock: editStock ? Number(editStock) : null,
       });
       setItems((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
@@ -235,10 +262,24 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               </Button>
               <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={importProducts} className="hidden" />
             </div>
-            <p className="rounded-2xl bg-[#eff4ff] p-3 text-xs font-semibold leading-relaxed text-[#3d4a42]">{t("Download template, kolom SKU/nama/harga/stok sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
+            <p className="rounded-2xl bg-[#eff4ff] p-3 text-xs font-semibold leading-relaxed text-[#3d4a42]">{t("Download template, kolom SKU/nama/harga/stok/diskon sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
             <div className="space-y-2"><Label>{t("Nama Barang")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} /></div>
             <div className="space-y-2"><Label>{t("Harga Jual")}</Label><Input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="15000" /></div>
             <div className="space-y-2"><Label>{t("Harga Modal")}</Label><Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} type="number" placeholder="12500" /></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t("Tipe Diskon")}</Label>
+                <select value={discountType} onChange={(event) => setDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-md border border-[#bccac0] bg-white px-3 py-2 text-sm font-medium">
+                  <option value="none">{t("Tanpa Diskon")}</option>
+                  <option value="percent">{t("Persen")}</option>
+                  <option value="amount">{t("Nominal Rupiah")}</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("Nilai Diskon")}</Label>
+                <Input value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} type="number" min={0} max={discountType === "percent" ? 100 : undefined} disabled={discountType === "none"} placeholder={discountType === "percent" ? "10" : "2000"} />
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2"><Label>SKU / Barcode <span className="text-xs font-normal text-[#3d4a42]">({t("opsional")})</span></Label><Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} /></div>
               <div className="space-y-2"><Label>{t("Stok")}</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
@@ -252,12 +293,18 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
 
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle>{t("Daftar Produk")}</CardTitle>
                 <CardDescription>{t("Produk aktif di toko ini.")}</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={loadProducts} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3d4a42]" />
+                  <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("Cari barang, SKU, atau UMKM...")} className="h-10 pl-9 sm:w-72" />
+                </div>
+                <Button variant="outline" size="sm" onClick={loadProducts} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="min-w-0 overflow-x-auto">
@@ -265,14 +312,15 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat produk...")}</div>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Diskon")}</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {items.map((item) => (
+                  {filteredItems.map((item) => (
                     <TableRow key={item.id}>
 <TableCell className="font-medium">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{formatCurrency(item.price)}</TableCell>
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
+                      <TableCell>{discountLabel(item)}</TableCell>
                       <TableCell>{item.stock ?? "-"}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
@@ -291,39 +339,53 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
 
       <Modal
         open={Boolean(editingProduct)}
-        title="Edit Produk"
-        description="Ubah nama barang, SKU, harga jual, harga modal, dan stok. SKU boleh dikosongkan; sistem akan membuat SKU otomatis."
+        title={t("Edit Produk")}
+        description={t("Ubah nama barang, SKU, harga jual, harga modal, diskon, dan stok. SKU boleh dikosongkan; sistem akan membuat SKU otomatis.")}
         onClose={closeEditProduct}
       >
         <div className="space-y-4">
           {editError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{editError}</p> : null}
           <div className="space-y-2">
-            <Label>Nama Barang</Label>
-            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Contoh: Gula 1kg" />
+            <Label>{t("Nama Barang")}</Label>
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} />
           </div>
           <div className="space-y-2">
-            <Label>SKU / Barcode <span className="text-xs font-normal text-[#3d4a42]">(opsional)</span></Label>
-            <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder="Kosongkan untuk auto SKU" />
+            <Label>SKU / Barcode <span className="text-xs font-normal text-[#3d4a42]">({t("opsional")})</span></Label>
+            <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder={t("Kosongkan untuk auto SKU")} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Harga Jual</Label>
+              <Label>{t("Harga Jual")}</Label>
               <Input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} type="number" placeholder="15000" />
             </div>
             <div className="space-y-2">
-              <Label>Harga Modal</Label>
+              <Label>{t("Harga Modal")}</Label>
               <Input value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} type="number" placeholder="12500" />
             </div>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t("Tipe Diskon")}</Label>
+              <select value={editDiscountType} onChange={(event) => setEditDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-md border border-[#bccac0] bg-white px-3 py-2 text-sm font-medium">
+                <option value="none">{t("Tanpa Diskon")}</option>
+                <option value="percent">{t("Persen")}</option>
+                <option value="amount">{t("Nominal Rupiah")}</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Nilai Diskon")}</Label>
+              <Input value={editDiscountValue} onChange={(e) => setEditDiscountValue(e.target.value)} type="number" min={0} max={editDiscountType === "percent" ? 100 : undefined} disabled={editDiscountType === "none"} placeholder={editDiscountType === "percent" ? "10" : "2000"} />
+            </div>
+          </div>
           <div className="space-y-2">
-            <Label>Stok</Label>
+            <Label>{t("Stok")}</Label>
             <Input value={editStock} onChange={(e) => setEditStock(e.target.value)} type="number" placeholder="50" />
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Button type="button" variant="outline" onClick={closeEditProduct} disabled={editSaving}>Batal</Button>
+            <Button type="button" variant="outline" onClick={closeEditProduct} disabled={editSaving}>{t("Tutup")}</Button>
             <Button type="button" onClick={saveEditProduct} disabled={editSaving}>
               {editSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Simpan Perubahan
+              {t("Simpan Perubahan")}
             </Button>
           </div>
         </div>
