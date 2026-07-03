@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Loader2, NotebookTabs, QrCode, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
 import { api, debtStatusLabel, paymentMethodLabel, transactionStatusLabel, type AdminProfile, type DebtRecord, type SubscriptionInvoiceRecord, type TransactionRecord, type WithdrawalRecord } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +13,22 @@ import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
 
 type SubscriptionPlanChoice = "trial" | "basic" | "starter" | "pro" | "business";
+type PaidSubscriptionPlanChoice = Exclude<SubscriptionPlanChoice, "trial">;
 
 function isSubscriptionPlanChoice(value?: string | null): value is SubscriptionPlanChoice {
   return value === "trial" || value === "basic" || value === "starter" || value === "pro" || value === "business";
 }
+
+function isPaidSubscriptionPlanChoice(value?: string | null): value is PaidSubscriptionPlanChoice {
+  return value === "basic" || value === "starter" || value === "pro" || value === "business";
+}
+
+const defaultBillingPeriod: Record<PaidSubscriptionPlanChoice, "monthly" | "yearly"> = {
+  basic: "yearly",
+  starter: "monthly",
+  pro: "monthly",
+  business: "monthly",
+};
 
 function statusVariant(status: TransactionRecord["status"]) {
   if (status === "success") return "success" as const;
@@ -75,6 +88,9 @@ function MetricRow({
 
 export function AdminDashboardClient() {
   const { t } = useAppLanguage();
+  const searchParams = useSearchParams();
+  const checkoutPlan = searchParams.get("checkoutPlan");
+  const autoCheckoutStarted = useRef(false);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
@@ -94,7 +110,7 @@ export function AdminDashboardClient() {
         const [me, transactionRows, debtRows, withdrawalRows, invoiceRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list(), api.subscription.listInvoices().catch(() => [])]);
         setShopName(me.user.shopName || "UMKM Berkah");
         setAdminProfile(me.adminProfile ?? null);
-        setSelectedPlan(isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "starter");
+        setSelectedPlan(isPaidSubscriptionPlanChoice(checkoutPlan) ? checkoutPlan : isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "starter");
         setTransactions(transactionRows);
         setDebts(debtRows);
         setWithdrawals(withdrawalRows);
@@ -106,7 +122,7 @@ export function AdminDashboardClient() {
       }
     }
     load();
-  }, []);
+  }, [checkoutPlan]);
 
   async function createSubscriptionInvoice(planType: "basic" | "starter" | "pro" | "business", billingPeriod: "monthly" | "yearly") {
     setSubscriptionLoading(true);
@@ -121,6 +137,13 @@ export function AdminDashboardClient() {
       setSubscriptionLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (loading || autoCheckoutStarted.current || !isPaidSubscriptionPlanChoice(checkoutPlan)) return;
+    autoCheckoutStarted.current = true;
+    setSelectedPlan(checkoutPlan);
+    createSubscriptionInvoice(checkoutPlan, defaultBillingPeriod[checkoutPlan]);
+  }, [checkoutPlan, loading]);
 
   async function checkSubscriptionPayment() {
     if (!invoice) return;
@@ -156,7 +179,7 @@ export function AdminDashboardClient() {
       price: t("Gratis 14 hari"),
       billingPeriod: null,
       note: t("Cocok untuk coba POS dasar sebelum berlangganan."),
-      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("Diskon aktif"), t("Import/export, QRIS Pakasir, hutang, dan shift belum aktif")],
+      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("Riwayat transaksi terbatas"), t("Tanpa QRIS Pakasir"), t("Tanpa import/export")],
     },
     {
       id: "basic" as const,
@@ -164,7 +187,7 @@ export function AdminDashboardClient() {
       price: t("Rp100.000 / tahun"),
       billingPeriod: "yearly" as const,
       note: t("Paket hemat untuk toko kecil dengan transaksi sederhana."),
-      features: [t("300 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS, inventaris, diskon, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Starter/Pro")],
+      features: [t("300 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("QRIS statis manual"), t("Riwayat transaksi"), t("Tanpa QRIS Pakasir"), t("Tanpa shift kasir")],
     },
     {
       id: "starter" as const,
@@ -172,7 +195,7 @@ export function AdminDashboardClient() {
       price: t("Rp19.000 / bulan"),
       billingPeriod: "monthly" as const,
       note: t("Untuk UMKM kecil yang butuh POS lebih lega dengan diskon aktif."),
-      features: [t("500 produk"), t("1 kasir"), t("1.000 transaksi/bulan"), t("POS, inventaris, diskon, QRIS statis, dan riwayat transaksi")],
+      features: [t("500 produk"), t("1 kasir"), t("1.000 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("QRIS statis manual"), t("Struk thermal 58/80mm"), t("Riwayat transaksi"), t("Laporan sederhana"), t("Tanpa QRIS Pakasir")],
     },
     {
       id: "pro" as const,
@@ -180,7 +203,7 @@ export function AdminDashboardClient() {
       price: t("Rp49.000 / bulan"),
       billingPeriod: "monthly" as const,
       note: t("Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap."),
-      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Import/export, diskon, QRIS Pakasir, hutang, dan shift")],
+      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Semua fitur Starter"), t("Import/export Excel/CSV"), t("QRIS Pakasir otomatis"), t("Catatan hutang pelanggan"), t("Shift kasir"), t("Laporan omzet dan laba"), t("Backup manual")],
     },
     {
       id: "business" as const,
@@ -188,7 +211,7 @@ export function AdminDashboardClient() {
       price: t("Rp99.000 / bulan"),
       billingPeriod: "monthly" as const,
       note: t("Untuk toko yang butuh kapasitas besar tanpa batas utama."),
-      features: [t("Produk tanpa batas"), t("Kasir tanpa batas"), t("Transaksi tanpa batas"), t("Semua fitur Pro aktif")],
+      features: [t("Produk tanpa batas"), t("Kasir tanpa batas"), t("Transaksi tanpa batas"), t("Semua fitur Pro aktif"), t("Backup otomatis"), t("Restore data"), t("Dashboard owner lengkap"), t("Log aktivitas"), t("Export laporan"), t("Prioritas support")],
     },
   ];
   const selectedPlanDetail = planDetails.find((plan) => plan.id === selectedPlan) ?? planDetails[1];

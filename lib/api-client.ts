@@ -456,6 +456,8 @@ export const api = {
       update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null; planType?: AdminProfile["planType"]; planStatus?: AdminProfile["planStatus"] }) =>
         apiFetch<OwnerAdminRow>(`/api/owner/admins/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
       deactivate: (id: string) => apiFetch<AdminProfile>(`/api/owner/admins/${id}`, { method: "DELETE" }),
+      remove: (id: string, body: { ownerPassword: string }) =>
+        apiFetch<{ deleted: boolean; adminId: string }>(`/api/owner/admins/${id}`, { method: "DELETE", body: JSON.stringify(body) }),
     },
     cashiers: {
       list: () => apiFetch<CashierRow[]>("/api/owner/cashiers"),

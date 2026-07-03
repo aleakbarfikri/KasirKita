@@ -64,7 +64,7 @@ export async function GET(request: Request) {
     }
 
     const scope = await getAdminScope(session.user.id);
-    const rows = db.products.filter((product) => product.shopId === scope.shopId && product.isActive);
+    const rows = db.products.filter((product) => product.shopId === scope.shopId);
     if (mode === "csv") {
       assertFeatureAllowed(scope.adminProfile, "importExport");
       const csv = toCsv([

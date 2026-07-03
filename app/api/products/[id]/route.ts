@@ -63,6 +63,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.discountValue !== undefined) product.discountValue = body.discountType === "none" ? 0 : body.discountValue;
     if (body.stock !== undefined) product.stock = body.stock;
     if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
+    if (typeof body.isActive === "boolean") product.isActive = body.isActive;
     product.updatedAt = now();
     addAuditLog(db, {
       actorId: session.user.id,
@@ -71,8 +72,8 @@ export async function PATCH(request: Request, { params }: Params) {
       action: "update_product",
       entityType: "product",
       entityId: product.id,
-      message: `Produk ${product.name} diperbarui.`,
-      metadata: { sku: product.sku, price: product.price, stock: product.stock },
+      message: typeof body.isActive === "boolean" ? `Produk ${product.name} ${body.isActive ? "diaktifkan" : "dinonaktifkan"}.` : `Produk ${product.name} diperbarui.`,
+      metadata: { sku: product.sku, price: product.price, stock: product.stock, isActive: product.isActive },
     });
     await writeDb(db);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Download, FileSpreadsheet, Loader2, Pencil, Plus, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, Upload } from "lucide-react";
 import { api, type ProductRecord } from "@/lib/api-client";
 import { cacheProducts, readCachedProducts } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
@@ -172,15 +172,17 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     }
   }
 
-  async function deleteProduct(id: string) {
+  async function setProductActive(id: string, isActive: boolean) {
     setError(null);
+    setMessage(null);
     try {
-      await api.products.remove(id);
-      setItems((current) => current.filter((item) => item.id !== id));
-      cacheProducts(items.filter((item) => item.id !== id));
-      setMessage("Produk dinonaktifkan.");
+      const updated = await api.products.update(id, { isActive });
+      const nextItems = items.map((item) => item.id === updated.id ? { ...item, ...updated } : item);
+      setItems(nextItems);
+      cacheProducts(nextItems);
+      setMessage(isActive ? t("Produk berhasil diaktifkan.") : t("Produk berhasil dinonaktifkan."));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus produk");
+      setError(err instanceof Error ? err.message : isActive ? t("Gagal mengaktifkan produk") : t("Gagal menonaktifkan produk"));
     }
   }
 
@@ -302,7 +304,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle>{t("Daftar Produk")}</CardTitle>
-                <CardDescription>{t("Produk aktif di toko ini.")}</CardDescription>
+                <CardDescription>{t("Semua produk di toko ini, termasuk yang nonaktif.")}</CardDescription>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative">
@@ -318,7 +320,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat produk...")}</div>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Diskon")}</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Diskon")}</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Status")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredItems.map((item) => (
                     <TableRow key={item.id}>
@@ -328,10 +330,15 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
                       <TableCell>{discountLabel(item)}</TableCell>
                       <TableCell>{item.stock ?? "-"}</TableCell>
+                      <TableCell><Badge variant={item.isActive === false ? "secondary" : "success"}>{item.isActive === false ? t("Nonaktif") : t("Aktif")}</Badge></TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
                           <Button variant="secondary" size="sm" onClick={() => openEditProduct(item)}><Pencil className="mr-2 h-4 w-4" /> {t("Edit")}</Button>
-                          <Button variant="outline" size="sm" onClick={() => deleteProduct(item.id)}><Trash2 className="mr-2 h-4 w-4" /> {t("Nonaktifkan")}</Button>
+                          {item.isActive === false ? (
+                            <Button variant="outline" size="sm" onClick={() => setProductActive(item.id, true)}><Power className="mr-2 h-4 w-4" /> {t("Aktifkan")}</Button>
+                          ) : (
+                            <Button variant="outline" size="sm" onClick={() => setProductActive(item.id, false)}><PowerOff className="mr-2 h-4 w-4" /> {t("Nonaktifkan")}</Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

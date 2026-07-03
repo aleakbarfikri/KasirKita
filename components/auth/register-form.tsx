@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { apiFetch, type OwnerAdminRow } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,29 @@ function normalizeUsername(value: string) {
     .slice(0, 40);
 }
 
+type PaidPlan = "basic" | "starter" | "pro" | "business";
+
+const planLabels: Record<"trial" | PaidPlan, string> = {
+  trial: "Trial gratis 14 hari",
+  basic: "Basic Rp100.000 / tahun",
+  starter: "Starter Rp19.000 / bulan",
+  pro: "Pro Rp49.000 / bulan",
+  business: "Business Rp99.000 / bulan",
+};
+
+function isSelectedPlan(value?: string | null): value is keyof typeof planLabels {
+  return value === "trial" || value === "basic" || value === "starter" || value === "pro" || value === "business";
+}
+
+function isPaidPlan(value?: string | null): value is PaidPlan {
+  return value === "basic" || value === "starter" || value === "pro" || value === "business";
+}
+
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedPlan = searchParams.get("plan");
+  const selectedPlan = isSelectedPlan(requestedPlan) ? requestedPlan : "trial";
   const [name, setName] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
@@ -71,7 +92,9 @@ export function RegisterForm() {
         }),
       });
       setMessage(`Trial ${result.trialDays} hari aktif. Username login: ${result.admin.username}`);
-      window.setTimeout(() => router.push("/login"), 1200);
+      const nextPath = isPaidPlan(selectedPlan) ? `/admin?checkoutPlan=${selectedPlan}#subscription` : "/login";
+      const loginPath = isPaidPlan(selectedPlan) ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
+      window.setTimeout(() => router.push(loginPath), 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal daftar trial.");
     } finally {
@@ -84,6 +107,9 @@ export function RegisterForm() {
       <CardHeader>
         <CardTitle className="text-3xl text-slate-950">Daftar Trial KasirKita</CardTitle>
         <p className="text-sm text-slate-500">Coba gratis 14 hari. Setelah daftar, login sebagai admin UMKM.</p>
+        <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+          Paket dipilih: {planLabels[selectedPlan]}
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
