@@ -24,6 +24,11 @@ type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
 type SuccessSummary = { method: PaymentMethod; total: number; totalItems: number; queued?: boolean };
 type DiscountType = "none" | "percent" | "amount";
 type ReceiptPaperWidth = "58mm" | "80mm";
+type BluetoothWriteCharacteristic = {
+  properties?: { write?: boolean; writeWithoutResponse?: boolean };
+  writeValue: (value: BufferSource) => Promise<void>;
+  writeValueWithoutResponse?: (value: BufferSource) => Promise<void>;
+};
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
@@ -45,6 +50,108 @@ const emptyManualItem = {
   price: "",
   quantity: "1",
 };
+
+const thermalBluetoothServices = [
+  "000018f0-0000-1000-8000-00805f9b34fb",
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+];
+
+function sanitizeReceiptText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E\n\r]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function wrapThermalText(text: string, width: number) {
+  const words = sanitizeReceiptText(text).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if (!current) {
+      current = word.slice(0, width);
+      if (word.length > width) lines.push(current);
+      if (word.length > width) current = word.slice(width);
+      continue;
+    }
+    if (`${current} ${word}`.length <= width) current = `${current} ${word}`;
+    else {
+      lines.push(current);
+      current = word.slice(0, width);
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+function thermalColumns(left: string, right: string, width: number) {
+  const cleanLeft = sanitizeReceiptText(left);
+  const cleanRight = sanitizeReceiptText(right);
+  const rightWidth = Math.min(cleanRight.length, Math.max(10, Math.floor(width * 0.42)));
+  const leftWidth = Math.max(8, width - rightWidth - 1);
+  const leftLines = wrapThermalText(cleanLeft, leftWidth);
+  const rightText = cleanRight.slice(-rightWidth);
+  return leftLines.map((line, index) => {
+    if (index < leftLines.length - 1) return line;
+    const spaces = " ".repeat(Math.max(1, width - line.length - rightText.length));
+    return `${line}${spaces}${rightText}`;
+  }).join("\n");
+}
+
+function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
+  const trx = receipt.transaction;
+  const width = paperWidth === "80mm" ? 48 : 32;
+  const line = "-".repeat(width);
+  const center = (text: string) => {
+    const clean = sanitizeReceiptText(text);
+    if (clean.length >= width) return wrapThermalText(clean, width).join("\n");
+    return `${" ".repeat(Math.floor((width - clean.length) / 2))}${clean}`;
+  };
+  const body = [
+    receipt.showWatermark ? center(receipt.watermarkText || "www.kasir-kita.com") : "",
+    center(receipt.shop.name),
+    receipt.shop.address ? center(receipt.shop.address) : "",
+    receipt.shop.phone ? center(`Telp: ${receipt.shop.phone}`) : "",
+    line,
+    thermalColumns("Invoice", shortInvoiceId(trx.id), width),
+    thermalColumns("Tanggal", new Date(trx.createdAt).toLocaleString("id-ID"), width),
+    thermalColumns("Kasir", receipt.cashier.name, width),
+    thermalColumns("Metode", methodLabel[trx.paymentMethod], width),
+    line,
+    ...receipt.items.flatMap((item) => [
+      ...wrapThermalText(item.name, width),
+      thermalColumns(`${item.quantity} x ${formatCurrency(item.price)}`, formatCurrency(item.price * item.quantity), width),
+      item.discountAmount ? `Diskon item: ${formatCurrency(item.discountAmount)} / pcs` : "",
+    ]),
+    line,
+    receipt.transaction.subtotal !== undefined ? thermalColumns("Subtotal", formatCurrency(receipt.transaction.subtotal), width) : "",
+    receipt.transaction.discountAmount ? thermalColumns("Diskon", `-${formatCurrency(receipt.transaction.discountAmount)}`, width) : "",
+    thermalColumns("TOTAL", formatCurrency(trx.total), width),
+    trx.paidAmount !== null && trx.paidAmount !== undefined ? thermalColumns("Dibayar", formatCurrency(trx.paidAmount), width) : "",
+    trx.changeAmount !== null && trx.changeAmount !== undefined ? thermalColumns("Kembalian", formatCurrency(trx.changeAmount), width) : "",
+    receipt.publicUrl ? line : "",
+    receipt.publicUrl ? center("Struk digital") : "",
+    receipt.publicUrl ? wrapThermalText(receipt.publicUrl, width).join("\n") : "",
+    line,
+    center("Terima kasih"),
+    "",
+    "",
+    "",
+  ].filter(Boolean).join("\n");
+
+  const encoder = new TextEncoder();
+  const init = new Uint8Array([0x1b, 0x40, 0x1b, 0x61, 0x00]);
+  const content = encoder.encode(`${body}\n`);
+  const cut = new Uint8Array([0x1d, 0x56, 0x42, 0x00]);
+  const payload = new Uint8Array(init.length + content.length + cut.length);
+  payload.set(init, 0);
+  payload.set(content, init.length);
+  payload.set(cut, init.length + content.length);
+  return payload;
+}
 
 export function PosInterface() {
   const { language, t } = useAppLanguage();
@@ -78,6 +185,7 @@ export function PosInterface() {
   const [lastScannedSku, setLastScannedSku] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [directPrinting, setDirectPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueue, setOfflineQueue] = useState<OfflineCheckout[]>([]);
@@ -565,6 +673,56 @@ export function PosInterface() {
     win.document.open();
     win.document.write(html);
     win.document.close();
+  }
+
+  async function findBluetoothWriteCharacteristic(server: { getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }) {
+    const services = await server.getPrimaryServices();
+    for (const service of services) {
+      const characteristics = await service.getCharacteristics();
+      const writable = characteristics.find((item) => item.properties?.writeWithoutResponse || item.properties?.write);
+      if (writable) return writable;
+    }
+    return null;
+  }
+
+  async function writeEscPosChunks(characteristic: BluetoothWriteCharacteristic, payload: Uint8Array) {
+    const chunkSize = 20;
+    for (let index = 0; index < payload.length; index += chunkSize) {
+      const chunk = payload.slice(index, index + chunkSize);
+      if (characteristic.properties?.writeWithoutResponse && characteristic.writeValueWithoutResponse) {
+        await characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await characteristic.writeValue(chunk);
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 12));
+    }
+  }
+
+  async function directPrintThermalReceipt(receipt: ReceiptRecord) {
+    const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: unknown) => Promise<{ gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } }> } }).bluetooth;
+    if (!bluetooth) {
+      setError("Direct printer butuh Chrome/Edge dengan Web Bluetooth. Di iPhone/Safari biasanya tidak tersedia.");
+      return;
+    }
+
+    setDirectPrinting(true);
+    setError(null);
+    try {
+      const device = await bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: thermalBluetoothServices,
+      });
+      const server = await device.gatt?.connect();
+      if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
+      const characteristic = await findBluetoothWriteCharacteristic(server);
+      if (!characteristic) throw new Error("Printer tidak menyediakan channel tulis ESC/POS. Coba mode Print biasa atau printer thermal Bluetooth lain.");
+      await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receiptPaperWidth));
+      setError("Struk berhasil dikirim ke printer thermal.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal direct print ke printer thermal.");
+    } finally {
+      setDirectPrinting(false);
+    }
   }
 
   function shareWhatsAppReceipt(receipt: ReceiptRecord) {
@@ -1072,8 +1230,16 @@ export function PosInterface() {
                   <Button variant="outline" onClick={() => printThermalReceipt(lastReceipt)}>
                     <Printer className="mr-2 h-4 w-4" /> Print
                   </Button>
+                  <Button variant="outline" onClick={() => directPrintThermalReceipt(lastReceipt)} disabled={directPrinting}>
+                    {directPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />} Direct
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Button variant="outline" onClick={() => shareWhatsAppReceipt(lastReceipt)}>
                     <Send className="mr-2 h-4 w-4" /> WhatsApp
+                  </Button>
+                  <Button variant="outline" onClick={() => copyReceiptLink(lastReceipt)} disabled={!lastReceipt.publicUrl}>
+                    <Copy className="mr-2 h-4 w-4" /> Salin Link
                   </Button>
                 </div>
                 {lastReceipt.publicUrl ? (
@@ -1081,9 +1247,7 @@ export function PosInterface() {
                     <a href={lastReceipt.publicUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
                       <LinkIcon className="mr-2 h-4 w-4" /> Link Struk
                     </a>
-                    <Button variant="outline" onClick={() => copyReceiptLink(lastReceipt)}>
-                      <Copy className="mr-2 h-4 w-4" /> Salin Link
-                    </Button>
+                    <p className="flex items-center rounded-lg bg-[#eff4ff] px-3 py-2 text-left text-xs font-semibold text-[#3d4a42]">Direct print hanya untuk Chrome/Edge + Bluetooth thermal.</p>
                   </div>
                 ) : null}
                 <Button onClick={startNewTransaction}>Transaksi Baru</Button>
