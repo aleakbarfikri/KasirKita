@@ -1,6 +1,6 @@
 import { jakartaDateString, now, type AdminProfile, type AppDb } from "@/lib/server/data-store";
 
-export type SubscriptionPlan = "trial" | "basic" | "pro" | "business";
+export type SubscriptionPlan = "trial" | "basic" | "starter" | "pro" | "business";
 export type PaidSubscriptionPlan = Exclude<SubscriptionPlan, "trial">;
 export type BillingPeriod = "monthly" | "yearly";
 export type FeatureKey = "discounts" | "importExport" | "qrisPakasir" | "debts" | "shifts" | "backupRestore" | "multiCashier";
@@ -41,11 +41,24 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
     label: "Basic",
     priceMonthly: null,
     priceYearly: 100_000,
-    productLimit: 100,
+    productLimit: 300,
     cashierLimit: 1,
     monthlyTransactionLimit: 500,
     reportDays: 7,
-    features: basicFeatures,
+    features: { ...basicFeatures, discounts: true },
+  },
+  starter: {
+    label: "Starter",
+    priceMonthly: 19_000,
+    priceYearly: 190_000,
+    productLimit: 500,
+    cashierLimit: 1,
+    monthlyTransactionLimit: 1_000,
+    reportDays: 30,
+    features: {
+      ...basicFeatures,
+      discounts: true,
+    },
   },
   pro: {
     label: "Pro",
@@ -86,7 +99,7 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
 };
 
 export function normalizePlanType(value?: string | null): SubscriptionPlan {
-  if (value === "trial" || value === "basic" || value === "pro" || value === "business") return value;
+  if (value === "trial" || value === "basic" || value === "starter" || value === "pro" || value === "business") return value;
   return "pro";
 }
 
