@@ -73,13 +73,13 @@ function MetricRow({
   }[tone];
 
   return (
-    <div className="grid min-w-0 gap-4 rounded-2xl border border-[#e7edf0] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(11,28,48,0.04)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
-      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${toneClass}`}>
+    <div className="grid min-w-0 gap-4 rounded-xl border border-[#e2e8f0] bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
         <Icon className="h-8 w-8" />
       </div>
       <div className="min-w-0 border-[#dfe7e3] sm:border-l sm:pl-7">
-        <p className="text-lg font-black leading-tight text-[#0b1c30]">{title}</p>
-        <p className="mt-1 text-sm font-medium leading-relaxed text-[#4f5d56] sm:text-base">{helper}</p>
+        <p className="text-lg font-black leading-tight text-[#0f172a]">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-[#64748b] sm:text-base">{helper}</p>
       </div>
       <p className={`min-w-0 break-words text-left text-3xl font-black tracking-normal sm:whitespace-nowrap sm:text-right sm:text-4xl ${valueClass}`}>{value}</p>
     </div>
@@ -231,7 +231,7 @@ export function AdminDashboardClient() {
     <div>
       {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="mb-4 flex items-center rounded-2xl bg-white p-3 text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat data...")}</p> : null}
-      <Card className="overflow-hidden rounded-3xl border-[#d9e3de] bg-white/95 shadow-[0_18px_60px_rgba(11,28,48,0.07)]">
+      <Card className="overflow-hidden border-[#d9e3de] bg-white/95">
         <CardContent className="space-y-2 p-3 sm:p-4">
           <MetricRow title={t("UMKM Aktif")} value={shopName} helper={t("Cabang yang sedang login")} icon={Store} tone="navy" />
           <MetricRow title={t("Omzet Hari Ini")} value={formatCurrency(stats.todaySales)} helper={t("Tunai + QRIS sukses")} icon={ReceiptText} tone="green" />
@@ -242,7 +242,7 @@ export function AdminDashboardClient() {
       </Card>
 
       <div className="mt-6 grid w-full min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-        <Card className="w-full min-w-0 max-w-full bg-[#213145] text-white">
+        <Card className="w-full min-w-0 max-w-full bg-[#1e293b] text-white shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
           <CardHeader><CardTitle className="text-white">{t("Aksi Cepat")}</CardTitle><CardDescription className="text-white/70">{t("Operasi harian admin UMKM.")}</CardDescription></CardHeader>
           <CardContent className="grid w-full min-w-0 max-w-full gap-3 px-4 sm:px-6">
             <Link href="/admin/pos" className="block min-w-0">

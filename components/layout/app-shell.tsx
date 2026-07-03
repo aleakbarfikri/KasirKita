@@ -377,26 +377,26 @@ export function AppShell({
 
   if (checking || sessionState.isPending) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f8f9ff] p-6 text-[#0b1c30]">
-        <div className="rounded-3xl border border-[#bccac0] bg-white p-8 text-center shadow-xl">
-          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-primary" />
+      <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] p-6 text-[#0f172a]">
+        <div className="rounded-xl border border-[#d7e2dc] bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-xl bg-primary" />
           <p className="text-lg font-extrabold">{appBrand}</p>
-          <p className="mt-2 text-sm text-[#3d4a42]">{authMessage}</p>
+          <p className="mt-2 text-sm font-medium text-[#64748b]">{authMessage}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <div className={cn("min-h-screen bg-[#f8f9ff] text-[#0b1c30]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-[#bccac0] bg-[#f8f9ff] lg:flex">
+    <div className={cn("min-h-screen bg-[#f8fafc] text-[#0f172a]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-[#d7e2dc] bg-white lg:flex">
         <div className="px-6 py-7">
           <Link href="/" className="block">
             <BrandMark />
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 space-y-1 px-3">
           {nav.map((item) => {
             const active = pathname === item.href || (item.href !== `/${role}` && pathname.startsWith(item.href));
             return (
@@ -404,8 +404,8 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-6 py-3 text-sm font-semibold text-[#3d4a42] transition-colors hover:bg-[#dce9ff]",
-                  active && "border-r-4 border-primary bg-primary/10 text-primary",
+                  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-[#475569] transition-colors hover:bg-[#f1f5f9] hover:text-[#0f172a]",
+                  active && "bg-primary/10 text-primary shadow-[inset_4px_0_0_#006948]",
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -415,15 +415,15 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="border-t border-[#bccac0] p-6">
-          <div className="rounded-2xl border border-[#bccac0] bg-[#eff4ff] p-4">
+        <div className="border-t border-[#e2e8f0] p-6">
+          <div className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-[#0b1c30]">{user?.name || user?.username}</p>
-              <p className="truncate text-xs text-[#3d4a42]">{role === "owner" ? t("Owner Account") : user?.role === "cashier" ? t("Kasir UMKM") : user?.shopName || t("Admin UMKM")}</p>
+                <p className="truncate text-sm font-bold text-[#0f172a]">{user?.name || user?.username}</p>
+              <p className="truncate text-xs font-medium text-[#64748b]">{role === "owner" ? t("Owner Account") : user?.role === "cashier" ? t("Kasir UMKM") : user?.shopName || t("Admin UMKM")}</p>
               </div>
             </div>
             {role === "admin" ? (
@@ -441,18 +441,18 @@ export function AppShell({
       {mobileNavOpen ? (
         <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true">
           <button
-            className="absolute inset-0 bg-[#0b1c30]/45 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#0f172a]/45 backdrop-blur-sm"
             aria-label="Tutup menu"
             onClick={() => setMobileNavOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 flex w-[86vw] max-w-[330px] flex-col border-r border-[#bccac0] bg-[#f8f9ff] shadow-2xl">
+          <div className="absolute inset-y-0 left-0 flex w-[86vw] max-w-[330px] flex-col border-r border-[#d7e2dc] bg-white shadow-2xl">
             <div className="flex items-center justify-between px-5 py-5">
               <Link href={role === "owner" ? "/owner" : "/admin"} className="flex items-center gap-2">
                 <BrandMark compact />
                 <span className="text-2xl font-black tracking-tight text-primary">{appBrand}</span>
               </Link>
               <button
-                className="rounded-full border border-[#bccac0] bg-white p-2 text-[#0b1c30]"
+                className="rounded-full border border-[#d7e2dc] bg-white p-2 text-[#0f172a]"
                 aria-label="Tutup menu"
                 onClick={() => setMobileNavOpen(false)}
               >
@@ -460,7 +460,7 @@ export function AppShell({
               </button>
             </div>
 
-            <div className="px-5 pb-3 text-xs font-bold uppercase tracking-[0.18em] text-[#3d4a42]">
+            <div className="px-5 pb-3 text-xs font-bold uppercase tracking-[0.18em] text-[#64748b]">
               Menu {role === "owner" ? t("Owner") : t("Admin")}
             </div>
 
@@ -472,8 +472,8 @@ export function AppShell({
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-2xl px-4 py-4 text-base font-bold text-[#3d4a42] transition-colors active:scale-[0.98]",
-                      active ? "bg-primary text-white" : "hover:bg-[#dce9ff]",
+                      "flex items-center gap-3 rounded-lg px-4 py-4 text-base font-bold text-[#475569] transition-colors active:scale-[0.98]",
+                      active ? "bg-primary text-white shadow-sm" : "hover:bg-[#f1f5f9]",
                     )}
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
@@ -483,15 +483,15 @@ export function AppShell({
               })}
             </nav>
 
-            <div className="border-t border-[#bccac0] p-4">
-              <div className="rounded-2xl border border-[#bccac0] bg-[#eff4ff] p-4">
+            <div className="border-t border-[#e2e8f0] p-4">
+              <div className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
                     {initials}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-[#0b1c30]">{user?.name || user?.username}</p>
-                    <p className="truncate text-xs text-[#3d4a42]">{role === "owner" ? t("Owner Account") : user?.role === "cashier" ? t("Kasir UMKM") : user?.shopName || t("Admin UMKM")}</p>
+                    <p className="truncate text-sm font-bold text-[#0f172a]">{user?.name || user?.username}</p>
+                    <p className="truncate text-xs font-medium text-[#64748b]">{role === "owner" ? t("Owner Account") : user?.role === "cashier" ? t("Kasir UMKM") : user?.shopName || t("Admin UMKM")}</p>
                   </div>
                 </div>
                 {role === "admin" ? (
@@ -509,11 +509,11 @@ export function AppShell({
       ) : null}
 
       <main className="lg:pl-[280px]">
-        <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#bccac0] bg-white/95 px-3 backdrop-blur lg:min-h-[68px] lg:px-8">
+        <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#d7e2dc] bg-white/95 px-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur lg:min-h-[68px] lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <div className="flex items-center gap-2 lg:hidden">
               <button
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#bccac0] bg-white text-primary shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#d7e2dc] bg-white text-primary shadow-sm"
                 aria-label="Buka menu"
                 onClick={() => setMobileNavOpen(true)}
               >
@@ -523,17 +523,17 @@ export function AppShell({
                 <BrandMark compact />
               </Link>
             </div>
-            <div className="hidden w-full max-w-[440px] items-center rounded-2xl bg-[#e5eeff] px-4 py-2.5 text-sm text-[#3d4a42] md:flex">
+            <div className="hidden w-full max-w-[440px] items-center rounded-lg border border-[#dbe6ef] bg-[#f1f5f9] px-4 py-2.5 text-sm font-semibold text-[#475569] md:flex">
               <Menu className="mr-2 h-5 w-5" /> {role === "owner" ? t("Area Owner") : user?.shopName || t("Area Admin")}
             </div>
-            <div className="hidden border-l border-[#bccac0] pl-4 text-sm md:block">
-              <p className="uppercase tracking-[0.16em] text-[#3d4a42]">{t("Login sebagai")}</p>
+            <div className="hidden border-l border-[#d7e2dc] pl-4 text-sm md:block">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748b]">{t("Login sebagai")}</p>
               <p className="font-bold text-primary">{role === "owner" ? t("Owner") : t("Admin")}</p>
             </div>
           </div>
           <div className="relative flex items-center gap-3">
             <button
-              className="relative rounded-full p-2 hover:bg-[#e5eeff]"
+              className="relative rounded-full p-2 hover:bg-[#f1f5f9]"
               aria-label="Notifikasi"
               onClick={() => {
                 setNotificationOpen((value) => !value);
@@ -546,20 +546,20 @@ export function AppShell({
             </button>
 
             {notificationOpen ? (
-              <div className="absolute right-0 top-12 z-50 w-[min(92vw,360px)] overflow-hidden rounded-3xl border border-[#bccac0] bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-[#e3e9e5] px-4 py-3">
+              <div className="absolute right-0 top-12 z-50 w-[min(92vw,360px)] overflow-hidden rounded-xl border border-[#d7e2dc] bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#e2e8f0] px-4 py-3">
                   <div>
-                    <p className="font-extrabold text-[#0b1c30]">Notifikasi</p>
-                    <p className="text-xs text-[#3d4a42]">Update penting akun {role === "owner" ? "Owner" : "Admin"}</p>
+                    <p className="font-extrabold text-[#0f172a]">Notifikasi</p>
+                    <p className="text-xs font-medium text-[#64748b]">Update penting akun {role === "owner" ? "Owner" : "Admin"}</p>
                   </div>
-                  <button onClick={loadNotifications} className="rounded-full p-2 text-primary hover:bg-[#e5eeff]" aria-label="Refresh notifikasi">
+                  <button onClick={loadNotifications} className="rounded-full p-2 text-primary hover:bg-[#f1f5f9]" aria-label="Refresh notifikasi">
                     <RefreshCw className={cn("h-4 w-4", notificationsLoading && "animate-spin")} />
                   </button>
                 </div>
 
                 <div className="max-h-[360px] overflow-y-auto p-3">
                   {notificationError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{notificationError}</p> : null}
-                  {notificationsLoading && !notificationError ? <p className="rounded-2xl bg-[#eff4ff] p-3 text-sm text-[#3d4a42]">Memuat notifikasi...</p> : null}
+                  {notificationsLoading && !notificationError ? <p className="rounded-xl bg-[#f1f5f9] p-3 text-sm font-medium text-[#64748b]">Memuat notifikasi...</p> : null}
 
                   {!notificationsLoading && !notificationError && notifications.length === 0 ? (
                     <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
@@ -574,15 +574,15 @@ export function AppShell({
                         href={item.href}
                         key={item.id}
                         onClick={() => setNotificationOpen(false)}
-                        className="block rounded-2xl border border-[#e3e9e5] p-3 transition hover:bg-[#f8f9ff]"
+                        className="block rounded-xl border border-[#e2e8f0] p-3 transition hover:border-[#b6c9bf] hover:bg-[#f8fafc]"
                       >
                         <div className="flex gap-3">
                           <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1", toneClass[item.tone])}>
                             {item.tone === "success" ? <CheckCircle2 className="h-4 w-4" /> : item.tone === "danger" ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                           </div>
                           <div>
-                            <p className="text-sm font-extrabold text-[#0b1c30]">{item.title}</p>
-                            <p className="mt-1 text-xs leading-relaxed text-[#3d4a42]">{item.description}</p>
+                            <p className="text-sm font-extrabold text-[#0f172a]">{item.title}</p>
+                            <p className="mt-1 text-xs font-medium leading-relaxed text-[#64748b]">{item.description}</p>
                           </div>
                         </div>
                       </Link>
@@ -592,12 +592,12 @@ export function AppShell({
               </div>
             ) : null}
 
-            <div className="flex items-center gap-1 rounded-full border border-[#bccac0] bg-[#eff4ff] p-1 text-xs font-extrabold text-primary">
+            <div className="flex items-center gap-1 rounded-full border border-[#d7e2dc] bg-[#f8fafc] p-1 text-xs font-extrabold text-primary">
               <Globe2 className="ml-2 hidden h-4 w-4 sm:block" />
               <button
                 type="button"
                 onClick={() => setLanguage("id")}
-                className={cn("rounded-full px-3 py-1.5 transition", language === "id" ? "bg-primary text-white shadow-sm" : "text-[#3d4a42] hover:bg-white")}
+                className={cn("rounded-full px-3 py-1.5 transition", language === "id" ? "bg-primary text-white shadow-sm" : "text-[#475569] hover:bg-white")}
                 aria-pressed={language === "id"}
               >
                 ID
@@ -605,7 +605,7 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setLanguage("en")}
-                className={cn("rounded-full px-3 py-1.5 transition", language === "en" ? "bg-primary text-white shadow-sm" : "text-[#3d4a42] hover:bg-white")}
+                className={cn("rounded-full px-3 py-1.5 transition", language === "en" ? "bg-primary text-white shadow-sm" : "text-[#475569] hover:bg-white")}
                 aria-pressed={language === "en"}
               >
                 EN
@@ -616,7 +616,7 @@ export function AppShell({
                 setProfileOpen((value) => !value);
                 setNotificationOpen(false);
               }}
-              className="rounded-full border-2 border-primary p-2 text-primary transition hover:bg-primary hover:text-white"
+              className="rounded-full border border-primary p-2 text-primary transition hover:bg-primary hover:text-white"
               aria-label="Buka profil"
               aria-expanded={profileOpen}
             >
@@ -624,15 +624,15 @@ export function AppShell({
             </button>
 
             {profileOpen ? (
-              <div className="absolute right-0 top-12 z-50 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-[#bccac0] bg-white shadow-2xl">
-                <div className="border-b border-[#e3e9e5] p-4">
+              <div className="absolute right-0 top-12 z-50 w-[min(92vw,320px)] overflow-hidden rounded-xl border border-[#d7e2dc] bg-white shadow-2xl">
+                <div className="border-b border-[#e2e8f0] p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
                       {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-extrabold text-[#0b1c30]">{user?.name || user?.username}</p>
-                      <p className="truncate text-xs text-[#3d4a42]">{role === "owner" ? t("Owner Account") : user?.shopName || t("Admin UMKM")}</p>
+                      <p className="truncate font-extrabold text-[#0f172a]">{user?.name || user?.username}</p>
+                      <p className="truncate text-xs font-medium text-[#64748b]">{role === "owner" ? t("Owner Account") : user?.shopName || t("Admin UMKM")}</p>
                     </div>
                   </div>
                 </div>
@@ -640,14 +640,14 @@ export function AppShell({
                 <div className="space-y-2 p-3">
                   <button
                     onClick={openProfileModal}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-[#0b1c30] transition hover:bg-[#eff4ff]"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold text-[#0f172a] transition hover:bg-[#f1f5f9]"
                   >
                     <UserRound className="h-4 w-4 text-primary" />
                     {t("Profil & Password")}
                   </button>
                   <button
                     onClick={signOut}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-red-700 transition hover:bg-red-50"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold text-red-700 transition hover:bg-red-50"
                   >
                     <LogOut className="h-4 w-4" />
                     {t("Logout")}
@@ -663,8 +663,8 @@ export function AppShell({
         ) : (
           <div className="p-4 pb-24 lg:p-8">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">{t(title)}</h2>
-              {description ? <p className="mt-1 text-base text-[#3d4a42]">{t(description)}</p> : null}
+              <h2 className="text-3xl font-black tracking-tight text-[#0f172a] md:text-4xl">{t(title)}</h2>
+              {description ? <p className="mt-2 max-w-3xl text-base font-medium leading-relaxed text-[#64748b]">{t(description)}</p> : null}
             </div>
             {children}
           </div>
@@ -729,8 +729,8 @@ export function AppShell({
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-[#bccac0] bg-[#f8f9ff] p-4">
-            <div className="mb-4 flex items-center gap-2 font-extrabold text-[#0b1c30]">
+          <div className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-4">
+            <div className="mb-4 flex items-center gap-2 font-extrabold text-[#0f172a]">
               <KeyRound className="h-4 w-4 text-primary" />
               {t("Ganti Password")}
             </div>

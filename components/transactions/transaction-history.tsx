@@ -288,19 +288,19 @@ export function TransactionHistory() {
           <>
             <div className="space-y-3 md:hidden">
               {transactions.map((transaction) => (
-                <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-2xl border border-[#bccac0] bg-white p-4 text-left transition hover:border-primary hover:shadow-[0_10px_28px_rgba(11,28,48,0.08)]">
+                <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-xl border border-[#d7e2dc] bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-extrabold text-[#0b1c30]">{shortOrderId(transaction.id)}</p>
-                      <p className="mt-1 text-xs text-[#3d4a42]">{shortDate(transaction.createdAt)}</p>
+                      <p className="font-extrabold text-[#0f172a]">{shortOrderId(transaction.id)}</p>
+                      <p className="mt-1 text-xs font-medium text-[#64748b]">{shortDate(transaction.createdAt)}</p>
                     </div>
                     <Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{statusLabel(transaction.status, language)}</Badge>
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-[#0b1c30]">{itemSummary(transaction)}</p>
+                  <p className="mt-3 text-sm font-semibold text-[#0f172a]">{itemSummary(transaction)}</p>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div><p className="text-xs text-[#3d4a42]">{t("Metode")}</p><p className="font-bold">{methodLabel(transaction.paymentMethod, language)}</p></div>
-                    <div><p className="text-xs text-[#3d4a42]">{t("Total")}</p><p className="font-bold">{formatCurrency(transaction.total)}</p></div>
-                    <div><p className="text-xs text-[#3d4a42]">{t("Laba")}</p><p className="font-bold">{formatCurrency(transaction.grossProfit ?? 0)}</p></div>
+                    <div><p className="text-xs font-medium text-[#64748b]">{t("Metode")}</p><p className="font-bold">{methodLabel(transaction.paymentMethod, language)}</p></div>
+                    <div><p className="text-xs font-medium text-[#64748b]">{t("Total")}</p><p className="font-bold">{formatCurrency(transaction.total)}</p></div>
+                    <div><p className="text-xs font-medium text-[#64748b]">{t("Laba")}</p><p className="font-bold">{formatCurrency(transaction.grossProfit ?? 0)}</p></div>
                     <div><p className="text-xs text-[#3d4a42]">Ref</p><p className="font-bold">{transaction.externalRef ? shortOrderId(transaction.externalRef) : "-"}</p></div>
                   </div>
                   {transaction.status === "success" ? (
@@ -351,56 +351,56 @@ export function TransactionHistory() {
     >
       {selectedTransaction ? (
         <div className="space-y-4">
-          <div className="grid gap-3 rounded-2xl bg-[#f8f9ff] p-4 text-sm sm:grid-cols-2">
+          <div className="grid gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4 text-sm sm:grid-cols-2">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Status")}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748b]">{t("Status")}</p>
               <Badge variant={statusVariant(selectedTransaction.status)} className="mt-1 normal-case tracking-normal">{statusLabel(selectedTransaction.status, language)}</Badge>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Kasir")}</p>
-              <p className="mt-1 font-black text-[#0b1c30]">{selectedTransaction.cashierName || "-"}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748b]">{t("Kasir")}</p>
+              <p className="mt-1 font-black text-[#0f172a]">{selectedTransaction.cashierName || "-"}</p>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Metode")}</p>
-              <p className="mt-1 font-black text-[#0b1c30]">{methodLabel(selectedTransaction.paymentMethod, language)}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748b]">{t("Metode")}</p>
+              <p className="mt-1 font-black text-[#0f172a]">{methodLabel(selectedTransaction.paymentMethod, language)}</p>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">Ref</p>
-              <p className="mt-1 break-all font-black text-[#0b1c30]">{selectedTransaction.externalRef || "-"}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748b]">Ref</p>
+              <p className="mt-1 break-all font-black text-[#0f172a]">{selectedTransaction.externalRef || "-"}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#d9e3de] bg-white">
-            <div className="border-b border-[#e6eee9] px-4 py-3 font-black text-[#0b1c30]">{t("Barang")}</div>
+          <div className="rounded-xl border border-[#d9e3de] bg-white">
+            <div className="border-b border-[#e6eee9] px-4 py-3 font-black text-[#0f172a]">{t("Barang")}</div>
             <div className="divide-y divide-[#edf2ef]">
               {(selectedTransaction.items || []).map((item) => (
                 <div key={item.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
                   <div>
-                    <p className="font-bold text-[#0b1c30]">{item.name}</p>
-                    <p className="text-xs font-semibold text-[#3d4a42]">SKU {item.sku || "-"} • {item.quantity} x {formatCurrency(item.price)}</p>
+                    <p className="font-bold text-[#0f172a]">{item.name}</p>
+                    <p className="text-xs font-semibold text-[#64748b]">SKU {item.sku || "-"} • {item.quantity} x {formatCurrency(item.price)}</p>
                     {item.discountAmount ? <p className="text-xs font-semibold text-primary">Diskon item {formatCurrency(item.discountAmount)} / pcs</p> : null}
                   </div>
-                  <p className="font-black text-[#0b1c30]">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</p>
+                  <p className="font-black text-[#0f172a]">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</p>
                 </div>
               ))}
-              {!selectedTransaction.items?.length ? <p className="px-4 py-3 text-sm font-semibold text-[#3d4a42]">-</p> : null}
+              {!selectedTransaction.items?.length ? <p className="px-4 py-3 text-sm font-semibold text-[#64748b]">-</p> : null}
             </div>
           </div>
 
-          <div className="space-y-2 rounded-2xl bg-[#eff4ff] p-4 text-sm">
+          <div className="space-y-2 rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-4 text-sm">
             {selectedTransaction.subtotal !== undefined ? <div className="flex justify-between gap-3"><span>Subtotal</span><span className="font-bold">{formatCurrency(selectedTransaction.subtotal)}</span></div> : null}
             {selectedTransaction.discountAmount ? <div className="flex justify-between gap-3 text-primary"><span>Diskon</span><span className="font-bold">-{formatCurrency(selectedTransaction.discountAmount)}</span></div> : null}
-            <div className="flex justify-between gap-3 text-lg font-black text-[#0b1c30]"><span>Total</span><span>{formatCurrency(selectedTransaction.total)}</span></div>
+            <div className="flex justify-between gap-3 text-lg font-black text-[#0f172a]"><span>Total</span><span>{formatCurrency(selectedTransaction.total)}</span></div>
             {selectedTransaction.paidAmount !== null && selectedTransaction.paidAmount !== undefined ? <div className="flex justify-between gap-3"><span>Dibayar</span><span className="font-bold">{formatCurrency(selectedTransaction.paidAmount)}</span></div> : null}
             {selectedTransaction.changeAmount !== null && selectedTransaction.changeAmount !== undefined ? <div className="flex justify-between gap-3"><span>Kembalian</span><span className="font-bold">{formatCurrency(selectedTransaction.changeAmount)}</span></div> : null}
             <div className="flex justify-between gap-3"><span>{t("Laba")}</span><span className="font-bold">{formatCurrency(selectedTransaction.grossProfit ?? 0)}</span></div>
           </div>
 
-          <div className="rounded-2xl border border-[#d9e3de] bg-white p-4">
+          <div className="rounded-xl border border-[#d9e3de] bg-white p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div>
-                <Label className="text-xs font-bold uppercase tracking-[0.16em] text-[#3d4a42]">{t("Ukuran Struk")}</Label>
-                <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(event.target.value as ReceiptPaperWidth)} className="mt-2 h-10 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-bold">
+                <Label className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748b]">{t("Ukuran Struk")}</Label>
+                <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(event.target.value as ReceiptPaperWidth)} className="mt-2 h-10 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary">
                   <option value="58mm">58mm ({t("thermal kecil")})</option>
                   <option value="80mm">80mm ({t("thermal besar")})</option>
                 </select>
