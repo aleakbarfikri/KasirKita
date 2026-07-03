@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAppLanguage } from "@/lib/i18n";
+import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 
 export function InventoryManager() {
   const { t } = useAppLanguage();
@@ -248,7 +249,12 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
             <CardDescription>{t("Kelola produk, harga, modal, dan stok toko.")}</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 max-w-full space-y-4 overflow-hidden px-4 sm:px-6">
-            {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+            {error ? (
+              <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+                <p>{error}</p>
+                <UpgradeSubscriptionCta message={error} />
+              </div>
+            ) : null}
             {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
             <div className="grid gap-2 sm:grid-cols-3">
               <Button type="button" variant="outline" className="w-full px-3" onClick={() => downloadProductsFile("template")} disabled={downloading || importing}>
@@ -344,7 +350,12 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         onClose={closeEditProduct}
       >
         <div className="space-y-4">
-          {editError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{editError}</p> : null}
+          {editError ? (
+            <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+              <p>{editError}</p>
+              <UpgradeSubscriptionCta message={editError} />
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label>{t("Nama Barang")}</Label>
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} />

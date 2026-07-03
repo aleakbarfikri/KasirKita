@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAppLanguage } from "@/lib/i18n";
+import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 
 function normalizeUsername(value: string) {
   return value
@@ -119,7 +120,12 @@ export function CashierManager() {
           <CardDescription>{t("Kasir pertama langsung aktif. Kasir kedua dan seterusnya perlu approval owner.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+          {error ? (
+            <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+              <p>{error}</p>
+              <UpgradeSubscriptionCta message={error} />
+            </div>
+          ) : null}
           {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
           <div className="space-y-2"><Label>{t("Nama Kasir")}</Label><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Budi Kasir" /></div>
           <div className="space-y-2"><Label>{t("Username")}</Label><Input value={username} onChange={(event) => setUsername(normalizeUsername(event.target.value))} placeholder="kasir_budi" /></div>

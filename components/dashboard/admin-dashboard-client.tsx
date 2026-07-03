@@ -137,6 +137,33 @@ export function AdminDashboardClient() {
     return { todaySales, todayProfit, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
   }, [debts, transactions, withdrawals]);
 
+  const planDetails = [
+    {
+      name: "Trial",
+      price: t("Gratis 14 hari"),
+      note: t("Cocok untuk coba POS dasar sebelum berlangganan."),
+      features: ["100 produk", "1 kasir", "500 transaksi/bulan", t("Diskon aktif"), t("Import/export, QRIS Pakasir, hutang, dan shift belum aktif")],
+    },
+    {
+      name: "Basic",
+      price: "Rp100.000 / tahun",
+      note: t("Paket hemat untuk toko kecil dengan transaksi sederhana."),
+      features: ["100 produk", "1 kasir", "500 transaksi/bulan", t("POS, inventaris, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Pro")],
+    },
+    {
+      name: "Pro",
+      price: "Rp49.000 / bulan",
+      note: t("Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap."),
+      features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", t("Import/export, diskon, QRIS Pakasir, hutang, dan shift")],
+    },
+    {
+      name: "Business",
+      price: "Rp99.000 / bulan",
+      note: t("Untuk toko yang butuh kapasitas besar tanpa batas utama."),
+      features: [t("Produk tanpa batas"), t("Kasir tanpa batas"), t("Transaksi tanpa batas"), t("Semua fitur Pro aktif")],
+    },
+  ];
+
   return (
     <div>
       {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -176,7 +203,7 @@ export function AdminDashboardClient() {
           </CardContent>
         </Card>
 
-        <Card className="w-full min-w-0 max-w-full bg-white">
+        <Card id="subscription" className="w-full min-w-0 max-w-full scroll-mt-24 bg-white">
           <CardHeader>
             <CardTitle>{t("Subscription")}</CardTitle>
             <CardDescription>{t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")}</CardDescription>
@@ -186,6 +213,28 @@ export function AdminDashboardClient() {
               <p className="text-sm font-bold text-[#3d4a42]">{t("Paket Aktif")}</p>
               <p className="mt-1 text-2xl font-black capitalize text-[#0b1c30]">{adminProfile?.planType || "pro"}</p>
               <p className="mt-2 flex items-center gap-2 text-sm text-[#3d4a42]"><CalendarDays className="h-4 w-4 text-primary" /> {t("Masa aktif:")} {adminProfile?.activeUntil || t("Tanpa batas")}</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {planDetails.map((plan) => (
+                <div key={plan.name} className={`rounded-2xl border p-4 ${adminProfile?.planType === plan.name.toLowerCase() ? "border-primary bg-emerald-50" : "border-[#d9e3de] bg-[#f8f9ff]"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-black text-[#0b1c30]">{plan.name}</p>
+                      <p className="text-sm font-extrabold text-primary">{plan.price}</p>
+                    </div>
+                    {adminProfile?.planType === plan.name.toLowerCase() ? <Badge variant="success">{t("Aktif")}</Badge> : null}
+                  </div>
+                  <p className="mt-2 text-xs font-semibold leading-relaxed text-[#3d4a42]">{plan.note}</p>
+                  <ul className="mt-3 space-y-1.5 text-xs font-semibold text-[#0b1c30]">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
             <div className="grid gap-2">
               <Button variant="outline" disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("basic", "yearly")}>Basic Rp100.000 / tahun</Button>
