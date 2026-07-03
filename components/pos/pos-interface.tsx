@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
 import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
@@ -165,6 +165,8 @@ export function PosInterface() {
   const [category, setCategory] = useState("Semua");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [cartMenuOpen, setCartMenuOpen] = useState(false);
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
   const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
@@ -756,6 +758,7 @@ export function PosInterface() {
     if (cart.length === 0) return;
     setError(null);
     setMobileCartOpen(false);
+    setCartMenuOpen(false);
 
     if (method === "qris_pakasir" && typeof navigator !== "undefined" && !navigator.onLine) {
       setError("QRIS Pakasir perlu internet untuk membuat QR dinamis. Gunakan Tunai, QRIS Statis, atau Hutang saat offline.");
@@ -942,7 +945,7 @@ export function PosInterface() {
             <span className="mr-2 h-1.5 w-11 rounded-full bg-[#cbd5e1]" />
             {mobileCartOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
-          <div className="flex items-center justify-between gap-3">
+          <div className="relative flex items-center justify-between gap-3">
             <button type="button" onClick={() => setMobileCartOpen((open) => !open)} className="flex min-w-0 flex-1 items-center gap-3 text-left lg:pointer-events-none">
               <ShoppingCart className="h-5 w-5 shrink-0 text-primary lg:h-6 lg:w-6" />
               <div className="min-w-0">
@@ -954,7 +957,49 @@ export function PosInterface() {
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{t("Total")}</p>
               <p className="text-base font-black text-primary">{formatCurrency(total)}</p>
             </div>
-            <button onClick={() => setCart([])} className="hidden items-center gap-2 text-sm font-semibold text-red-600 sm:flex"><Trash2 className="h-4 w-4" /> {t("Bersihkan")}</button>
+            <button
+              type="button"
+              onClick={() => setCartMenuOpen((open) => !open)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7e2dc] bg-white text-[#0f172a] transition hover:border-primary hover:text-primary"
+              aria-label="Menu keranjang"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {cartMenuOpen ? (
+              <div className="absolute right-0 top-12 z-[60] w-56 overflow-hidden rounded-xl border border-[#d7e2dc] bg-white shadow-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDiscountModalOpen(true);
+                    setCartMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc]"
+                >
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  {t("Atur Diskon")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openPayment("debt")}
+                  disabled={cart.length === 0}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <NotebookPen className="h-4 w-4 text-primary" />
+                  {t("Catat Hutang")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCart([]);
+                    setCartMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("Bersihkan")}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1004,29 +1049,7 @@ export function PosInterface() {
           <div className="space-y-2 text-sm lg:space-y-3 lg:text-base">
             <div className="flex justify-between"><span>{t("Total qty")}</span><span>{totalItems} item</span></div>
             <div className="flex justify-between"><span>{t("Subtotal barang × qty")}</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className="rounded-xl border border-[#d7e2dc] bg-white p-2 shadow-sm lg:p-3">
-              <div className="mb-1.5 flex items-center justify-between gap-2 lg:mb-2">
-                <Label className="text-xs lg:text-sm">{t("Diskon Transaksi")}</Label>
-                {checkoutDiscountAmount > 0 ? <span className="text-sm font-bold text-amber-700">-{formatCurrency(checkoutDiscountAmount)}</span> : null}
-              </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-                <select value={checkoutDiscountType} onChange={(event) => setCheckoutDiscountType(event.target.value as DiscountType)} className="h-9 rounded-lg border border-[#cbd5e1] bg-white px-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-primary lg:h-10 lg:px-3 lg:text-sm">
-                  <option value="none">{t("Tanpa Diskon")}</option>
-                  <option value="percent">{t("Persen")}</option>
-                  <option value="amount">{t("Nominal Rupiah")}</option>
-                </select>
-                <Input
-                  type="number"
-                  min={0}
-                  max={checkoutDiscountType === "percent" ? 100 : undefined}
-                  value={checkoutDiscountValue}
-                  onChange={(event) => setCheckoutDiscountValue(event.target.value)}
-                  disabled={checkoutDiscountType === "none"}
-                  placeholder={checkoutDiscountType === "percent" ? "10" : "5000"}
-                  className="h-9 rounded-lg px-2 text-sm lg:h-10 lg:rounded-xl"
-                />
-              </div>
-            </div>
+            {checkoutDiscountAmount > 0 ? <div className="flex justify-between text-amber-700"><span>{t("Diskon Transaksi")}</span><span>-{formatCurrency(checkoutDiscountAmount)}</span></div> : null}
             <div className="flex justify-between border-t border-[#d7e2dc] pt-2 font-black text-[#0f172a] lg:pt-3"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
           </div>
 
@@ -1036,7 +1059,6 @@ export function PosInterface() {
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="h-11 rounded-lg px-2 text-sm lg:h-12 lg:px-3 lg:text-base"><QrCode className="mr-1.5 h-4 w-4" /> QRIS Statis</Button>
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="h-11 rounded-lg px-2 text-sm lg:h-12 lg:px-3 lg:text-base"><WalletCards className="mr-1.5 h-4 w-4" /> QRIS Pakasir</Button>
             </div>
-            <Button size="lg" variant="navy" onClick={() => openPayment("debt")} disabled={cart.length === 0} className="h-11 w-full rounded-lg text-sm lg:h-12 lg:text-base"><NotebookPen className="mr-2 h-4 w-4 lg:h-5 lg:w-5" /> {t("Catat Hutang")}</Button>
           </div>
         </div>
       </aside>
@@ -1110,6 +1132,56 @@ export function PosInterface() {
           <Button className="w-full" size="lg" onClick={addManualItem}>
             <PackagePlus className="mr-2 h-5 w-5" /> {t("Tambahkan ke Keranjang")}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal open={discountModalOpen} title={t("Diskon Transaksi")} description={t("Atur diskon untuk seluruh keranjang tanpa memenuhi area payment.")} onClose={() => setDiscountModalOpen(false)}>
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-[#eff4ff] p-4">
+            <p className="text-sm font-semibold text-[#3d4a42]">{t("Subtotal barang × qty")}</p>
+            <p className="text-3xl font-black text-[#0f172a]">{formatCurrency(subtotal)}</p>
+            {checkoutDiscountAmount > 0 ? <p className="mt-1 text-sm font-bold text-amber-700">-{formatCurrency(checkoutDiscountAmount)}</p> : null}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t("Mode Diskon")}</Label>
+              <select value={checkoutDiscountType} onChange={(event) => setCheckoutDiscountType(event.target.value as DiscountType)} className="h-11 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary">
+                <option value="none">{t("Tanpa Diskon")}</option>
+                <option value="percent">{t("Persen")}</option>
+                <option value="amount">{t("Nominal Rupiah")}</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Nilai Diskon")}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={checkoutDiscountType === "percent" ? 100 : undefined}
+                value={checkoutDiscountValue}
+                onChange={(event) => setCheckoutDiscountValue(event.target.value)}
+                disabled={checkoutDiscountType === "none"}
+                placeholder={checkoutDiscountType === "percent" ? "10" : "5000"}
+                className="h-11 rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[#bccac0] bg-white p-4">
+            <div className="flex justify-between text-sm font-semibold text-[#3d4a42]"><span>{t("Subtotal")}</span><span>{formatCurrency(subtotal)}</span></div>
+            <div className="mt-2 flex justify-between text-sm font-semibold text-amber-700"><span>{t("Diskon")}</span><span>-{formatCurrency(checkoutDiscountAmount)}</span></div>
+            <div className="mt-3 flex justify-between border-t border-[#d7e2dc] pt-3 text-lg font-black text-[#0f172a]"><span>{t("Total")}</span><span className="text-primary">{formatCurrency(total)}</span></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCheckoutDiscountType("none");
+                setCheckoutDiscountValue("");
+              }}
+            >
+              {t("Reset Diskon")}
+            </Button>
+            <Button onClick={() => setDiscountModalOpen(false)}>{t("Simpan Diskon")}</Button>
+          </div>
         </div>
       </Modal>
 
