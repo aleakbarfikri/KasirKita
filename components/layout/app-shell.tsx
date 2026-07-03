@@ -28,6 +28,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  MoreVertical,
   NotebookTabs,
   Package,
   RefreshCw,
@@ -392,7 +393,7 @@ export function AppShell({
 
   return (
     <div className={cn("min-h-screen bg-[#faf8ff] text-[#151b2d]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#bec9c1] bg-white lg:flex">
+      <aside className={cn("fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#bec9c1] bg-white lg:flex", fullScreen && "lg:hidden")}>
         <div className="px-6 py-6">
           <Link href="/" className="block">
             <BrandMark />
@@ -442,7 +443,7 @@ export function AppShell({
       </aside>
 
       {mobileNavOpen ? (
-        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true">
+        <div className={cn("fixed inset-0 z-[70]", !fullScreen && "lg:hidden")} role="dialog" aria-modal="true">
           <button
             className="absolute inset-0 bg-[#0f172a]/45 backdrop-blur-sm"
             aria-label="Tutup menu"
@@ -511,16 +512,16 @@ export function AppShell({
         </div>
       ) : null}
 
-      <main className="lg:pl-64">
+      <main className={cn(!fullScreen && "lg:pl-64")}>
         <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#bec9c1] bg-white/95 px-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div className="flex items-center gap-2 lg:hidden">
+            <div className={cn("flex items-center gap-2", !fullScreen && "lg:hidden")}>
               <button
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#d7e2dc] bg-white text-primary shadow-sm"
                 aria-label="Buka menu"
                 onClick={() => setMobileNavOpen(true)}
               >
-                <Menu className="h-5 w-5" />
+                {fullScreen ? <MoreVertical className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
               <Link href={role === "owner" ? "/owner" : "/admin"} className="flex items-center text-lg font-black text-primary" aria-label={appBrand}>
                 <BrandMark compact />
