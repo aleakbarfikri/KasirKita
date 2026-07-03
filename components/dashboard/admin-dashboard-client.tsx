@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
 
+type SubscriptionPlanChoice = "trial" | "basic" | "pro" | "business";
+
 function statusVariant(status: TransactionRecord["status"]) {
   if (status === "success") return "success" as const;
   if (status === "pending") return "warning" as const;
@@ -77,6 +79,7 @@ export function AdminDashboardClient() {
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("basic");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,30 +142,39 @@ export function AdminDashboardClient() {
 
   const planDetails = [
     {
+      id: "trial" as const,
       name: "Trial",
       price: t("Gratis 14 hari"),
+      billingPeriod: null,
       note: t("Cocok untuk coba POS dasar sebelum berlangganan."),
-      features: ["100 produk", "1 kasir", "500 transaksi/bulan", t("Diskon aktif"), t("Import/export, QRIS Pakasir, hutang, dan shift belum aktif")],
+      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("Diskon aktif"), t("Import/export, QRIS Pakasir, hutang, dan shift belum aktif")],
     },
     {
+      id: "basic" as const,
       name: "Basic",
-      price: "Rp100.000 / tahun",
+      price: t("Rp100.000 / tahun"),
+      billingPeriod: "yearly" as const,
       note: t("Paket hemat untuk toko kecil dengan transaksi sederhana."),
-      features: ["100 produk", "1 kasir", "500 transaksi/bulan", t("POS, inventaris, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Pro")],
+      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS, inventaris, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Pro")],
     },
     {
+      id: "pro" as const,
       name: "Pro",
-      price: "Rp49.000 / bulan",
+      price: t("Rp49.000 / bulan"),
+      billingPeriod: "monthly" as const,
       note: t("Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap."),
-      features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", t("Import/export, diskon, QRIS Pakasir, hutang, dan shift")],
+      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Import/export, diskon, QRIS Pakasir, hutang, dan shift")],
     },
     {
+      id: "business" as const,
       name: "Business",
-      price: "Rp99.000 / bulan",
+      price: t("Rp99.000 / bulan"),
+      billingPeriod: "monthly" as const,
       note: t("Untuk toko yang butuh kapasitas besar tanpa batas utama."),
       features: [t("Produk tanpa batas"), t("Kasir tanpa batas"), t("Transaksi tanpa batas"), t("Semua fitur Pro aktif")],
     },
   ];
+  const selectedPlanDetail = planDetails.find((plan) => plan.id === selectedPlan) ?? planDetails[1];
 
   return (
     <div>
@@ -214,15 +226,28 @@ export function AdminDashboardClient() {
               <p className="mt-1 text-2xl font-black capitalize text-[#0b1c30]">{adminProfile?.planType || "pro"}</p>
               <p className="mt-2 flex items-center gap-2 text-sm text-[#3d4a42]"><CalendarDays className="h-4 w-4 text-primary" /> {t("Masa aktif:")} {adminProfile?.activeUntil || t("Tanpa batas")}</p>
             </div>
+            <p className="rounded-2xl bg-[#eff4ff] p-3 text-sm font-semibold text-[#3d4a42]">{t("Klik kotak paket untuk memilih, lalu bayar dari tombol di bawah.")}</p>
             <div className="grid gap-3 md:grid-cols-2">
               {planDetails.map((plan) => (
-                <div key={plan.name} className={`rounded-2xl border p-4 ${adminProfile?.planType === plan.name.toLowerCase() ? "border-primary bg-emerald-50" : "border-[#d9e3de] bg-[#f8f9ff]"}`}>
+                <button
+                  key={plan.name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlan(plan.id);
+                    setInvoice(null);
+                  }}
+                  className={`min-h-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(11,28,48,0.10)] ${selectedPlan === plan.id ? "border-primary bg-emerald-50 ring-2 ring-primary/20" : adminProfile?.planType === plan.id ? "border-primary bg-emerald-50" : "border-[#d9e3de] bg-[#f8f9ff]"}`}
+                  aria-pressed={selectedPlan === plan.id}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-lg font-black text-[#0b1c30]">{plan.name}</p>
                       <p className="text-sm font-extrabold text-primary">{plan.price}</p>
                     </div>
-                    {adminProfile?.planType === plan.name.toLowerCase() ? <Badge variant="success">{t("Aktif")}</Badge> : null}
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {adminProfile?.planType === plan.id ? <Badge variant="success">{t("Aktif")}</Badge> : null}
+                      {selectedPlan === plan.id ? <Badge variant="blue">{t("Dipilih")}</Badge> : null}
+                    </div>
                   </div>
                   <p className="mt-2 text-xs font-semibold leading-relaxed text-[#3d4a42]">{plan.note}</p>
                   <ul className="mt-3 space-y-1.5 text-xs font-semibold text-[#0b1c30]">
@@ -233,14 +258,20 @@ export function AdminDashboardClient() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </button>
               ))}
             </div>
-            <div className="grid gap-2">
-              <Button variant="outline" disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("basic", "yearly")}>Basic Rp100.000 / tahun</Button>
-              <Button variant="outline" disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("pro", "monthly")}>Pro Rp49.000 / bulan</Button>
-              <Button disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("business", "monthly")}>Business Rp99.000 / bulan</Button>
-            </div>
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={subscriptionLoading || selectedPlanDetail.id === "trial"}
+              onClick={() => {
+                if (selectedPlanDetail.id === "trial" || !selectedPlanDetail.billingPeriod) return;
+                createSubscriptionInvoice(selectedPlanDetail.id, selectedPlanDetail.billingPeriod);
+              }}
+            >
+              {subscriptionLoading ? t("Membuat invoice...") : selectedPlanDetail.id === "trial" ? t("Trial tidak perlu pembayaran") : `${t("Bayar Paket")} ${selectedPlanDetail.name} ${selectedPlanDetail.price}`}
+            </Button>
             {invoice ? (
               <div className="rounded-2xl border border-[#bccac0] bg-white p-4 text-center">
                 <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary"><QrCode className="h-5 w-5" /></div>
