@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, NotebookTabs, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
-import { api, debtStatusLabel, paymentMethodLabel, transactionStatusLabel, type DebtRecord, type TransactionRecord, type WithdrawalRecord } from "@/lib/api-client";
+import { CalendarDays, Loader2, NotebookTabs, QrCode, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
+import { api, debtStatusLabel, paymentMethodLabel, transactionStatusLabel, type AdminProfile, type DebtRecord, type SubscriptionInvoiceRecord, type TransactionRecord, type WithdrawalRecord } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,8 +72,11 @@ export function AdminDashboardClient() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
+  const [invoice, setInvoice] = useState<SubscriptionInvoiceRecord | null>(null);
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [loading, setLoading] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,6 +85,7 @@ export function AdminDashboardClient() {
       try {
         const [me, transactionRows, debtRows, withdrawalRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list()]);
         setShopName(me.user.shopName || "UMKM Berkah");
+        setAdminProfile(me.adminProfile ?? null);
         setTransactions(transactionRows);
         setDebts(debtRows);
         setWithdrawals(withdrawalRows);
@@ -93,6 +97,33 @@ export function AdminDashboardClient() {
     }
     load();
   }, []);
+
+  async function createSubscriptionInvoice(planType: "basic" | "pro" | "business", billingPeriod: "monthly" | "yearly") {
+    setSubscriptionLoading(true);
+    setError(null);
+    try {
+      const result = await api.subscription.checkout({ planType, billingPeriod });
+      setInvoice(result.invoice);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuat pembayaran subscription");
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }
+
+  async function checkSubscriptionPayment() {
+    if (!invoice) return;
+    setSubscriptionLoading(true);
+    try {
+      const result = await api.subscription.poll(invoice.id);
+      setInvoice(result.invoice);
+      if (result.profile) setAdminProfile(result.profile);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal cek pembayaran subscription");
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -142,6 +173,37 @@ export function AdminDashboardClient() {
                 <span className="min-w-0 truncate">{t("Ajukan Tarik Dana")}</span>
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="w-full min-w-0 max-w-full bg-white">
+          <CardHeader>
+            <CardTitle>{t("Subscription")}</CardTitle>
+            <CardDescription>{t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-2xl border border-[#bccac0] bg-[#f8f9ff] p-4">
+              <p className="text-sm font-bold text-[#3d4a42]">{t("Paket Aktif")}</p>
+              <p className="mt-1 text-2xl font-black capitalize text-[#0b1c30]">{adminProfile?.planType || "pro"}</p>
+              <p className="mt-2 flex items-center gap-2 text-sm text-[#3d4a42]"><CalendarDays className="h-4 w-4 text-primary" /> {t("Masa aktif:")} {adminProfile?.activeUntil || t("Tanpa batas")}</p>
+            </div>
+            <div className="grid gap-2">
+              <Button variant="outline" disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("basic", "yearly")}>Basic Rp100.000 / tahun</Button>
+              <Button variant="outline" disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("pro", "monthly")}>Pro Rp49.000 / bulan</Button>
+              <Button disabled={subscriptionLoading} onClick={() => createSubscriptionInvoice("business", "monthly")}>Business Rp99.000 / bulan</Button>
+            </div>
+            {invoice ? (
+              <div className="rounded-2xl border border-[#bccac0] bg-white p-4 text-center">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary"><QrCode className="h-5 w-5" /></div>
+                <p className="font-black text-[#0b1c30]">{t("Bayar invoice subscription")}</p>
+                <p className="text-sm text-[#3d4a42]">{formatCurrency(invoice.totalPayment || invoice.amount)}</p>
+                {invoice.qrImageDataUrl ? <img src={invoice.qrImageDataUrl} alt="QRIS Subscription" className="mx-auto mt-3 h-48 w-48 rounded-2xl object-contain" /> : null}
+                <div className="mt-3 grid gap-2">
+                  {invoice.paymentUrl ? <a href={invoice.paymentUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-primary">Buka pembayaran Pakasir</a> : null}
+                  <Button size="sm" onClick={checkSubscriptionPayment} disabled={subscriptionLoading}>{subscriptionLoading ? "Mengecek..." : "Cek Pembayaran"}</Button>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

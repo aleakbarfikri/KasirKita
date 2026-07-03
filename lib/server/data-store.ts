@@ -48,6 +48,10 @@ export type AdminProfile = {
   shopId: string;
   isActive: boolean;
   activeUntil?: string | null;
+  planType?: "trial" | "basic" | "pro" | "business";
+  planStatus?: "trialing" | "active" | "expired" | "manual";
+  trialStartedAt?: string | null;
+  subscriptionStartedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -203,6 +207,38 @@ export type CashShift = {
   createdAt: string;
 };
 
+export type SubscriptionInvoice = {
+  id: string;
+  ownerId: string;
+  adminId: string;
+  planType: "basic" | "pro" | "business";
+  billingPeriod: "monthly" | "yearly";
+  amount: number;
+  provider: "pakasir";
+  providerOrderId: string;
+  status: "pending" | "paid" | "expired" | "failed";
+  paymentUrl?: string | null;
+  qrString?: string | null;
+  qrImageDataUrl?: string | null;
+  totalPayment?: number | null;
+  fee?: number | null;
+  expiredAt?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmailVerification = {
+  id: string;
+  email: string;
+  codeHash: string;
+  purpose: "register";
+  attempts: number;
+  expiresAt: string;
+  consumedAt?: string | null;
+  createdAt: string;
+};
+
 export type AppDb = {
   users: AppUser[];
   sessions: AppSession[];
@@ -219,6 +255,8 @@ export type AppDb = {
   debtPayments: DebtPayment[];
   auditLogs: AuditLog[];
   cashShifts: CashShift[];
+  subscriptionInvoices: SubscriptionInvoice[];
+  emailVerifications: EmailVerification[];
 };
 
 function resolveDataDir() {
@@ -343,6 +381,8 @@ export function defaultDb(): AppDb {
     debtPayments: [],
     auditLogs: [],
     cashShifts: [],
+    subscriptionInvoices: [],
+    emailVerifications: [],
   };
 }
 
@@ -364,6 +404,8 @@ function normalizeDb(db: AppDb): AppDb {
     debtPayments: db.debtPayments ?? [],
     auditLogs: db.auditLogs ?? [],
     cashShifts: db.cashShifts ?? [],
+    subscriptionInvoices: db.subscriptionInvoices ?? [],
+    emailVerifications: db.emailVerifications ?? [],
   };
 }
 

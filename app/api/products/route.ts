@@ -3,6 +3,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { productSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, sortDesc, writeDb, type Product } from "@/lib/server/data-store";
+import { assertFeatureAllowed, assertProductLimit } from "@/lib/server/subscription";
 
 const productCsvHeaders = ["sku", "nama_barang", "harga_jual", "harga_modal", "stok", "diskon_tipe", "diskon_nilai"];
 
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
 
     const scope = await getAdminScope(session.user.id);
     const body = productSchema.parse(await readJson(request));
+    if (body.discountType && body.discountType !== "none" && body.discountValue > 0) assertFeatureAllowed(scope.adminProfile, "discounts");
     const sku = body.sku?.trim() || `SKU-${Date.now().toString().slice(-8)}`;
     const t = now();
 
@@ -96,6 +98,7 @@ export async function POST(request: Request) {
     if (db.products.some((product) => product.shopId === scope.shopId && product.sku === sku)) {
       return fail("SKU sudah digunakan di UMKM ini.", 409);
     }
+    assertProductLimit(db, scope.adminProfile);
 
     const created: Product = {
       id: createId("prd"),

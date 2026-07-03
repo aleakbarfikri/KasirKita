@@ -3,6 +3,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { closeShiftSchema } from "@/lib/server/validators";
 import { transactionProfit } from "@/lib/server/profit";
 import { addAuditLog, createDataId, now, readDb, sortDesc, writeDb, type CashShift, type Transaction } from "@/lib/server/data-store";
+import { assertFeatureAllowed } from "@/lib/server/subscription";
 
 function shiftRow(db: Awaited<ReturnType<typeof readDb>>, shift: CashShift) {
   return {
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
   try {
     const session = await requirePosUser();
     const scope = await getAdminScope(session.user.id);
+    assertFeatureAllowed(scope.adminProfile, "shifts");
     const body = closeShiftSchema.parse(await readJson(request));
     const db = await readDb();
     const previousShift = sortDesc(db.cashShifts.filter((shift) => shift.cashierId === session.user.id && shift.shopId === scope.shopId))[0];

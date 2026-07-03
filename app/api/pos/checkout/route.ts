@@ -6,6 +6,7 @@ import { createPakasirQris } from "@/lib/server/pakasir";
 import { buildReceipt } from "@/lib/server/receipt";
 import { checkoutSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, writeDb, type Debt, type Transaction, type TransactionItem } from "@/lib/server/data-store";
+import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
   const safeSubtotal = Math.max(0, Math.round(subtotal));
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
     const session = await requirePosUser();
     const scope = await getAdminScope(session.user.id);
     const body = checkoutSchema.parse(await readJson(request));
+    if ((body.discountType === "percent" || body.discountType === "amount") && (body.discountValue ?? 0) > 0) assertFeatureAllowed(scope.adminProfile, "discounts");
+    if (body.paymentMethod === "qris_pakasir") assertFeatureAllowed(scope.adminProfile, "qrisPakasir");
+    if (body.paymentMethod === "debt") assertFeatureAllowed(scope.adminProfile, "debts");
 
     const subtotal = body.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discountAmount = calculateDiscount(subtotal, body.discountType, body.discountValue);
@@ -32,6 +36,7 @@ export async function POST(request: Request) {
     if (body.paymentMethod === "debt" && !body.customerName) return fail("Customer name is required for debt transaction", 422);
 
     const db = await readDb();
+    assertMonthlyTransactionLimit(db, scope.adminProfile);
     const pakasirConfig = body.paymentMethod === "qris_pakasir" ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) : null;
     if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
       return fail("Slug dan API Key Pakasir belum diisi. Buka Owner > API Config terlebih dahulu.", 422);

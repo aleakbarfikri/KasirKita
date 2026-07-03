@@ -3,6 +3,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { debtCreateSchema } from "@/lib/server/validators";
 import { now, readDb, sortDesc, writeDb, type Debt } from "@/lib/server/data-store";
+import { assertFeatureAllowed } from "@/lib/server/subscription";
 
 export async function GET() {
   try {
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
+    assertFeatureAllowed(scope.adminProfile, "debts");
     const body = debtCreateSchema.parse(await readJson(request));
     const t = now();
     const created: Debt = {

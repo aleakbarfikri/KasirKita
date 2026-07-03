@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -122,6 +123,9 @@ export function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Memproses..." : "Login"}
           </Button>
+          <div className="text-center text-sm text-slate-500">
+            Belum punya akun UMKM? <Link href="/register" className="font-bold text-primary">Daftar trial gratis</Link>
+          </div>
         </form>
       </CardContent>
     </Card>
