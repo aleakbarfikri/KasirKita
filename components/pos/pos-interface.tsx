@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Link as LinkIcon, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
 import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
@@ -164,9 +164,11 @@ export function PosInterface() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartSearch, setCartSearch] = useState("");
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [cartMenuOpen, setCartMenuOpen] = useState(false);
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [receiptMenuOpen, setReceiptMenuOpen] = useState(false);
   const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
   const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
   const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
@@ -352,6 +354,11 @@ export function PosInterface() {
   const checkoutDiscountAmount = calculateCheckoutDiscount(subtotal);
   const total = Math.max(0, subtotal - checkoutDiscountAmount);
   const change = Math.max(cashReceived - total, 0);
+  const filteredCart = useMemo(() => {
+    const keyword = cartSearch.trim().toLowerCase();
+    if (!keyword) return cart;
+    return cart.filter((item) => item.name.toLowerCase().includes(keyword) || item.sku.toLowerCase().includes(keyword));
+  }, [cart, cartSearch]);
 
   const addToCart = useCallback((product: ProductRecord, quantity = 1) => {
     const safeQuantity = Math.max(1, Math.floor(quantity));
@@ -1004,11 +1011,26 @@ export function PosInterface() {
         </div>
 
         <div className="max-h-[32vh] flex-1 overflow-auto p-3 custom-scrollbar lg:max-h-none lg:p-5">
+          {cart.length > 0 ? (
+            <div className="sticky top-0 z-10 mb-3 bg-white/95 pb-2 backdrop-blur">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748b]" />
+                <Input
+                  value={cartSearch}
+                  onChange={(event) => setCartSearch(event.target.value)}
+                  placeholder={t("Cari barang di keranjang...")}
+                  className="h-10 rounded-xl border-[#d7e2dc] bg-white pl-10 text-sm font-semibold"
+                />
+              </div>
+            </div>
+          ) : null}
           {cart.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[#cbd5e1] bg-[#f8fafc] text-center text-sm font-medium text-[#64748b]">{t("Keranjang masih kosong. Klik kartu produk di kiri, scan SKU lalu Enter, atau tekan Add Item untuk menambahkan barang.")}</div>
+          ) : filteredCart.length === 0 ? (
+            <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-4 text-center text-sm font-semibold text-[#64748b]">{t("Barang tidak ditemukan di keranjang.")}</div>
           ) : (
             <div className="space-y-2 lg:space-y-3">
-              {cart.map((item) => (
+              {filteredCart.map((item) => (
                 <div key={item.id} className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-2.5 shadow-sm lg:p-3">
                   <div className="flex items-center gap-2.5 lg:gap-3">
                     <div className="hidden h-14 w-14 overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 sm:block">
@@ -1298,30 +1320,49 @@ export function PosInterface() {
                     <option value="80mm">80mm ({t("thermal besar")})</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" onClick={() => printThermalReceipt(lastReceipt)}>
-                    <Printer className="mr-2 h-4 w-4" /> Print
+                <div className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                  <Button onClick={() => directPrintThermalReceipt(lastReceipt)} disabled={directPrinting} className="h-12">
+                    {directPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />} {t("Print")}
                   </Button>
-                  <Button variant="outline" onClick={() => directPrintThermalReceipt(lastReceipt)} disabled={directPrinting}>
-                    {directPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />} Direct
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptMenuOpen((open) => !open)}
+                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary bg-white text-primary transition hover:bg-primary/5"
+                    aria-label="Menu struk"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {receiptMenuOpen ? (
+                    <div className="absolute right-0 top-14 z-[90] w-52 overflow-hidden rounded-xl border border-[#d7e2dc] bg-white text-left shadow-2xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          shareWhatsAppReceipt(lastReceipt);
+                          setReceiptMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc]"
+                      >
+                        <Send className="h-4 w-4 text-primary" />
+                        WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          copyReceiptLink(lastReceipt);
+                          setReceiptMenuOpen(false);
+                        }}
+                        disabled={!lastReceipt.publicUrl}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Copy className="h-4 w-4 text-primary" />
+                        {t("Salin Link")}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Button variant="outline" onClick={() => shareWhatsAppReceipt(lastReceipt)}>
-                    <Send className="mr-2 h-4 w-4" /> WhatsApp
-                  </Button>
-                  <Button variant="outline" onClick={() => copyReceiptLink(lastReceipt)} disabled={!lastReceipt.publicUrl}>
-                    <Copy className="mr-2 h-4 w-4" /> Salin Link
-                  </Button>
-                </div>
-                {lastReceipt.publicUrl ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <a href={lastReceipt.publicUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
-                      <LinkIcon className="mr-2 h-4 w-4" /> Link Struk
-                    </a>
-                    <p className="flex items-center rounded-lg bg-[#eff4ff] px-3 py-2 text-left text-xs font-semibold text-[#3d4a42]">Direct print hanya untuk Chrome/Edge + Bluetooth thermal.</p>
-                  </div>
-                ) : null}
+                <p className="rounded-xl bg-[#eff4ff] px-3 py-2 text-left text-xs font-semibold text-[#3d4a42]">
+                  {t("Print memakai direct printer Bluetooth thermal di Chrome/Edge.")}
+                </p>
                 <Button onClick={startNewTransaction}>Transaksi Baru</Button>
               </div>
             ) : (
