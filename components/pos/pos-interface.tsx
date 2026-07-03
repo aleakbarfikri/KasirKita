@@ -33,7 +33,7 @@ type BluetoothWriteCharacteristic = {
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
   qris_static: "QRIS Statis UMKM",
-  qris_pakasir: "QRIS Pakasir Dinamis",
+  qris_pakasir: "QRIS KasirKita Dinamis",
   debt: "Catat Hutang Pelanggan",
 };
 
@@ -300,11 +300,11 @@ export function PosInterface() {
           showCheckoutSuccess("qris_pakasir");
         } else if (result.status === "failed" || result.status === "cancelled") {
           setPaymentStatus("failed");
-          setError("Pembayaran Pakasir gagal atau dibatalkan.");
+          setError("Pembayaran QRIS KasirKita gagal atau dibatalkan.");
         }
       } catch (err) {
         setPaymentStatus("failed");
-        setError(err instanceof Error ? err.message : "Gagal polling status Pakasir");
+        setError(err instanceof Error ? err.message : "Gagal mengecek status QRIS KasirKita");
       }
     }, pakasirPayment.pollEveryMs || 3000);
 
@@ -768,7 +768,7 @@ export function PosInterface() {
     setCartMenuOpen(false);
 
     if (method === "qris_pakasir" && typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("QRIS Pakasir perlu internet untuk membuat QR dinamis. Gunakan Tunai, QRIS Statis, atau Hutang saat offline.");
+      setError("QRIS KasirKita perlu internet untuk membuat QR dinamis. Gunakan Tunai, QRIS Statis, atau Hutang saat offline.");
       return;
     }
 
@@ -784,7 +784,7 @@ export function PosInterface() {
         setPakasirPayment(result.payment ?? null);
       } catch (err) {
         setPaymentStatus("failed");
-        setError(err instanceof Error ? err.message : "Gagal membuat transaksi Pakasir");
+        setError(err instanceof Error ? err.message : "Gagal membuat transaksi QRIS KasirKita");
       } finally {
         setSubmitting(false);
       }
@@ -1079,7 +1079,7 @@ export function PosInterface() {
             <Button size="lg" onClick={() => openPayment("cash")} disabled={cart.length === 0} className="h-11 w-full rounded-lg text-sm lg:h-12 lg:text-base"><CreditCard className="mr-2 h-4 w-4 lg:h-5 lg:w-5" /> {t("Tunai (Cash)")}</Button>
             <div className="grid grid-cols-2 gap-2 lg:gap-3">
               <Button size="lg" variant="outline" onClick={() => openPayment("qris_static")} disabled={cart.length === 0} className="h-11 rounded-lg px-2 text-sm lg:h-12 lg:px-3 lg:text-base"><QrCode className="mr-1.5 h-4 w-4" /> QRIS Statis</Button>
-              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="h-11 rounded-lg px-2 text-sm lg:h-12 lg:px-3 lg:text-base"><WalletCards className="mr-1.5 h-4 w-4" /> QRIS Pakasir</Button>
+              <Button size="lg" variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={cart.length === 0 || !isOnline} className="h-11 rounded-lg px-2 text-sm lg:h-12 lg:px-3 lg:text-base"><WalletCards className="mr-1.5 h-4 w-4" /> QRIS KasirKita</Button>
             </div>
           </div>
         </div>
@@ -1259,26 +1259,26 @@ export function PosInterface() {
               ) : submitting ? (
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
               ) : pakasirPayment?.qrImageDataUrl ? (
-                <img src={pakasirPayment.qrImageDataUrl} alt={`QRIS Pakasir ${pakasirPayment.orderId}`} className="h-full w-full rounded-2xl object-contain" />
+                <img src={pakasirPayment.qrImageDataUrl} alt={`QRIS KasirKita ${pakasirPayment.orderId}`} className="h-full w-full rounded-2xl object-contain" />
               ) : (
                 <div className="flex h-60 w-60 flex-col items-center justify-center rounded-2xl bg-[#eff4ff] p-6 text-[#3d4a42]">
                   <QrCode className="mb-3 h-16 w-16" />
-                  <p className="text-sm font-semibold">Membuat QRIS dari Pakasir...</p>
+                  <p className="text-sm font-semibold">Membuat QRIS KasirKita...</p>
                 </div>
               )}
             </div>
             <div className="space-y-1">
               <p className="font-bold">Order ID {pakasirPayment?.orderId ?? "Membuat order..."}</p>
               <p className="text-sm text-[#3d4a42]">Nominal barang {formatCurrency(total)}</p>
-              {pakasirPayment?.fee ? <p className="text-xs text-[#3d4a42]">Fee Pakasir {formatCurrency(pakasirPayment.fee)} • Total bayar {formatCurrency(pakasirPayment.totalPayment ?? total)}</p> : null}
+              {pakasirPayment?.fee ? <p className="text-xs text-[#3d4a42]">Fee QRIS {formatCurrency(pakasirPayment.fee)} • Total bayar {formatCurrency(pakasirPayment.totalPayment ?? total)}</p> : null}
               {pakasirPayment?.expiredAt ? <p className="text-xs text-[#3d4a42]">Expired: {new Date(pakasirPayment.expiredAt).toLocaleString("id-ID")}</p> : null}
               <Badge variant={paymentStatus === "paid" ? "success" : paymentStatus === "failed" ? "danger" : "warning"} className="mt-3 normal-case tracking-normal">
-                {paymentStatus === "paid" ? "Paid / Success" : paymentStatus === "failed" ? "Gagal" : "Menunggu pembayaran dari Pakasir"}
+                {paymentStatus === "paid" ? "Paid / Success" : paymentStatus === "failed" ? "Gagal" : "Menunggu pembayaran QRIS KasirKita"}
               </Badge>
             </div>
             {pakasirPayment?.paymentUrl ? (
               <a href={pakasirPayment.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex w-full items-center justify-center rounded-xl border border-primary px-4 py-3 text-sm font-bold text-primary hover:bg-[#eff4ff]">
-                Buka halaman bayar Pakasir
+                Buka halaman bayar QRIS KasirKita
               </a>
             ) : null}
             <Button variant="outline" onClick={() => setPaymentMethod(null)} disabled={submitting}>Batal</Button>

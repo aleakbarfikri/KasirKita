@@ -12,7 +12,7 @@ const plans = [
     name: "Trial",
     priceKey: "Gratis 14 hari",
     descriptionKey: "Coba dulu POS dasar sebelum memilih paket.",
-    features: ["100 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "Riwayat transaksi terbatas", "Tanpa QRIS Pakasir", "Tanpa import/export"],
+    features: ["100 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "Riwayat transaksi terbatas", "Tanpa QRIS KasirKita", "Tanpa import/export"],
     ctaKey: "Mulai Trial",
   },
   {
@@ -20,7 +20,7 @@ const plans = [
     name: "Basic",
     priceKey: "Rp100.000 / tahun",
     descriptionKey: "Untuk toko kecil yang butuh kasir digital sederhana.",
-    features: ["300 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "QRIS statis manual", "Riwayat transaksi", "Tanpa QRIS Pakasir", "Tanpa shift kasir"],
+    features: ["300 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "QRIS statis manual", "Riwayat transaksi", "Tanpa QRIS KasirKita", "Tanpa shift kasir"],
     ctaKey: "Daftar Basic",
   },
   {
@@ -28,7 +28,7 @@ const plans = [
     name: "Starter",
     priceKey: "Rp19.000 / bulan",
     descriptionKey: "Paket masuk bulanan dengan kapasitas lebih lega.",
-    features: ["500 produk", "1 kasir", "1.000 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "QRIS statis manual", "Struk thermal 58/80mm", "Riwayat transaksi", "Laporan sederhana", "Tanpa QRIS Pakasir"],
+    features: ["500 produk", "1 kasir", "1.000 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "QRIS statis manual", "Struk thermal 58/80mm", "Riwayat transaksi", "Laporan sederhana", "Tanpa QRIS KasirKita"],
     ctaKey: "Daftar Starter",
     featured: true,
   },
@@ -37,7 +37,7 @@ const plans = [
     name: "Pro",
     priceKey: "Rp49.000 / bulan",
     descriptionKey: "Untuk UMKM yang butuh pembayaran dan operasional lebih lengkap.",
-    features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", "Semua fitur Starter", "Import/export Excel/CSV", "QRIS Pakasir otomatis", "Catatan hutang pelanggan", "Shift kasir", "Laporan omzet dan laba", "Backup manual"],
+    features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", "Semua fitur Starter", "Import/export Excel/CSV", "QRIS KasirKita otomatis", "Catatan hutang pelanggan", "Shift kasir", "Laporan omzet dan laba", "Backup manual"],
     ctaKey: "Daftar Pro",
   },
   {

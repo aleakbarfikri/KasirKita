@@ -65,7 +65,7 @@ export function WithdrawalForm() {
   const canSubmit = amountNumber > 0 && !invalid && accountNumber.length >= 3 && accountName.length >= 2;
 
   const helper = useMemo(() => {
-    if (!amount) return t("Masukkan jumlah penarikan dari saldo QRIS Pakasir.");
+    if (!amount) return t("Masukkan jumlah penarikan dari saldo QRIS KasirKita.");
     if (invalid) return t("Jumlah tidak boleh melebihi saldo digital tersedia.");
     return t("Request akan muncul di dashboard Owner.");
   }, [amount, invalid, t]);
@@ -110,7 +110,7 @@ export function WithdrawalForm() {
       <Card>
         <CardHeader>
           <CardTitle>{t("Ajukan Tarik Dana")}</CardTitle>
-          <CardDescription>{t("Hanya saldo dari QRIS Pakasir sukses yang dapat ditarik.")}</CardDescription>
+          <CardDescription>{t("Hanya saldo dari QRIS KasirKita sukses yang dapat ditarik.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}

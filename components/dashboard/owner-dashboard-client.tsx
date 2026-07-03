@@ -267,7 +267,7 @@ export function OwnerDashboardClient() {
               <OwnerMetricRow
               title="Saldo QRIS Digital"
               value={formatCurrency(stats.totalDigital)}
-              helper="Akumulasi QRIS Pakasir tersedia"
+              helper="Akumulasi QRIS KasirKita tersedia"
               icon={Landmark}
               tone="blue"
             />

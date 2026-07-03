@@ -292,7 +292,7 @@ export function AppShell({
         if (overdueDebts.length > 0) items.push({ id: "admin-overdue-debts", title: `${overdueDebts.length} hutang jatuh tempo`, description: "Ada catatan hutang yang melewati tanggal jatuh tempo.", href: "/admin/debts", tone: "danger" });
 
         const pendingWithdrawals = withdrawalRows.filter((row) => row.status === "pending" || row.status === "processed");
-        if (pendingWithdrawals.length > 0) items.push({ id: "admin-withdrawals", title: `${pendingWithdrawals.length} request withdraw sedang diproses`, description: "Request penarikan saldo QRIS Pakasir sedang menunggu Owner.", href: "/admin/withdraw", tone: "info" });
+        if (pendingWithdrawals.length > 0) items.push({ id: "admin-withdrawals", title: `${pendingWithdrawals.length} request withdraw sedang diproses`, description: "Request penarikan saldo QRIS KasirKita sedang menunggu Owner.", href: "/admin/withdraw", tone: "info" });
 
         const pendingCashiers = cashierRows.filter((row) => row.profile.approvalStatus === "pending");
         if (pendingCashiers.length > 0) items.push({ id: "admin-cashier-pending", title: `${pendingCashiers.length} request kasir tambahan`, description: "Akun kasir tambahan sudah dibuat dan menunggu approval Owner.", href: "/admin/cashiers", tone: "warning" });
