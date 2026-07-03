@@ -79,6 +79,7 @@ export function AdminDashboardClient() {
   const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
   const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
+  const [subscriptionInvoices, setSubscriptionInvoices] = useState<SubscriptionInvoiceRecord[]>([]);
   const [invoice, setInvoice] = useState<SubscriptionInvoiceRecord | null>(null);
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [loading, setLoading] = useState(true);
@@ -90,13 +91,14 @@ export function AdminDashboardClient() {
     async function load() {
       setLoading(true);
       try {
-        const [me, transactionRows, debtRows, withdrawalRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list()]);
+        const [me, transactionRows, debtRows, withdrawalRows, invoiceRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list(), api.subscription.listInvoices().catch(() => [])]);
         setShopName(me.user.shopName || "UMKM Berkah");
         setAdminProfile(me.adminProfile ?? null);
         setSelectedPlan(isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "starter");
         setTransactions(transactionRows);
         setDebts(debtRows);
         setWithdrawals(withdrawalRows);
+        setSubscriptionInvoices(invoiceRows);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Gagal memuat dashboard admin");
       } finally {
@@ -112,6 +114,7 @@ export function AdminDashboardClient() {
     try {
       const result = await api.subscription.checkout({ planType, billingPeriod });
       setInvoice(result.invoice);
+      setSubscriptionInvoices((current) => [result.invoice, ...current.filter((row) => row.id !== result.invoice.id)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat pembayaran subscription");
     } finally {
@@ -126,6 +129,7 @@ export function AdminDashboardClient() {
       const result = await api.subscription.poll(invoice.id);
       setInvoice(result.invoice);
       if (result.profile) setAdminProfile(result.profile);
+      setSubscriptionInvoices((current) => current.map((row) => row.id === result.invoice.id ? result.invoice : row));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal cek pembayaran subscription");
     } finally {
@@ -188,6 +192,17 @@ export function AdminDashboardClient() {
     },
   ];
   const selectedPlanDetail = planDetails.find((plan) => plan.id === selectedPlan) ?? planDetails[1];
+  const subscriptionReminder = useMemo(() => {
+    if (!adminProfile?.activeUntil) return null;
+    const today = new Date();
+    const activeUntil = new Date(`${adminProfile.activeUntil}T00:00:00+07:00`);
+    const daysLeft = Math.ceil((activeUntil.getTime() - today.getTime()) / 86_400_000);
+    if (daysLeft < 0) return { tone: "danger", title: t("Subscription sudah expired"), description: t("Perpanjang paket agar admin dan kasir bisa aktif kembali.") };
+    if (daysLeft <= 1) return { tone: "danger", title: t("Subscription berakhir hari ini"), description: t("Segera perpanjang agar operasional tidak berhenti.") };
+    if (daysLeft <= 3) return { tone: "warning", title: `${t("Subscription tersisa")} ${daysLeft} ${t("hari")}`, description: t("Sebaiknya perpanjang sekarang sebelum akses admin/kasir terkunci.") };
+    if (daysLeft <= 7) return { tone: "warning", title: `${t("Subscription tersisa")} ${daysLeft} ${t("hari")}`, description: t("Siapkan perpanjangan paket agar toko tetap berjalan lancar.") };
+    return null;
+  }, [adminProfile?.activeUntil, t]);
 
   return (
     <div>
@@ -234,6 +249,12 @@ export function AdminDashboardClient() {
             <CardDescription>{t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {subscriptionReminder ? (
+              <div className={subscriptionReminder.tone === "danger" ? "rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800" : "rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900"}>
+                <p className="font-black">{subscriptionReminder.title}</p>
+                <p className="mt-1 text-sm font-semibold">{subscriptionReminder.description}</p>
+              </div>
+            ) : null}
             <div className="rounded-2xl border border-[#bccac0] bg-[#f8f9ff] p-4">
               <p className="text-sm font-bold text-[#3d4a42]">{t("Paket Aktif")}</p>
               <p className="mt-1 text-2xl font-black capitalize text-[#0b1c30]">{adminProfile?.planType || "pro"}</p>
@@ -297,6 +318,27 @@ export function AdminDashboardClient() {
                 </div>
               </div>
             ) : null}
+            <div className="rounded-2xl border border-[#d9e3de] bg-[#f8f9ff] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-black text-[#0b1c30]">{t("Histori Invoice Subscription")}</p>
+                  <p className="text-xs font-semibold text-[#3d4a42]">{t("Cek status pembayaran paket terbaru.")}</p>
+                </div>
+                <Badge variant="secondary">{subscriptionInvoices.length}</Badge>
+              </div>
+              <div className="mt-3 space-y-2">
+                {subscriptionInvoices.slice(0, 4).map((row) => (
+                  <div key={row.id} className="grid gap-2 rounded-xl border border-[#e1e9e4] bg-white p-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div>
+                      <p className="font-extrabold capitalize text-[#0b1c30]">{row.planType} • {row.billingPeriod === "yearly" ? t("Tahunan") : t("Bulanan")}</p>
+                      <p className="text-xs font-semibold text-[#3d4a42]">{new Date(row.createdAt).toLocaleString("id-ID")} • {formatCurrency(row.totalPayment || row.amount)}</p>
+                    </div>
+                    <Badge variant={row.status === "paid" ? "success" : row.status === "pending" ? "warning" : "secondary"}>{t(row.status === "paid" ? "Lunas" : row.status === "pending" ? "Menunggu" : row.status)}</Badge>
+                  </div>
+                ))}
+                {subscriptionInvoices.length === 0 ? <p className="rounded-xl bg-white p-3 text-sm font-semibold text-[#3d4a42]">{t("Belum ada invoice subscription.")}</p> : null}
+              </div>
+            </div>
           </CardContent>
         </Card>
 

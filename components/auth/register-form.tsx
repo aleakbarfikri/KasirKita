@@ -130,6 +130,7 @@ export function RegisterForm() {
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center">
             <Button type="submit" className="w-full sm:w-auto" disabled={loading}>{loading ? "Mendaftarkan..." : "Daftar Trial Gratis"}</Button>
             <Link href="/login" className="text-sm font-bold text-primary">Sudah punya akun? Login</Link>
+            <Link href="/pricing" className="text-sm font-bold text-primary">Lihat paket</Link>
           </div>
         </form>
       </CardContent>

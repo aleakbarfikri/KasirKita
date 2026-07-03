@@ -404,6 +404,7 @@ export const api = {
   subscription: {
     checkout: (body: { planType: "basic" | "starter" | "pro" | "business"; billingPeriod: "monthly" | "yearly" }) =>
       apiFetch<{ invoice: SubscriptionInvoiceRecord; payment: { qrImageDataUrl?: string; paymentUrl: string; totalPayment: number } }>("/api/subscription/checkout", { method: "POST", body: JSON.stringify(body) }),
+    listInvoices: () => apiFetch<SubscriptionInvoiceRecord[]>("/api/subscription/invoices"),
     poll: (id: string) => apiFetch<{ invoice: SubscriptionInvoiceRecord; status: "pending" | "paid"; profile?: AdminProfile; providerStatus?: string }>(`/api/subscription/invoices/${id}`),
   },
   pollPakasir: (reference: string) => apiFetch<{ status: "pending" | "paid" | "failed" | "cancelled"; providerStatus?: string; warning?: string; transaction: TransactionRecord }>(`/api/pakasir/status/${reference}`),
