@@ -44,23 +44,23 @@ function OwnerMetricRow({
 }) {
   const toneClass = {
     green: "text-primary bg-primary/10",
-    blue: "text-[#00628d] bg-[#c9e6ff]",
-    navy: "text-[#213145] bg-[#dae2fd]",
+    blue: "text-[#0369a1] bg-sky-50 ring-1 ring-sky-100",
+    navy: "text-[#1e293b] bg-slate-50 ring-1 ring-slate-100",
   }[tone];
   const valueClass = {
     green: "text-primary",
     blue: "text-[#0875c9]",
-    navy: "text-[#0b1c30]",
+    navy: "text-[#0f172a]",
   }[tone];
 
   return (
-    <div className="grid min-w-0 gap-4 rounded-2xl border border-[#e7edf0] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(11,28,48,0.04)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
-      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${toneClass}`}>
+    <div className="grid min-w-0 gap-4 rounded-xl border border-[#e2e8f0] bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
         <Icon className="h-8 w-8" />
       </div>
       <div className="min-w-0 border-[#dfe7e3] sm:border-l sm:pl-7">
-        <p className="text-lg font-black leading-tight text-[#0b1c30]">{title}</p>
-        <p className="mt-1 text-sm font-medium leading-relaxed text-[#4f5d56] sm:text-base">{helper}</p>
+        <p className="text-lg font-black leading-tight text-[#0f172a]">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-[#64748b] sm:text-base">{helper}</p>
       </div>
       <p className={`min-w-0 break-words text-left text-3xl font-black tracking-normal sm:whitespace-nowrap sm:text-right sm:text-4xl ${valueClass}`}>{value}</p>
     </div>
@@ -248,7 +248,7 @@ export function OwnerDashboardClient() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
-          <Card className="overflow-hidden rounded-3xl border-[#d9e3de] bg-white/95 shadow-[0_18px_60px_rgba(11,28,48,0.07)]">
+          <Card className="overflow-hidden border-[#d9e3de] bg-white/95">
             <CardContent className="space-y-2 p-3 sm:p-4">
               <OwnerMetricRow
               title="Total Pendapatan"
@@ -276,7 +276,7 @@ export function OwnerDashboardClient() {
 
           <section>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-2xl font-bold">Overview Cabang UMKM</h3>
+              <h3 className="text-2xl font-black text-[#0f172a]">Overview Cabang UMKM</h3>
               <Link href="/owner/admins" className="text-sm font-bold text-primary">
                 Lihat Semua
               </Link>
@@ -292,19 +292,19 @@ export function OwnerDashboardClient() {
                 ).length;
 
                 return (
-                  <Card key={row.admin.id} className="bg-white">
+                  <Card key={row.admin.id} className="bg-white transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
                     <CardContent className="p-5">
                       <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#213145] font-bold text-white">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1e293b] font-bold text-white">
                           KK
                         </div>
                         <div className="flex-1">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-lg font-extrabold">
+                              <p className="text-lg font-black text-[#0f172a]">
                                 {row.shop.name}
                               </p>
-                              <p className="text-sm text-[#3d4a42]">
+                              <p className="text-sm font-medium text-[#64748b]">
                                 {row.shop.address || row.admin.name}
                               </p>
                             </div>
@@ -316,9 +316,9 @@ export function OwnerDashboardClient() {
                             </Badge>
                           </div>
 
-                          <div className="mt-4 grid grid-cols-2 border-t border-[#bccac0] pt-4">
+                          <div className="mt-4 grid grid-cols-2 border-t border-[#e2e8f0] pt-4">
                             <div>
-                              <p className="text-xs text-[#3d4a42]">
+                              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#64748b]">
                                 Transaksi Hari Ini
                               </p>
                               <p className="text-lg font-extrabold text-primary">
@@ -326,8 +326,8 @@ export function OwnerDashboardClient() {
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-[#3d4a42]">Saldo QRIS</p>
-                              <p className="text-lg font-extrabold">
+                              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#64748b]">Saldo QRIS</p>
+                              <p className="text-lg font-extrabold text-[#0f172a]">
                                 {formatCurrency(
                                   Math.max(
                                     (row.balance?.totalEarnedQrisApi ?? 0) -
@@ -347,16 +347,16 @@ export function OwnerDashboardClient() {
             </div>
           </section>
 
-          <Card className="min-h-[280px] bg-white">
+          <Card className="min-h-[280px] overflow-hidden bg-white">
             <CardContent className="grid gap-6 p-8 md:grid-cols-[1fr_360px] md:items-end">
               <div>
                 <Badge variant="blue" className="mb-5">
                   Insight API
                 </Badge>
-                <h3 className="max-w-lg text-4xl font-extrabold tracking-tight">
+                <h3 className="max-w-lg text-4xl font-black tracking-tight text-[#0f172a]">
                   Selamat Datang, {ownerName}
                 </h3>
-                <p className="mt-5 max-w-xl text-lg text-[#3d4a42]">
+                <p className="mt-5 max-w-xl text-lg font-medium leading-relaxed text-[#64748b]">
                   Dashboard ini mengambil data admin, transaksi, withdrawal, dan piutang dari API route backend.
                 </p>
                 <Link
@@ -366,7 +366,7 @@ export function OwnerDashboardClient() {
                   Review Withdrawal <ArrowRight className="h-5 w-5" />
                 </Link>
               </div>
-              <div className="flex h-56 items-end gap-4">
+              <div className="flex h-56 items-end gap-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-5">
                 {[36, 64, 47, 78, 70, 90].map((height, index) => (
                   <div
                     key={index}
@@ -383,7 +383,7 @@ export function OwnerDashboardClient() {
 
         <aside className="space-y-6">
           <Card className="bg-white">
-            <CardHeader className="border-b border-[#bccac0]">
+            <CardHeader className="border-b border-[#e2e8f0]">
               <CardTitle className="flex items-center gap-2">
                 <Archive className="h-5 w-5 text-primary" />
                 Backup & Export
@@ -418,7 +418,7 @@ export function OwnerDashboardClient() {
                 Restore Backup JSON
               </Button>
 
-              <div className="rounded-xl bg-[#eff4ff] p-3 text-xs font-semibold text-[#3d4a42]">
+              <div className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3 text-xs font-semibold text-[#64748b]">
                 Backup menyimpan semua data utama. Restore akan membuat backup kondisi saat ini dulu sebelum mengganti data.
               </div>
 
@@ -427,20 +427,20 @@ export function OwnerDashboardClient() {
                   <a
                     key={backup.id}
                     href={`/api/owner/backups/${backup.id}`}
-                    className="block rounded-xl border border-[#bccac0] p-3 text-sm hover:bg-[#f8f9ff]"
+                    className="block rounded-xl border border-[#d7e2dc] p-3 text-sm transition hover:border-primary hover:bg-[#f8fafc]"
                   >
-                    <span className="block truncate font-bold text-[#0b1c30]">{backup.id}</span>
-                    <span className="text-xs text-[#3d4a42]">
+                    <span className="block truncate font-bold text-[#0f172a]">{backup.id}</span>
+                    <span className="text-xs font-medium text-[#64748b]">
                       {new Date(backup.createdAt).toLocaleString("id-ID")} • {(backup.sizeBytes / 1024).toFixed(1)} KB
                     </span>
                   </a>
                 ))}
-                {backups.length === 0 ? <p className="text-sm text-[#3d4a42]">Belum ada backup tersimpan.</p> : null}
+                {backups.length === 0 ? <p className="text-sm font-medium text-[#64748b]">Belum ada backup tersimpan.</p> : null}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#213145] text-white">
+          <Card className="bg-[#1e293b] text-white shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
             <CardHeader>
               <CardTitle className="text-white">Akses Cepat</CardTitle>
             </CardHeader>
