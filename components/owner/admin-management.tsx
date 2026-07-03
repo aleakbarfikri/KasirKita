@@ -53,6 +53,7 @@ function adminEffectiveActive(row?: OwnerAdminRow) {
 function planLabel(plan?: string | null) {
   if (plan === "trial") return "Trial";
   if (plan === "basic") return "Basic";
+  if (plan === "starter") return "Starter";
   if (plan === "business") return "Business";
   return "Pro";
 }
@@ -87,7 +88,7 @@ export function AdminManagement() {
   const [editShopAddress, setEditShopAddress] = useState("");
   const [editShopPhone, setEditShopPhone] = useState("");
   const [editActiveUntil, setEditActiveUntil] = useState("");
-  const [editPlanType, setEditPlanType] = useState<"trial" | "basic" | "pro" | "business">("pro");
+  const [editPlanType, setEditPlanType] = useState<"trial" | "basic" | "starter" | "pro" | "business">("pro");
   const [editQrisImage, setEditQrisImage] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -541,7 +542,8 @@ export function AdminManagement() {
               <Label>{t("Paket Subscription")}</Label>
               <select value={editPlanType} onChange={(event) => setEditPlanType(event.target.value as typeof editPlanType)} className="flex h-11 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold text-[#0b1c30] outline-none focus:ring-2 focus:ring-primary/30">
                 <option value="trial">Trial</option>
-                <option value="basic">Basic - Rp100.000/tahun</option>
+                <option value="basic">{t("Basic - Rp100.000/tahun")}</option>
+                <option value="starter">{t("Starter - Rp19.000/bulan")}</option>
                 <option value="pro">Pro</option>
                 <option value="business">Business</option>
               </select>

@@ -164,7 +164,7 @@ export type AdminProfile = {
   shopId: string;
   isActive: boolean;
   activeUntil?: string | null;
-  planType?: "trial" | "basic" | "pro" | "business";
+  planType?: "trial" | "basic" | "starter" | "pro" | "business";
   planStatus?: "trialing" | "active" | "expired" | "manual";
   trialStartedAt?: string | null;
   subscriptionStartedAt?: string | null;
@@ -290,7 +290,7 @@ export type SubscriptionInvoiceRecord = {
   id: string;
   ownerId: string;
   adminId: string;
-  planType: "basic" | "pro" | "business";
+  planType: "basic" | "starter" | "pro" | "business";
   billingPeriod: "monthly" | "yearly";
   amount: number;
   provider: "pakasir";
@@ -402,7 +402,7 @@ export const api = {
 
   checkout: (body: CheckoutPayload) => apiFetch<CheckoutResponse>("/api/pos/checkout", { method: "POST", body: JSON.stringify(body) }),
   subscription: {
-    checkout: (body: { planType: "basic" | "pro" | "business"; billingPeriod: "monthly" | "yearly" }) =>
+    checkout: (body: { planType: "basic" | "starter" | "pro" | "business"; billingPeriod: "monthly" | "yearly" }) =>
       apiFetch<{ invoice: SubscriptionInvoiceRecord; payment: { qrImageDataUrl?: string; paymentUrl: string; totalPayment: number } }>("/api/subscription/checkout", { method: "POST", body: JSON.stringify(body) }),
     poll: (id: string) => apiFetch<{ invoice: SubscriptionInvoiceRecord; status: "pending" | "paid"; profile?: AdminProfile; providerStatus?: string }>(`/api/subscription/invoices/${id}`),
   },

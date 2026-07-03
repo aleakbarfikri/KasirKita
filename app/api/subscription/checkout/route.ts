@@ -6,7 +6,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { PLAN_CONFIG, type BillingPeriod, type PaidSubscriptionPlan } from "@/lib/server/subscription";
 
 function isPaidPlan(value: unknown): value is PaidSubscriptionPlan {
-  return value === "basic" || value === "pro" || value === "business";
+  return value === "basic" || value === "starter" || value === "pro" || value === "business";
 }
 
 function isPeriod(value: unknown): value is BillingPeriod {

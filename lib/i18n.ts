@@ -464,11 +464,17 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Paket Aktif": { id: "Paket Aktif", en: "Active Plan" },
   "Gratis 14 hari": { id: "Gratis 14 hari", en: "Free for 14 days" },
   "Rp100.000 / tahun": { id: "Rp100.000 / tahun", en: "Rp100,000 / year" },
+  "Rp19.000 / bulan": { id: "Rp19.000 / bulan", en: "Rp19,000 / month" },
   "Rp49.000 / bulan": { id: "Rp49.000 / bulan", en: "Rp49,000 / month" },
   "Rp99.000 / bulan": { id: "Rp99.000 / bulan", en: "Rp99,000 / month" },
+  "Basic - Rp100.000/tahun": { id: "Basic - Rp100.000/tahun", en: "Basic - Rp100,000/year" },
+  "Starter - Rp19.000/bulan": { id: "Starter - Rp19.000/bulan", en: "Starter - Rp19,000/month" },
   "100 produk": { id: "100 produk", en: "100 products" },
+  "300 produk": { id: "300 produk", en: "300 products" },
+  "500 produk": { id: "500 produk", en: "500 products" },
   "1 kasir": { id: "1 kasir", en: "1 cashier" },
   "500 transaksi/bulan": { id: "500 transaksi/bulan", en: "500 transactions/month" },
+  "1.000 transaksi/bulan": { id: "1.000 transaksi/bulan", en: "1,000 transactions/month" },
   "1.000 produk": { id: "1.000 produk", en: "1,000 products" },
   "3 kasir": { id: "3 kasir", en: "3 cashiers" },
   "3.000 transaksi/bulan": { id: "3.000 transaksi/bulan", en: "3,000 transactions/month" },
@@ -489,9 +495,25 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "POS, inventaris, dan struk thermal dasar",
     en: "Basic POS, inventory, and thermal receipts",
   },
+  "POS, inventaris, diskon, dan struk thermal dasar": {
+    id: "POS, inventaris, diskon, dan struk thermal dasar",
+    en: "Basic POS, inventory, discounts, and thermal receipts",
+  },
   "Fitur lanjutan diarahkan ke Pro": {
     id: "Fitur lanjutan diarahkan ke Pro",
     en: "Advanced features are available on Pro",
+  },
+  "Fitur lanjutan diarahkan ke Starter/Pro": {
+    id: "Fitur lanjutan diarahkan ke Starter/Pro",
+    en: "Advanced features are available on Starter/Pro",
+  },
+  "Untuk UMKM kecil yang butuh POS lebih lega dengan diskon aktif.": {
+    id: "Untuk UMKM kecil yang butuh POS lebih lega dengan diskon aktif.",
+    en: "For small stores that need a roomier POS with discounts enabled.",
+  },
+  "POS, inventaris, diskon, QRIS statis, dan riwayat transaksi": {
+    id: "POS, inventaris, diskon, QRIS statis, dan riwayat transaksi",
+    en: "POS, inventory, discounts, static QRIS, and transaction history",
   },
   "Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap.": {
     id: "Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap.",

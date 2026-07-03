@@ -11,7 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
 
-type SubscriptionPlanChoice = "trial" | "basic" | "pro" | "business";
+type SubscriptionPlanChoice = "trial" | "basic" | "starter" | "pro" | "business";
+
+function isSubscriptionPlanChoice(value?: string | null): value is SubscriptionPlanChoice {
+  return value === "trial" || value === "basic" || value === "starter" || value === "pro" || value === "business";
+}
 
 function statusVariant(status: TransactionRecord["status"]) {
   if (status === "success") return "success" as const;
@@ -79,7 +83,7 @@ export function AdminDashboardClient() {
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("basic");
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("starter");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,6 +93,7 @@ export function AdminDashboardClient() {
         const [me, transactionRows, debtRows, withdrawalRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list()]);
         setShopName(me.user.shopName || "UMKM Berkah");
         setAdminProfile(me.adminProfile ?? null);
+        setSelectedPlan(isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "starter");
         setTransactions(transactionRows);
         setDebts(debtRows);
         setWithdrawals(withdrawalRows);
@@ -101,7 +106,7 @@ export function AdminDashboardClient() {
     load();
   }, []);
 
-  async function createSubscriptionInvoice(planType: "basic" | "pro" | "business", billingPeriod: "monthly" | "yearly") {
+  async function createSubscriptionInvoice(planType: "basic" | "starter" | "pro" | "business", billingPeriod: "monthly" | "yearly") {
     setSubscriptionLoading(true);
     setError(null);
     try {
@@ -155,7 +160,15 @@ export function AdminDashboardClient() {
       price: t("Rp100.000 / tahun"),
       billingPeriod: "yearly" as const,
       note: t("Paket hemat untuk toko kecil dengan transaksi sederhana."),
-      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS, inventaris, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Pro")],
+      features: [t("300 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS, inventaris, diskon, dan struk thermal dasar"), t("Fitur lanjutan diarahkan ke Starter/Pro")],
+    },
+    {
+      id: "starter" as const,
+      name: "Starter",
+      price: t("Rp19.000 / bulan"),
+      billingPeriod: "monthly" as const,
+      note: t("Untuk UMKM kecil yang butuh POS lebih lega dengan diskon aktif."),
+      features: [t("500 produk"), t("1 kasir"), t("1.000 transaksi/bulan"), t("POS, inventaris, diskon, QRIS statis, dan riwayat transaksi")],
     },
     {
       id: "pro" as const,
@@ -287,7 +300,7 @@ export function AdminDashboardClient() {
           </CardContent>
         </Card>
 
-        <Card className="w-full min-w-0 max-w-full bg-white">
+        <Card className="w-full min-w-0 max-w-full bg-white xl:col-span-2">
           <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Riwayat singkat transaksi terbaru.")}</CardDescription></CardHeader>
           <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
             <Table className="min-w-[640px]">
