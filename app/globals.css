@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 250 100% 99%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -42,15 +42,23 @@
 
 @layer components {
   .kk-surface {
-    @apply border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)];
+    @apply border border-[#bec9c1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)];
   }
 
   .kk-panel {
-    @apply rounded-xl border border-[#d7e2dc] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)];
+    @apply rounded-xl border border-[#bec9c1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)];
   }
 
   .kk-muted-panel {
-    @apply rounded-xl border border-[#e2e8f0] bg-[#f8fafc];
+    @apply rounded-xl border border-[#bec9c1] bg-[#f8fafc];
+  }
+
+  .kk-stitch-card {
+    @apply rounded-xl border border-[#bec9c1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)];
+  }
+
+  .kk-stitch-pill {
+    @apply rounded-full border border-[#bec9c1] bg-white px-3 py-1 text-xs font-bold text-[#505f76];
   }
 
   .kk-focus-ring {

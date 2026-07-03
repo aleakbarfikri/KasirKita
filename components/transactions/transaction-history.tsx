@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Ban, Download, ExternalLink, Loader2, Printer, ReceiptText, RefreshCw } from "lucide-react";
+import { Ban, Download, ExternalLink, Loader2, Printer, RefreshCw, Search } from "lucide-react";
 import { api, paymentMethodLabel, transactionStatusLabel, type ReceiptRecord, type TransactionRecord } from "@/lib/api-client";
 import { cacheTransactions, readCachedTransactions } from "@/lib/offline-pos";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +138,8 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
 export function TransactionHistory() {
   const { language, t } = useAppLanguage();
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | TransactionRecord["status"]>("all");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
@@ -262,14 +264,26 @@ export function TransactionHistory() {
     setReceiptLoading(false);
   }
 
+  const filteredTransactions = transactions.filter((transaction) => {
+    const haystack = [
+      transaction.id,
+      transaction.externalRef,
+      transaction.cashierName,
+      methodLabel(transaction.paymentMethod, language),
+      statusLabel(transaction.status, language),
+      itemSummary(transaction),
+    ].join(" ").toLowerCase();
+    return (statusFilter === "all" || transaction.status === statusFilter) && haystack.includes(searchTerm.trim().toLowerCase());
+  });
+
   return (
     <>
-    <Card className="w-full min-w-0 max-w-full bg-white">
-      <CardHeader>
+    <Card className="kk-stitch-card w-full min-w-0 max-w-full">
+      <CardHeader className="border-b border-[#bec9c1]">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>{t("Semua Transaksi")}</CardTitle>
-            <CardDescription className="break-words">{t("Rekap transaksi dan barang yang terjual.")}</CardDescription>
+            <CardTitle className="text-2xl text-[#151b2d]">{t("Semua Transaksi")}</CardTitle>
+            <CardDescription className="break-words font-semibold text-[#505f76]">{t("Rekap transaksi dan barang yang terjual.")}</CardDescription>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" size="sm" onClick={exportTransactions} disabled={exporting || loading}>
@@ -282,12 +296,34 @@ export function TransactionHistory() {
       </CardHeader>
       <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        <div className="mb-4 grid gap-3 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f7a72]" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={t("Cari order, barang, kasir, atau metode...")}
+              className="h-11 w-full rounded-xl border border-[#bec9c1] bg-white pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as "all" | TransactionRecord["status"])}
+            className="h-11 rounded-xl border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d] outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+          >
+            <option value="all">{t("Semua Status")}</option>
+            <option value="success">{statusLabel("success", language)}</option>
+            <option value="pending">{statusLabel("pending", language)}</option>
+            <option value="failed">{statusLabel("failed", language)}</option>
+            <option value="cancelled">{statusLabel("cancelled", language)}</option>
+          </select>
+        </div>
         {loading ? (
           <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat transaksi...")}</div>
         ) : (
           <>
             <div className="space-y-3 md:hidden">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-xl border border-[#d7e2dc] bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -314,10 +350,10 @@ export function TransactionHistory() {
             </div>
             <div className="hidden overflow-x-auto md:block">
               <Table className="min-w-[900px]">
-                <TableHeader><TableRow><TableHead>{t("Tanggal")}</TableHead><TableHead>{t("Order ID")}</TableHead><TableHead>{t("Barang")}</TableHead><TableHead>{t("Metode")}</TableHead><TableHead>{t("Total")}</TableHead><TableHead>{t("Laba")}</TableHead><TableHead>{t("Status")}</TableHead><TableHead>Ref</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow className="bg-[#f2f3ff] hover:bg-[#f2f3ff]"><TableHead className="uppercase tracking-[0.12em]">{t("Tanggal")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Order ID")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Barang")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Metode")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Total")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Laba")}</TableHead><TableHead className="uppercase tracking-[0.12em]">{t("Status")}</TableHead><TableHead className="uppercase tracking-[0.12em]">Ref</TableHead><TableHead className="uppercase tracking-[0.12em]">Aksi</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {transactions.map((transaction) => (
-                    <TableRow key={transaction.id} onClick={() => openTransactionDetail(transaction)} className="cursor-pointer">
+                  {filteredTransactions.map((transaction) => (
+                    <TableRow key={transaction.id} onClick={() => openTransactionDetail(transaction)} className="cursor-pointer border-[#e5ebe7] hover:bg-[#006948]/5">
                       <TableCell>{shortDate(transaction.createdAt)}</TableCell>
                       <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                       <TableCell className="max-w-[16rem] truncate" title={itemSummary(transaction)}>{itemSummary(transaction)}</TableCell>
