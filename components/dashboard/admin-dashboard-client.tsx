@@ -236,7 +236,7 @@ export function AdminDashboardClient() {
       price: t("Gratis 14 hari"),
       billingPeriod: null,
       note: t("Cocok untuk coba POS dasar sebelum berlangganan."),
-      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("Riwayat transaksi terbatas"), t("Tanpa QRIS Pakasir"), t("Tanpa import/export")],
+      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("Riwayat transaksi terbatas"), t("Tanpa QRIS KasirKita"), t("Tanpa import/export")],
     },
     {
       id: "basic" as const,
@@ -244,7 +244,7 @@ export function AdminDashboardClient() {
       price: t("Rp100.000 / tahun"),
       billingPeriod: "yearly" as const,
       note: t("Paket hemat untuk toko kecil dengan transaksi sederhana."),
-      features: [t("300 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("QRIS statis manual"), t("Riwayat transaksi"), t("Tanpa QRIS Pakasir"), t("Tanpa shift kasir")],
+      features: [t("300 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("QRIS statis manual"), t("Riwayat transaksi"), t("Tanpa QRIS KasirKita"), t("Tanpa shift kasir")],
     },
     {
       id: "starter" as const,
@@ -252,7 +252,7 @@ export function AdminDashboardClient() {
       price: t("Rp19.000 / bulan"),
       billingPeriod: "monthly" as const,
       note: t("Untuk UMKM kecil yang butuh POS lebih lega dengan diskon aktif."),
-      features: [t("500 produk"), t("1 kasir"), t("1.000 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("QRIS statis manual"), t("Struk thermal 58/80mm"), t("Riwayat transaksi"), t("Laporan sederhana"), t("Tanpa QRIS Pakasir")],
+      features: [t("500 produk"), t("1 kasir"), t("1.000 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("QRIS statis manual"), t("Struk thermal 58/80mm"), t("Riwayat transaksi"), t("Laporan sederhana"), t("Tanpa QRIS KasirKita")],
     },
     {
       id: "pro" as const,
@@ -260,7 +260,7 @@ export function AdminDashboardClient() {
       price: t("Rp49.000 / bulan"),
       billingPeriod: "monthly" as const,
       note: t("Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap."),
-      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Semua fitur Starter"), t("Import/export Excel/CSV"), t("QRIS Pakasir otomatis"), t("Catatan hutang pelanggan"), t("Shift kasir"), t("Laporan omzet dan laba"), t("Backup manual")],
+      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Semua fitur Starter"), t("Import/export Excel/CSV"), t("QRIS KasirKita otomatis"), t("Catatan hutang pelanggan"), t("Shift kasir"), t("Laporan omzet dan laba"), t("Backup manual")],
     },
     {
       id: "business" as const,
@@ -292,7 +292,7 @@ export function AdminDashboardClient() {
         <StitchStatCard title={t("Omzet Hari Ini")} value={formatCurrency(stats.todaySales)} helper={t("Tunai + QRIS sukses")} icon={ReceiptText} tone="green" />
         <StitchStatCard title={t("Transaksi")} value={`${stats.todayCount}`} helper={t("Transaksi sukses hari ini")} icon={BarChart3} tone="navy" />
         <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.todayProfit)} helper={t("Omzet dikurangi modal barang")} icon={TrendingUp} tone="green" />
-        <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("QRIS Pakasir sukses - withdraw")} icon={Wallet} tone="blue" />
+        <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("QRIS KasirKita sukses - withdraw")} icon={Wallet} tone="blue" />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">

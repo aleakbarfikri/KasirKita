@@ -3,7 +3,7 @@ import { TransactionHistory } from "@/components/transactions/transaction-histor
 
 export default function TransactionsPage() {
   return (
-    <AppShell role="admin" title="Transaction History" description="Catatan transaksi tunai, QRIS statis, QRIS Pakasir, dan transaksi hutang.">
+    <AppShell role="admin" title="Transaction History" description="Catatan transaksi tunai, QRIS statis, QRIS KasirKita, dan transaksi hutang.">
       <TransactionHistory />
     </AppShell>
   );

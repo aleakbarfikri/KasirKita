@@ -493,7 +493,7 @@ export function paymentMethodLabel(method: PaymentMethod) {
   const map: Record<PaymentMethod, string> = {
     cash: "Tunai",
     qris_static: "QRIS Statis",
-    qris_pakasir: "QRIS Pakasir",
+    qris_pakasir: "QRIS KasirKita",
     debt: "Hutang",
   };
   return map[method];

@@ -42,7 +42,7 @@ function methodLabel(method: TransactionRecord["paymentMethod"], language: AppLa
   const map: Record<string, string> = {
     Tunai: "Cash",
     "QRIS Statis": "Static QRIS",
-    "QRIS Pakasir": "Pakasir QRIS",
+    "QRIS KasirKita": "KasirKita QRIS",
     Hutang: "Debt",
   };
   return map[id] ?? id;

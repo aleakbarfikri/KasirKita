@@ -40,7 +40,7 @@ const emptyManualItem: ManualItem = {
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai",
   qris_static: "QRIS Statis",
-  qris_pakasir: "QRIS Pakasir",
+  qris_pakasir: "QRIS KasirKita",
   debt: "Catat Hutang",
 };
 
@@ -179,11 +179,11 @@ export function HomePosClient() {
           window.setTimeout(resetTransaction, 1200);
         } else if (result.status === "failed" || result.status === "cancelled") {
           setPaymentStatus("failed");
-          setError("Pembayaran Pakasir gagal atau dibatalkan.");
+          setError("Pembayaran QRIS KasirKita gagal atau dibatalkan.");
         }
       } catch (err) {
         setPaymentStatus("failed");
-        setError(err instanceof Error ? err.message : "Gagal cek status QRIS Pakasir");
+        setError(err instanceof Error ? err.message : "Gagal cek status QRIS KasirKita");
       }
     }, pakasirPayment.pollEveryMs || 3000);
 
@@ -319,7 +319,7 @@ export function HomePosClient() {
         setPakasirPayment(result.payment ?? null);
       } catch (err) {
         setPaymentStatus("failed");
-        setError(err instanceof Error ? err.message : "Gagal membuat pembayaran QRIS Pakasir");
+        setError(err instanceof Error ? err.message : "Gagal membuat pembayaran QRIS KasirKita");
       } finally {
         setSubmitting(false);
       }
@@ -399,7 +399,7 @@ export function HomePosClient() {
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button onClick={() => openPayment("cash")} disabled={!isAdmin || cart.length === 0}>{t("Tunai")}</Button>
-          <Button variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={!isAdmin || cart.length === 0}>QRIS Pakasir</Button>
+          <Button variant="outline" onClick={() => openPayment("qris_pakasir")} disabled={!isAdmin || cart.length === 0}>QRIS KasirKita</Button>
           <Button variant="outline" onClick={() => openPayment("qris_static")} disabled={!isAdmin || cart.length === 0}>QRIS Statis</Button>
           <Button variant="navy" onClick={() => openPayment("debt")} disabled={!isAdmin || cart.length === 0}>{t("Catat Hutang")}</Button>
         </div>
@@ -541,7 +541,7 @@ export function HomePosClient() {
               ) : submitting ? (
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
               ) : pakasirPayment?.qrImageDataUrl ? (
-                <img src={pakasirPayment.qrImageDataUrl} alt={`QRIS Pakasir ${pakasirPayment.orderId}`} className="h-full w-full rounded-2xl object-contain" />
+                <img src={pakasirPayment.qrImageDataUrl} alt={`QRIS KasirKita ${pakasirPayment.orderId}`} className="h-full w-full rounded-2xl object-contain" />
               ) : (
                 <div className="flex h-52 w-52 flex-col items-center justify-center rounded-2xl bg-[#eff4ff] p-6 text-[#3d4a42]">
                   <QrCode className="mb-3 h-14 w-14" />
@@ -559,7 +559,7 @@ export function HomePosClient() {
             </div>
             {pakasirPayment?.paymentUrl ? (
               <a href={pakasirPayment.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex w-full items-center justify-center rounded-xl border border-primary px-4 py-3 text-sm font-bold text-primary hover:bg-[#eff4ff]">
-                {t("Buka halaman bayar Pakasir")}
+                {t("Buka halaman bayar QRIS KasirKita")}
               </a>
             ) : null}
           </div>

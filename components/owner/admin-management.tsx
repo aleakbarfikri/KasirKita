@@ -351,7 +351,7 @@ export function AdminManagement() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <CardTitle>{t("Daftar Admin")}</CardTitle>
-              <CardDescription>{t("Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS Pakasir.")}</CardDescription>
+              <CardDescription>{t("Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS KasirKita.")}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={loadAdmins}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
           </div>
@@ -382,7 +382,7 @@ export function AdminManagement() {
                       <p><span className="font-bold text-[#0b1c30]">{t("Alamat Toko")}:</span> {row.shop.address || t("Tanpa alamat")}</p>
                       <p><span className="font-bold text-[#0b1c30]">{t("Paket")}:</span> {planLabel(row.profile.planType)}</p>
                       <p><span className="font-bold text-[#0b1c30]">{t("Masa Aktif")}:</span> {activeUntilText(row.profile.activeUntil)}</p>
-                      <p><span className="font-bold text-[#0b1c30]">{t("Saldo QRIS Pakasir")}:</span> {formatCurrency(Math.max(available, 0))}</p>
+                      <p><span className="font-bold text-[#0b1c30]">{t("Saldo QRIS KasirKita")}:</span> {formatCurrency(Math.max(available, 0))}</p>
                       {row.shop.phone ? (
                         <a href={waHref || "#"} target="_blank" rel="noreferrer" className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700">
                           <MessageCircle className="h-4 w-4" />
@@ -415,7 +415,7 @@ export function AdminManagement() {
                   <TableHead>{t("Status")}</TableHead>
                   <TableHead>{t("Paket")}</TableHead>
                   <TableHead>{t("Masa Aktif")}</TableHead>
-                  <TableHead>{t("Saldo QRIS Pakasir")}</TableHead>
+                  <TableHead>{t("Saldo QRIS KasirKita")}</TableHead>
                   <TableHead>{t("Total Withdrawn")}</TableHead>
                   <TableHead>{t("Aksi")}</TableHead>
                 </TableRow>

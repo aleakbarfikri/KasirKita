@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: Params) {
         action: "confirm_qris_pakasir",
         entityType: "transaction",
         entityId: transaction.id,
-        message: `Pembayaran QRIS Pakasir dikonfirmasi sukses senilai ${transaction.total}.`,
+        message: `Pembayaran QRIS KasirKita dikonfirmasi sukses senilai ${transaction.total}.`,
         metadata: { providerStatus, total: transaction.total },
       });
       await writeDb(db);

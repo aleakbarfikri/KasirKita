@@ -31,17 +31,17 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "Buat akun kasir, cek status approval owner, dan ubah password kasir.",
     en: "Create cashier accounts, check owner approval, and update cashier passwords.",
   },
-  "Catatan transaksi tunai, QRIS statis, QRIS Pakasir, dan transaksi hutang.": {
-    id: "Catatan transaksi tunai, QRIS statis, QRIS Pakasir, dan transaksi hutang.",
-    en: "Cash, static QRIS, Pakasir QRIS, and debt transaction records.",
+  "Catatan transaksi tunai, QRIS statis, QRIS KasirKita, dan transaksi hutang.": {
+    id: "Catatan transaksi tunai, QRIS statis, QRIS KasirKita, dan transaksi hutang.",
+    en: "Cash, static QRIS, KasirKita QRIS, and debt transaction records.",
   },
   "Tutup shift, hitung uang tunai fisik, dan lihat rekap kasir.": {
     id: "Tutup shift, hitung uang tunai fisik, dan lihat rekap kasir.",
     en: "Close shifts, count physical cash, and review cashier summaries.",
   },
-  "Ajukan penarikan saldo digital dari transaksi QRIS Pakasir sukses.": {
-    id: "Ajukan penarikan saldo digital dari transaksi QRIS Pakasir sukses.",
-    en: "Request a digital balance withdrawal from successful Pakasir QRIS transactions.",
+  "Ajukan penarikan saldo digital dari transaksi QRIS KasirKita sukses.": {
+    id: "Ajukan penarikan saldo digital dari transaksi QRIS KasirKita sukses.",
+    en: "Request a digital balance withdrawal from successful KasirKita QRIS transactions.",
   },
   "Lihat notifikasi withdraw dan tandai transfer manual sebagai selesai.": {
     id: "Lihat notifikasi withdraw dan tandai transfer manual sebagai selesai.",
@@ -115,9 +115,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "Buku hutang pelanggan: catat transaksi bayar nanti, pantau jatuh tempo, dan tandai lunas.",
     en: "Customer debt book: record pay-later sales, monitor due dates, and mark as paid.",
   },
-  "Masukkan jumlah penarikan dari saldo QRIS Pakasir.": {
-    id: "Masukkan jumlah penarikan dari saldo QRIS Pakasir.",
-    en: "Enter the withdrawal amount from Pakasir QRIS balance.",
+  "Masukkan jumlah penarikan dari saldo QRIS KasirKita.": {
+    id: "Masukkan jumlah penarikan dari saldo QRIS KasirKita.",
+    en: "Enter the withdrawal amount from KasirKita QRIS balance.",
   },
   "Jumlah tidak boleh melebihi saldo digital tersedia.": {
     id: "Jumlah tidak boleh melebihi saldo digital tersedia.",
@@ -127,9 +127,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "Request akan muncul di dashboard Owner.",
     en: "The request will appear on the Owner dashboard.",
   },
-  "Hanya saldo dari QRIS Pakasir sukses yang dapat ditarik.": {
-    id: "Hanya saldo dari QRIS Pakasir sukses yang dapat ditarik.",
-    en: "Only successful Pakasir QRIS balance can be withdrawn.",
+  "Hanya saldo dari QRIS KasirKita sukses yang dapat ditarik.": {
+    id: "Hanya saldo dari QRIS KasirKita sukses yang dapat ditarik.",
+    en: "Only successful KasirKita QRIS balance can be withdrawn.",
   },
   "Saldo Digital Tersedia": { id: "Saldo Digital Tersedia", en: "Available Digital Balance" },
   "Nama Bank": { id: "Nama Bank", en: "Bank Name" },
@@ -271,9 +271,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     en: "Static QRIS per branch can be added after the admin is created using Edit.",
   },
   "Daftar Admin": { id: "Daftar Admin", en: "Admin List" },
-  "Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS Pakasir.": {
-    id: "Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS Pakasir.",
-    en: "Manage branch accounts, store names, static QRIS, and Pakasir QRIS balance.",
+  "Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS KasirKita.": {
+    id: "Kelola akun cabang, nama UMKM, QRIS statis, dan saldo QRIS KasirKita.",
+    en: "Manage branch accounts, store names, static QRIS, and KasirKita QRIS balance.",
   },
   "Memuat admin...": { id: "Memuat admin...", en: "Loading admins..." },
   "Alamat Toko": { id: "Alamat Toko", en: "Store Address" },
@@ -286,7 +286,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
     en: "Owner can manually change the admin plan and active period.",
   },
   "Tanpa batas": { id: "Tanpa batas", en: "No limit" },
-  "Saldo QRIS Pakasir": { id: "Saldo QRIS Pakasir", en: "Pakasir QRIS Balance" },
+  "Saldo QRIS KasirKita": { id: "Saldo QRIS KasirKita", en: "KasirKita QRIS Balance" },
   "Total Withdrawn": { id: "Total Ditarik", en: "Total Withdrawn" },
   "Belum ada": { id: "Belum ada", en: "Not set" },
   "Ada QRIS": { id: "Ada QRIS", en: "QRIS Added" },
@@ -458,7 +458,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Nominal barang": { id: "Nominal barang", en: "Item amount" },
   "Total bayar": { id: "Total bayar", en: "Total payment" },
   "Menunggu pembayaran Pakasir": { id: "Menunggu pembayaran Pakasir", en: "Waiting for Pakasir payment" },
-  "Buka halaman bayar Pakasir": { id: "Buka halaman bayar Pakasir", en: "Open Pakasir payment page" },
+  "Buka halaman bayar QRIS KasirKita": { id: "Buka halaman bayar QRIS KasirKita", en: "Open KasirKita QRIS payment page" },
   "Nominal Hutang": { id: "Nominal Hutang", en: "Debt Amount" },
   "Contoh Pak Rudi": { id: "Contoh Pak Rudi", en: "Example: Mr. Rudi" },
   "Catatan hutang": { id: "Catatan hutang", en: "Debt note" },
@@ -480,7 +480,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Laba Kotor Hari Ini": { id: "Laba Kotor Hari Ini", en: "Today's Gross Profit" },
   "Omzet - harga modal": { id: "Omzet - harga modal", en: "Revenue minus cost" },
   "Saldo Digital": { id: "Saldo Digital", en: "Digital Balance" },
-  "QRIS Pakasir sukses - withdraw": { id: "QRIS Pakasir sukses - withdraw", en: "Successful Pakasir QRIS minus withdraw" },
+  "QRIS KasirKita sukses - withdraw": { id: "QRIS KasirKita sukses - withdraw", en: "Successful KasirKita QRIS minus withdraw" },
   "Hutang Aktif": { id: "Hutang Aktif", en: "Active Debt" },
   "Belum lunas + sebagian": { id: "Belum lunas + sebagian", en: "Unpaid + partial" },
   "Aksi Cepat": { id: "Aksi Cepat", en: "Quick Actions" },
@@ -512,9 +512,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     en: "Best for trying the basic POS before subscribing.",
   },
   "Diskon aktif": { id: "Diskon aktif", en: "Discounts enabled" },
-  "Import/export, QRIS Pakasir, hutang, dan shift belum aktif": {
-    id: "Import/export, QRIS Pakasir, hutang, dan shift belum aktif",
-    en: "Import/export, Pakasir QRIS, debts, and shifts are not enabled yet",
+  "Import/export, QRIS KasirKita, hutang, dan shift belum aktif": {
+    id: "Import/export, QRIS KasirKita, hutang, dan shift belum aktif",
+    en: "Import/export, KasirKita QRIS, debts, and shifts are not enabled yet",
   },
   "Paket hemat untuk toko kecil dengan transaksi sederhana.": {
     id: "Paket hemat untuk toko kecil dengan transaksi sederhana.",
@@ -578,7 +578,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "POS kasir": { id: "POS kasir", en: "Cashier POS" },
   "Inventaris produk": { id: "Inventaris produk", en: "Product inventory" },
   "Riwayat transaksi terbatas": { id: "Riwayat transaksi terbatas", en: "Limited transaction history" },
-  "Tanpa QRIS Pakasir": { id: "Tanpa QRIS Pakasir", en: "No Pakasir QRIS" },
+  "Tanpa QRIS KasirKita": { id: "Tanpa QRIS KasirKita", en: "No KasirKita QRIS" },
   "Tanpa import/export": { id: "Tanpa import/export", en: "No import/export" },
   "Riwayat transaksi": { id: "Riwayat transaksi", en: "Transaction history" },
   "Tanpa shift kasir": { id: "Tanpa shift kasir", en: "No cashier shifts" },
@@ -586,7 +586,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Laporan sederhana": { id: "Laporan sederhana", en: "Simple reports" },
   "Semua fitur Starter": { id: "Semua fitur Starter", en: "All Starter features" },
   "Import/export Excel/CSV": { id: "Import/export Excel/CSV", en: "Excel/CSV import/export" },
-  "QRIS Pakasir otomatis": { id: "QRIS Pakasir otomatis", en: "Automatic Pakasir QRIS" },
+  "QRIS KasirKita otomatis": { id: "QRIS KasirKita otomatis", en: "Automatic KasirKita QRIS" },
   "Catatan hutang pelanggan": { id: "Catatan hutang pelanggan", en: "Customer debt records" },
   "Shift kasir": { id: "Shift kasir", en: "Cashier shifts" },
   "Backup manual": { id: "Backup manual", en: "Manual backup" },
@@ -638,9 +638,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap.",
     en: "For stores that need stronger stock control and payment options.",
   },
-  "Import/export, diskon, QRIS Pakasir, hutang, dan shift": {
-    id: "Import/export, diskon, QRIS Pakasir, hutang, dan shift",
-    en: "Import/export, discounts, Pakasir QRIS, debts, and shifts",
+  "Import/export, diskon, QRIS KasirKita, hutang, dan shift": {
+    id: "Import/export, diskon, QRIS KasirKita, hutang, dan shift",
+    en: "Import/export, discounts, KasirKita QRIS, debts, and shifts",
   },
   "Untuk toko yang butuh kapasitas besar tanpa batas utama.": {
     id: "Untuk toko yang butuh kapasitas besar tanpa batas utama.",
@@ -696,7 +696,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "transaksi memakai cache terakhir": { id: "transaksi memakai cache terakhir", en: "transactions are using the latest cache" },
   Tunai: { id: "Tunai", en: "Cash" },
   "QRIS Statis": { id: "QRIS Statis", en: "Static QRIS" },
-  "QRIS Pakasir": { id: "QRIS Pakasir", en: "Pakasir QRIS" },
+  "QRIS KasirKita": { id: "QRIS KasirKita", en: "KasirKita QRIS" },
   Hutang: { id: "Hutang", en: "Debt" },
   Menunggu: { id: "Menunggu", en: "Pending" },
   Sukses: { id: "Sukses", en: "Success" },
