@@ -20,6 +20,7 @@ import {
   Clock,
   Code2,
   Globe2,
+  HelpCircle,
   History,
   KeyRound,
   LayoutDashboard,
@@ -30,6 +31,7 @@ import {
   NotebookTabs,
   Package,
   RefreshCw,
+  Search,
   Store,
   UserRound,
   Users,
@@ -99,7 +101,8 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
       <img src="/kasirkita-mark.png" alt="KasirKita" className={cn("shrink-0 object-contain", compact ? "h-10 w-10" : "h-14 w-14")} />
       {!compact ? (
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-primary">{appBrand}</h1>
+          <h1 className="text-xl font-black tracking-tight text-primary">{appBrand}</h1>
+          <p className="text-xs font-bold text-[#505f76]">POS Platform</p>
         </div>
       ) : null}
     </div>
@@ -388,15 +391,15 @@ export function AppShell({
   }
 
   return (
-    <div className={cn("min-h-screen bg-[#f8fafc] text-[#0f172a]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-[#d7e2dc] bg-white lg:flex">
-        <div className="px-6 py-7">
+    <div className={cn("min-h-screen bg-[#faf8ff] text-[#151b2d]", fullScreen && "lg:h-screen lg:overflow-hidden")}>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#bec9c1] bg-white lg:flex">
+        <div className="px-6 py-6">
           <Link href="/" className="block">
             <BrandMark />
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 px-4">
           {nav.map((item) => {
             const active = pathname === item.href || (item.href !== `/${role}` && pathname.startsWith(item.href));
             return (
@@ -404,8 +407,8 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-[#475569] transition-colors hover:bg-[#f1f5f9] hover:text-[#0f172a]",
-                  active && "bg-primary/10 text-primary shadow-[inset_4px_0_0_#006948]",
+                  "relative -mr-4 flex items-center gap-3 rounded-l-xl px-4 py-3 text-sm font-bold text-[#505f76] transition-colors hover:bg-[#f8fafc] hover:text-[#151b2d]",
+                  active && "border-r-4 border-primary bg-[#006948]/10 text-primary",
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -415,8 +418,8 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="border-t border-[#e2e8f0] p-6">
-          <div className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-4">
+        <div className="border-t border-[#bec9c1] p-5">
+          <div className="rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
                 {initials}
@@ -508,8 +511,8 @@ export function AppShell({
         </div>
       ) : null}
 
-      <main className="lg:pl-[280px]">
-        <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#d7e2dc] bg-white/95 px-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur lg:min-h-[68px] lg:px-8">
+      <main className="lg:pl-64">
+        <header className="sticky top-0 z-20 flex min-h-[64px] items-center justify-between border-b border-[#bec9c1] bg-white/95 px-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <div className="flex items-center gap-2 lg:hidden">
               <button
@@ -523,17 +526,31 @@ export function AppShell({
                 <BrandMark compact />
               </Link>
             </div>
-            <div className="hidden w-full max-w-[440px] items-center rounded-lg border border-[#dbe6ef] bg-[#f1f5f9] px-4 py-2.5 text-sm font-semibold text-[#475569] md:flex">
-              <Menu className="mr-2 h-5 w-5" /> {role === "owner" ? t("Area Owner") : user?.shopName || t("Area Admin")}
+            <div className="relative hidden w-full max-w-md md:block">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f7a72]" />
+              <input
+                aria-label="Quick search"
+                className="h-10 w-full rounded-xl border border-[#bec9c1] bg-[#f8fafc] pl-11 pr-4 text-sm font-semibold text-[#151b2d] outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
+                placeholder={role === "owner" ? t("Cari admin, transaksi, atau withdraw...") : t("Cari produk, transaksi, atau kasir...")}
+              />
             </div>
-            <div className="hidden border-l border-[#d7e2dc] pl-4 text-sm md:block">
+            <div className="hidden border-l border-[#bec9c1] pl-4 text-sm md:block">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748b]">{t("Login sebagai")}</p>
               <p className="font-bold text-primary">{role === "owner" ? t("Owner") : t("Admin")}</p>
             </div>
           </div>
           <div className="relative flex items-center gap-3">
+            <a
+              href={role === "admin" ? ownerWhatsappUrl : "/owner"}
+              target={role === "admin" ? "_blank" : undefined}
+              rel={role === "admin" ? "noreferrer" : undefined}
+              className="hidden rounded-full p-2 text-[#505f76] hover:bg-[#f8fafc] hover:text-primary sm:inline-flex"
+              aria-label="Bantuan"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </a>
             <button
-              className="relative rounded-full p-2 hover:bg-[#f1f5f9]"
+              className="relative rounded-full p-2 hover:bg-[#f8fafc]"
               aria-label="Notifikasi"
               onClick={() => {
                 setNotificationOpen((value) => !value);
@@ -592,7 +609,7 @@ export function AppShell({
               </div>
             ) : null}
 
-            <div className="flex items-center gap-1 rounded-full border border-[#d7e2dc] bg-[#f8fafc] p-1 text-xs font-extrabold text-primary">
+            <div className="flex items-center gap-1 rounded-full border border-[#bec9c1] bg-[#f8fafc] p-1 text-xs font-extrabold text-primary">
               <Globe2 className="ml-2 hidden h-4 w-4 sm:block" />
               <button
                 type="button"
@@ -662,11 +679,14 @@ export function AppShell({
           <div className="min-h-[calc(100vh-64px)] overflow-y-auto pb-24 lg:h-[calc(100vh-68px)] lg:overflow-hidden lg:pb-0">{children}</div>
         ) : (
           <div className="p-4 pb-24 lg:p-8">
+            <div className="mx-auto w-full max-w-[1184px]">
             <div className="mb-8">
-              <h2 className="text-3xl font-black tracking-tight text-[#0f172a] md:text-4xl">{t(title)}</h2>
-              {description ? <p className="mt-2 max-w-3xl text-base font-medium leading-relaxed text-[#64748b]">{t(description)}</p> : null}
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-primary">{role === "owner" ? t("Owner Area") : t("Admin Area")}</p>
+              <h2 className="text-3xl font-black tracking-tight text-[#151b2d] md:text-4xl">{t(title)}</h2>
+              {description ? <p className="mt-2 max-w-3xl text-base font-semibold leading-relaxed text-[#505f76]">{t(description)}</p> : null}
             </div>
             {children}
+            </div>
           </div>
         )}
       </main>

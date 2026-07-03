@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Loader2, NotebookTabs, QrCode, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, CalendarDays, Loader2, NotebookTabs, Package, QrCode, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
 import { api, debtStatusLabel, paymentMethodLabel, transactionStatusLabel, type AdminProfile, type DebtRecord, type SubscriptionInvoiceRecord, type TransactionRecord, type WithdrawalRecord } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,42 @@ function MetricRow({
         <p className="mt-1 text-sm font-semibold leading-relaxed text-[#64748b] sm:text-base">{helper}</p>
       </div>
       <p className={`min-w-0 break-words text-left text-3xl font-black tracking-normal sm:whitespace-nowrap sm:text-right sm:text-4xl ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function StitchStatCard({
+  title,
+  value,
+  helper,
+  icon: Icon,
+  tone = "green",
+}: {
+  title: string;
+  value: string;
+  helper: string;
+  icon: typeof Store;
+  tone?: "green" | "blue" | "navy" | "red";
+}) {
+  const toneClass = {
+    green: "bg-[#006948]/10 text-primary",
+    blue: "bg-[#c9e6ff] text-[#00628d]",
+    navy: "bg-[#f2f3ff] text-[#151b2d]",
+    red: "bg-red-50 text-red-700",
+  }[tone];
+
+  return (
+    <div className="kk-stitch-card min-h-[168px] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(21,27,45,0.08)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-[#505f76]">{title}</p>
+          <p className="mt-4 break-words text-3xl font-black tracking-normal text-[#151b2d]">{value}</p>
+        </div>
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
+          <Icon className="h-6 w-6" />
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-semibold leading-relaxed text-[#505f76]">{helper}</p>
     </div>
   );
 }
@@ -169,8 +205,29 @@ export function AdminDashboardClient() {
     const withdrawn = withdrawals.filter((row) => row.status === "completed").reduce((sum, row) => sum + row.amount, 0);
     const reserved = withdrawals.filter((row) => row.status === "pending" || row.status === "processed").reduce((sum, row) => sum + row.amount, 0);
     const activeDebt = debts.filter((debt) => debt.status !== "paid").reduce((sum, debt) => sum + debt.amount - debt.paidAmount, 0);
-    return { todaySales, todayProfit, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
+    return { todaySales, todayProfit, todayCount: todaySuccess.length, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
   }, [debts, transactions, withdrawals]);
+
+  const weeklySales = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - index));
+      return {
+        key: date.toDateString(),
+        label: date.toLocaleDateString("id-ID", { weekday: "short" }),
+        value: 0,
+      };
+    });
+
+    transactions.forEach((transaction) => {
+      if (transaction.status !== "success") return;
+      const found = days.find((day) => day.key === new Date(transaction.createdAt).toDateString());
+      if (found) found.value += transaction.total;
+    });
+
+    const max = Math.max(...days.map((day) => day.value), 1);
+    return days.map((day) => ({ ...day, height: Math.max(8, Math.round((day.value / max) * 100)) }));
+  }, [transactions]);
 
   const planDetails = [
     {
@@ -231,40 +288,72 @@ export function AdminDashboardClient() {
     <div>
       {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="mb-4 flex items-center rounded-2xl bg-white p-3 text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat data...")}</p> : null}
-      <Card className="overflow-hidden border-[#d9e3de] bg-white/95">
-        <CardContent className="space-y-2 p-3 sm:p-4">
-          <MetricRow title={t("UMKM Aktif")} value={shopName} helper={t("Cabang yang sedang login")} icon={Store} tone="navy" />
-          <MetricRow title={t("Omzet Hari Ini")} value={formatCurrency(stats.todaySales)} helper={t("Tunai + QRIS sukses")} icon={ReceiptText} tone="green" />
-          <MetricRow title={t("Laba Kotor Hari Ini")} value={formatCurrency(stats.todayProfit)} helper={t("Omzet - harga modal")} icon={TrendingUp} tone="green" />
-          <MetricRow title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("QRIS Pakasir sukses - withdraw")} icon={Wallet} tone="blue" />
-          <MetricRow title={t("Hutang Aktif")} value={formatCurrency(stats.activeDebt)} helper={t("Belum lunas + sebagian")} icon={NotebookTabs} tone="red" />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StitchStatCard title={t("Omzet Hari Ini")} value={formatCurrency(stats.todaySales)} helper={t("Tunai + QRIS sukses")} icon={ReceiptText} tone="green" />
+        <StitchStatCard title={t("Transaksi")} value={`${stats.todayCount}`} helper={t("Transaksi sukses hari ini")} icon={BarChart3} tone="navy" />
+        <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.todayProfit)} helper={t("Omzet dikurangi modal barang")} icon={TrendingUp} tone="green" />
+        <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("QRIS Pakasir sukses - withdraw")} icon={Wallet} tone="blue" />
+      </div>
 
-      <div className="mt-6 grid w-full min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-        <Card className="w-full min-w-0 max-w-full bg-[#1e293b] text-white shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
-          <CardHeader><CardTitle className="text-white">{t("Aksi Cepat")}</CardTitle><CardDescription className="text-white/70">{t("Operasi harian admin UMKM.")}</CardDescription></CardHeader>
-          <CardContent className="grid w-full min-w-0 max-w-full gap-3 px-4 sm:px-6">
-            <Link href="/admin/pos" className="block min-w-0">
-              <Button size="lg" className="w-full min-w-0 max-w-full justify-start px-4 bg-white text-primary hover:bg-white/90 h-auto min-h-14 gap-3 whitespace-normal break-words text-left leading-tight">
-                <Store className="mr-2 h-5 w-5 shrink-0" />
-                <span className="min-w-0 truncate">{t("Buka Kasir POS")}</span>
-              </Button>
-            </Link>
-            <Link href="/admin/debts" className="block min-w-0">
-              <Button size="lg" variant="secondary" className="w-full min-w-0 max-w-full justify-start px-4 h-auto min-h-14 gap-3 whitespace-normal break-words text-left leading-tight">
-                <NotebookTabs className="mr-2 h-5 w-5 shrink-0" />
-                <span className="min-w-0 truncate">{t("Catatan Hutang")}</span>
-              </Button>
-            </Link>
-            <Link href="/admin/withdraw" className="block min-w-0">
-              <Button size="lg" className="w-full min-w-0 max-w-full justify-start px-4 bg-white text-[#0f7a4f] hover:bg-white/90 h-auto min-h-14 gap-3 whitespace-normal break-words text-left leading-tight">
-                <Wallet className="mr-2 h-5 w-5 shrink-0" />
-                <span className="min-w-0 truncate">{t("Ajukan Tarik Dana")}</span>
-              </Button>
-            </Link>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+        <Card className="kk-stitch-card">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-2xl text-[#151b2d]">{t("Penjualan 7 Hari")}</CardTitle>
+              <CardDescription className="font-semibold text-[#505f76]">{t("Grafik transaksi sukses mingguan.")}</CardDescription>
+            </div>
+            <Badge variant="secondary" className="w-fit">{shopName}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-72 items-end gap-3 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-4">
+              {weeklySales.map((day) => (
+                <div key={day.key} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2">
+                  <div className="relative flex flex-1 items-end rounded-t-xl bg-white">
+                    <div className="w-full rounded-t-xl bg-primary/80 transition-all" style={{ height: `${day.height}%` }} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase text-[#505f76]">{day.label}</p>
+                    <p className="truncate text-[11px] font-bold text-primary">{formatCurrency(day.value)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
+
+        <Card className="kk-stitch-card">
+          <CardHeader>
+            <CardTitle className="text-2xl text-[#151b2d]">{t("Aksi Cepat")}</CardTitle>
+            <CardDescription className="font-semibold text-[#505f76]">{t("Operasi harian admin UMKM.")}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {[
+              { href: "/admin/pos", label: t("Buka Kasir POS"), icon: Store },
+              { href: "/admin/inventory", label: t("Kelola Inventaris"), icon: Package },
+              { href: "/admin/debts", label: t("Catatan Hutang"), icon: NotebookTabs },
+              { href: "/admin/withdraw", label: t("Ajukan Tarik Dana"), icon: Wallet },
+            ].map((action) => (
+              <Link key={action.href} href={action.href} className="group flex items-center justify-between rounded-xl border border-[#bec9c1] bg-white px-4 py-3 transition hover:border-primary hover:bg-[#006948]/5">
+                <span className="flex min-w-0 items-center gap-3 font-black text-[#151b2d]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#006948]/10 text-primary">
+                    <action.icon className="h-5 w-5" />
+                  </span>
+                  <span className="truncate">{action.label}</span>
+                </span>
+                <span className="text-lg font-black text-primary transition group-hover:translate-x-0.5">→</span>
+              </Link>
+            ))}
+            <div className="mt-2 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#505f76]">{t("Hutang Aktif")}</p>
+              <p className="mt-2 text-2xl font-black text-[#151b2d]">{formatCurrency(stats.activeDebt)}</p>
+              <p className="mt-1 text-sm font-semibold text-[#505f76]">{t("Belum lunas + sebagian")}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
+
+      <div className="mt-6 grid w-full min-w-0 max-w-full gap-6">
 
         <Card id="subscription" className="w-full min-w-0 max-w-full scroll-mt-24 bg-white">
           <CardHeader>
