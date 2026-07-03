@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/server/auth-guard";
+import { PricingPage } from "@/components/subscription/pricing-page";
 
 export default async function HomePage() {
   const session = await getCurrentSession();
@@ -13,5 +14,5 @@ export default async function HomePage() {
     redirect("/admin");
   }
 
-  redirect("/login");
+  return <PricingPage />;
 }

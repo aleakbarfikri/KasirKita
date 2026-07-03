@@ -24,6 +24,7 @@ export default async function DigitalReceiptPage({ params }: { params: { token: 
     <main className="min-h-screen bg-[#f8f9ff] p-4 text-[#0b1c30]">
       <section className="mx-auto max-w-md rounded-3xl border border-[#bccac0] bg-white p-6 shadow-xl">
         <div className="text-center">
+          {receipt.showWatermark ? <p className="mb-2 text-xs font-black tracking-[0.16em] text-primary">{receipt.watermarkText || "www.kasir-kita.com"}</p> : null}
           <h1 className="text-2xl font-black text-primary">{receipt.shop.name}</h1>
           {receipt.shop.address ? <p className="mt-1 text-sm text-[#3d4a42]">{receipt.shop.address}</p> : null}
           {receipt.shop.phone ? <p className="text-sm text-[#3d4a42]">{receipt.shop.phone}</p> : null}
