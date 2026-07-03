@@ -2,6 +2,7 @@ import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { updateProductSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
+import { assertFeatureAllowed } from "@/lib/server/subscription";
 
 type Params = { params: { id: string } };
 
@@ -41,6 +42,12 @@ export async function PATCH(request: Request, { params }: Params) {
     const db = await readDb();
     const product = db.products.find((row) => row.id === params.id);
     if (!product) return fail("Product not found", 404);
+    const nextDiscountType = body.discountType ?? product.discountType ?? "none";
+    const nextDiscountValue = body.discountValue ?? product.discountValue ?? 0;
+    if (session.user.role === "admin" && nextDiscountType !== "none" && nextDiscountValue > 0) {
+      const scope = await getAdminScope(session.user.id);
+      assertFeatureAllowed(scope.adminProfile, "discounts");
+    }
 
     if (body.sku !== undefined) {
       const nextSku = body.sku.trim() || `SKU-${Date.now().toString().slice(-8)}`;

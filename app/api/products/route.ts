@@ -26,6 +26,8 @@ export async function GET(request: Request) {
 
     if (mode === "template") {
       if (session.user.role !== "admin") return fail("Only admin can download product template", 403);
+      const scope = await getAdminScope(session.user.id);
+      assertFeatureAllowed(scope.adminProfile, "importExport");
       const csv = toCsv([
         productCsvHeaders,
         ["SKU-001", "Gula 1kg", 15000, 12500, 50, "percent", 10],
@@ -64,6 +66,7 @@ export async function GET(request: Request) {
     const scope = await getAdminScope(session.user.id);
     const rows = db.products.filter((product) => product.shopId === scope.shopId && product.isActive);
     if (mode === "csv") {
+      assertFeatureAllowed(scope.adminProfile, "importExport");
       const csv = toCsv([
         productCsvHeaders,
         ...sortDesc([...rows]).map((product) => [product.sku, product.name, product.price, product.costPrice, product.stock ?? "", product.discountType ?? "none", product.discountValue ?? 0]),

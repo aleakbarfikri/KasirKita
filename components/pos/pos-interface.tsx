@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/lib/i18n";
+import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 
 type CartItem = ProductRecord & { qty: number; isManual?: boolean };
 type ModalMethod = PaymentMethod | null;
@@ -698,7 +699,12 @@ export function PosInterface() {
               </Button>
             </div>
           ) : null}
-          {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
+          {error ? (
+            <div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">
+              <p>{error}</p>
+              <UpgradeSubscriptionCta message={error} />
+            </div>
+          ) : null}
           <div className="mb-4 grid grid-cols-1 gap-3 lg:mb-6 xl:grid-cols-[minmax(220px,1fr)_auto_auto_auto] xl:items-center">
             <div className="relative min-w-0">
               <Barcode className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#3d4a42]" />
@@ -910,7 +916,12 @@ export function PosInterface() {
       </Modal>
 
       <Modal open={manualItemOpen} title={t("Add Item Manual")} description={t("Tambahkan item langsung ke keranjang tanpa harus terdaftar di inventaris.")} onClose={() => setManualItemOpen(false)}>
-        {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
+        {error ? (
+          <div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">
+            <p>{error}</p>
+            <UpgradeSubscriptionCta message={error} />
+          </div>
+        ) : null}
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
@@ -942,7 +953,12 @@ export function PosInterface() {
       </Modal>
 
       <Modal open={paymentMethod !== null} title={paymentMethod ? methodLabel[paymentMethod] : "Pembayaran"} description="Transaksi dikirim ke API route backend dan disimpan ke SQLite lokal." onClose={() => !submitting ? setPaymentMethod(null) : undefined}>
-        {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
+        {error ? (
+          <div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">
+            <p>{error}</p>
+            <UpgradeSubscriptionCta message={error} />
+          </div>
+        ) : null}
 
         {paymentMethod === "cash" ? (
           <div className="space-y-4">

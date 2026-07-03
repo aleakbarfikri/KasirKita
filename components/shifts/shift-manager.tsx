@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, shortDate } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
+import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 
 export function ShiftManager() {
   const { t } = useAppLanguage();
@@ -65,7 +66,12 @@ export function ShiftManager() {
           <CardDescription>{t("Hitung transaksi sejak shift terakhir kasir sampai saat ini.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+          {error ? (
+            <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+              <p>{error}</p>
+              <UpgradeSubscriptionCta message={error} />
+            </div>
+          ) : null}
           {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
           <div className="space-y-2">
             <Label htmlFor="cashCounted">{t("Uang Tunai Fisik")}</Label>

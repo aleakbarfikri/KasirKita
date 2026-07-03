@@ -462,6 +462,45 @@ const dictionary: Record<string, { id: string; en: string }> = {
     en: "Manage plans and renew automatically via Pakasir.",
   },
   "Paket Aktif": { id: "Paket Aktif", en: "Active Plan" },
+  "Gratis 14 hari": { id: "Gratis 14 hari", en: "Free for 14 days" },
+  "Cocok untuk coba POS dasar sebelum berlangganan.": {
+    id: "Cocok untuk coba POS dasar sebelum berlangganan.",
+    en: "Best for trying the basic POS before subscribing.",
+  },
+  "Diskon aktif": { id: "Diskon aktif", en: "Discounts enabled" },
+  "Import/export, QRIS Pakasir, hutang, dan shift belum aktif": {
+    id: "Import/export, QRIS Pakasir, hutang, dan shift belum aktif",
+    en: "Import/export, Pakasir QRIS, debts, and shifts are not enabled yet",
+  },
+  "Paket hemat untuk toko kecil dengan transaksi sederhana.": {
+    id: "Paket hemat untuk toko kecil dengan transaksi sederhana.",
+    en: "Affordable plan for small stores with simple transactions.",
+  },
+  "POS, inventaris, dan struk thermal dasar": {
+    id: "POS, inventaris, dan struk thermal dasar",
+    en: "Basic POS, inventory, and thermal receipts",
+  },
+  "Fitur lanjutan diarahkan ke Pro": {
+    id: "Fitur lanjutan diarahkan ke Pro",
+    en: "Advanced features are available on Pro",
+  },
+  "Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap.": {
+    id: "Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap.",
+    en: "For stores that need stronger stock control and payment options.",
+  },
+  "Import/export, diskon, QRIS Pakasir, hutang, dan shift": {
+    id: "Import/export, diskon, QRIS Pakasir, hutang, dan shift",
+    en: "Import/export, discounts, Pakasir QRIS, debts, and shifts",
+  },
+  "Untuk toko yang butuh kapasitas besar tanpa batas utama.": {
+    id: "Untuk toko yang butuh kapasitas besar tanpa batas utama.",
+    en: "For stores that need large capacity without core limits.",
+  },
+  "Produk tanpa batas": { id: "Produk tanpa batas", en: "Unlimited products" },
+  "Kasir tanpa batas": { id: "Kasir tanpa batas", en: "Unlimited cashiers" },
+  "Transaksi tanpa batas": { id: "Transaksi tanpa batas", en: "Unlimited transactions" },
+  "Semua fitur Pro aktif": { id: "Semua fitur Pro aktif", en: "All Pro features enabled" },
+  "Lihat Paket Subscription": { id: "Lihat Paket Subscription", en: "View Subscription Plans" },
   "Bayar invoice subscription": { id: "Bayar invoice subscription", en: "Pay subscription invoice" },
   "Buka Kasir POS": { id: "Buka Kasir POS", en: "Open Cashier POS" },
   "Ajukan Tarik Dana": { id: "Ajukan Tarik Dana", en: "Request Withdraw" },
