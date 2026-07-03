@@ -19,11 +19,11 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <Card className="max-h-[90vh] w-full max-w-xl overflow-auto">
-        <div className="flex items-start justify-between border-b p-5">
+      <Card className="max-h-[90vh] w-full max-w-xl overflow-auto shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+        <div className="flex items-start justify-between border-b border-[#e2e8f0] p-5">
           <div>
-            <h2 className="text-xl font-semibold">{title}</h2>
-            {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+            <h2 className="text-xl font-black text-[#0f172a]">{title}</h2>
+            {description ? <p className="mt-1 text-sm font-medium leading-relaxed text-[#64748b]">{description}</p> : null}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup modal">
             <X className="h-5 w-5" />

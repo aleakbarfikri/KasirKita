@@ -7,14 +7,14 @@ type BadgeProps = React.HTMLAttributes<HTMLDivElement> & {
 
 const variants = {
   default: "bg-primary text-primary-foreground",
-  secondary: "bg-secondary text-secondary-foreground",
+  secondary: "bg-[#eef4f2] text-[#475569]",
   outline: "border border-input bg-background text-foreground",
-  success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-700",
-  blue: "bg-sky-100 text-sky-800",
+  success: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  warning: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+  danger: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  blue: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
 };
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
-  return <div className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.02em]", variants[variant], className)} {...props} />;
+  return <div className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-[0.02em]", variants[variant], className)} {...props} />;
 }

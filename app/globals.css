@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 225 100% 99%;
-    --foreground: 213 63% 12%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 213 63% 12%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 213 63% 12%;
+    --popover-foreground: 222 47% 11%;
     --primary: 161 100% 21%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 223 73% 92%;
-    --secondary-foreground: 226 20% 27%;
-    --muted: 218 100% 96%;
-    --muted-foreground: 205 8% 36%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 215 25% 27%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 42%;
     --accent: 202 100% 35%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 75% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 143 10% 76%;
-    --input: 143 10% 76%;
+    --border: 214 20% 88%;
+    --input: 214 20% 82%;
     --ring: 161 100% 21%;
-    --radius: 0.75rem;
+    --radius: 0.625rem;
   }
 
   * {
@@ -34,9 +34,29 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "tnum";
   }
+
+  ::selection {
+    background: rgba(0, 105, 72, 0.16);
+  }
 }
 
 @layer components {
+  .kk-surface {
+    @apply border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)];
+  }
+
+  .kk-panel {
+    @apply rounded-xl border border-[#d7e2dc] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)];
+  }
+
+  .kk-muted-panel {
+    @apply rounded-xl border border-[#e2e8f0] bg-[#f8fafc];
+  }
+
+  .kk-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
   .pos-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

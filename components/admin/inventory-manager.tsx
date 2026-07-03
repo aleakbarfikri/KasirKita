@@ -244,7 +244,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
 
   return (
     <>
-      <div className="grid w-full min-w-0 max-w-full gap-6 overflow-hidden xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div className="grid w-full min-w-0 max-w-full gap-6 overflow-hidden xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>{t("Input Barang")}</CardTitle>
@@ -270,14 +270,14 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               </Button>
               <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={importProducts} className="hidden" />
             </div>
-            <p className="rounded-2xl bg-[#eff4ff] p-3 text-xs font-semibold leading-relaxed text-[#3d4a42]">{t("Download template, kolom SKU/nama/harga/stok/diskon sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
+            <p className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3 text-xs font-semibold leading-relaxed text-[#64748b]">{t("Download template, kolom SKU/nama/harga/stok/diskon sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
             <div className="space-y-2"><Label>{t("Nama Barang")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} /></div>
             <div className="space-y-2"><Label>{t("Harga Jual")}</Label><Input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="15000" /></div>
             <div className="space-y-2"><Label>{t("Harga Modal")}</Label><Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} type="number" placeholder="12500" /></div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>{t("Tipe Diskon")}</Label>
-                <select value={discountType} onChange={(event) => setDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-md border border-[#bccac0] bg-white px-3 py-2 text-sm font-medium">
+                <select value={discountType} onChange={(event) => setDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-bold text-[#0f172a] outline-none transition hover:border-[#9fb4aa] focus:ring-2 focus:ring-primary">
                   <option value="none">{t("Tanpa Diskon")}</option>
                   <option value="percent">{t("Persen")}</option>
                   <option value="amount">{t("Nominal Rupiah")}</option>
@@ -289,7 +289,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2"><Label>SKU / Barcode <span className="text-xs font-normal text-[#3d4a42]">({t("opsional")})</span></Label><Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} /></div>
+              <div className="space-y-2"><Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label><Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} /></div>
               <div className="space-y-2"><Label>{t("Stok")}</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
@@ -324,7 +324,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                 <TableBody>
                   {filteredItems.map((item) => (
                     <TableRow key={item.id}>
-<TableCell className="font-medium">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
+<TableCell className="font-bold text-[#0f172a]">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{formatCurrency(item.price)}</TableCell>
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
@@ -368,7 +368,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} />
           </div>
           <div className="space-y-2">
-            <Label>SKU / Barcode <span className="text-xs font-normal text-[#3d4a42]">({t("opsional")})</span></Label>
+            <Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label>
             <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder={t("Kosongkan untuk auto SKU")} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -384,7 +384,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{t("Tipe Diskon")}</Label>
-              <select value={editDiscountType} onChange={(event) => setEditDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-md border border-[#bccac0] bg-white px-3 py-2 text-sm font-medium">
+              <select value={editDiscountType} onChange={(event) => setEditDiscountType(event.target.value as "none" | "percent" | "amount")} className="flex h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-bold text-[#0f172a] outline-none transition hover:border-[#9fb4aa] focus:ring-2 focus:ring-primary">
                 <option value="none">{t("Tanpa Diskon")}</option>
                 <option value="percent">{t("Persen")}</option>
                 <option value="amount">{t("Nominal Rupiah")}</option>
