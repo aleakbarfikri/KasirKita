@@ -20,7 +20,6 @@ import {
   Clock,
   Code2,
   Globe2,
-  HelpCircle,
   History,
   KeyRound,
   LayoutDashboard,
@@ -134,6 +133,7 @@ export function AppShell({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -200,6 +200,32 @@ export function AppShell({
       alive = false;
     };
   }, [pathname, role, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(Notification.permission);
+  }, []);
+
+  async function enableDeviceNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === "granted") {
+      const seedKey = `kasirkita-notifications-seen-${role}-${user?.id ?? "user"}`;
+      window.localStorage.setItem(seedKey, JSON.stringify(notifications.map((item) => item.id).slice(0, 80)));
+      new Notification("KasirKita", {
+        body: "Notifikasi device aktif. Aktivitas baru akan muncul dari browser ini.",
+        tag: "kasirkita-notification-enabled",
+      });
+    }
+  }
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -283,7 +309,30 @@ export function AppShell({
         }
       }
 
-      setNotifications(items.slice(0, 12));
+      const nextItems = items.slice(0, 12);
+      setNotifications(nextItems);
+
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        const seenKey = `kasirkita-notifications-seen-${role}-${user.id}`;
+        let seenIds: string[] = [];
+        try {
+          seenIds = JSON.parse(window.localStorage.getItem(seenKey) || "[]");
+        } catch {
+          seenIds = [];
+        }
+
+        const seen = new Set(seenIds);
+        const freshItems = nextItems.filter((item) => !seen.has(item.id)).slice(0, 3);
+        freshItems.forEach((item) => {
+          new Notification(`KasirKita: ${item.title}`, {
+            body: item.description,
+            tag: item.id,
+          });
+        });
+
+        const merged = [...nextItems.map((item) => item.id), ...seenIds].filter((id, index, array) => array.indexOf(id) === index).slice(0, 100);
+        window.localStorage.setItem(seenKey, JSON.stringify(merged));
+      }
     } catch (err) {
       setNotificationError(err instanceof Error ? err.message : "Gagal memuat notifikasi");
     } finally {
@@ -540,15 +589,6 @@ export function AppShell({
             </div>
           </div>
           <div className="relative flex items-center gap-3">
-            <a
-              href={role === "admin" ? ownerWhatsappUrl : "/owner"}
-              target={role === "admin" ? "_blank" : undefined}
-              rel={role === "admin" ? "noreferrer" : undefined}
-              className="hidden rounded-full p-2 text-[#505f76] hover:bg-[#f8fafc] hover:text-primary sm:inline-flex"
-              aria-label="Bantuan"
-            >
-              <HelpCircle className="h-5 w-5" />
-            </a>
             <button
               className="relative rounded-full p-2 hover:bg-[#f8fafc]"
               aria-label="Notifikasi"
@@ -577,6 +617,19 @@ export function AppShell({
                 <div className="max-h-[360px] overflow-y-auto p-3">
                   {notificationError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{notificationError}</p> : null}
                   {notificationsLoading && !notificationError ? <p className="rounded-xl bg-[#f1f5f9] p-3 text-sm font-medium text-[#64748b]">Memuat notifikasi...</p> : null}
+                  <div className="mb-3 rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-extrabold text-[#0f172a]">{t("Notifikasi Device")}</p>
+                        <p className="text-xs font-semibold text-[#64748b]">
+                          {notificationPermission === "granted" ? t("Aktif di browser ini") : notificationPermission === "denied" ? t("Izin ditolak di browser") : notificationPermission === "unsupported" ? t("Browser tidak mendukung") : t("Aktifkan agar aktivitas masuk ke device")}
+                        </p>
+                      </div>
+                      <Button size="sm" variant={notificationPermission === "granted" ? "secondary" : "outline"} onClick={enableDeviceNotifications} disabled={notificationPermission === "granted" || notificationPermission === "unsupported"}>
+                        {notificationPermission === "granted" ? t("Aktif") : t("Aktifkan")}
+                      </Button>
+                    </div>
+                  </div>
 
                   {!notificationsLoading && !notificationError && notifications.length === 0 ? (
                     <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">

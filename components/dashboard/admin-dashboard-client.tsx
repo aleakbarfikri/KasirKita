@@ -296,7 +296,7 @@ export function AdminDashboardClient() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-        <Card className="kk-stitch-card">
+        <Card className="kk-stitch-card w-full min-w-0 overflow-hidden">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-2xl text-[#151b2d]">{t("Penjualan 7 Hari")}</CardTitle>
@@ -326,19 +326,19 @@ export function AdminDashboardClient() {
             <CardTitle className="text-2xl text-[#151b2d]">{t("Aksi Cepat")}</CardTitle>
             <CardDescription className="font-semibold text-[#505f76]">{t("Operasi harian admin UMKM.")}</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3">
+          <CardContent className="grid w-full min-w-0 gap-3 px-4 sm:px-6">
             {[
               { href: "/admin/pos", label: t("Buka Kasir POS"), icon: Store },
               { href: "/admin/inventory", label: t("Kelola Inventaris"), icon: Package },
               { href: "/admin/debts", label: t("Catatan Hutang"), icon: NotebookTabs },
               { href: "/admin/withdraw", label: t("Ajukan Tarik Dana"), icon: Wallet },
             ].map((action) => (
-              <Link key={action.href} href={action.href} className="group flex items-center justify-between rounded-xl border border-[#bec9c1] bg-white px-4 py-3 transition hover:border-primary hover:bg-[#006948]/5">
+              <Link key={action.href} href={action.href} className="group flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-[#bec9c1] bg-white px-3 py-3 transition hover:border-primary hover:bg-[#006948]/5 sm:px-4">
                 <span className="flex min-w-0 items-center gap-3 font-black text-[#151b2d]">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#006948]/10 text-primary">
                     <action.icon className="h-5 w-5" />
                   </span>
-                  <span className="truncate">{action.label}</span>
+                  <span className="min-w-0 break-words leading-tight">{action.label}</span>
                 </span>
                 <span className="text-lg font-black text-primary transition group-hover:translate-x-0.5">→</span>
               </Link>
