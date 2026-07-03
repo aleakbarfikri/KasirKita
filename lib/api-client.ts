@@ -416,6 +416,9 @@ export const api = {
     void: (id: string, body: { reason: string }) =>
       apiFetch<{ transaction: TransactionRecord; items: unknown[]; debt?: DebtRecord | null }>(`/api/transactions/${id}/void`, { method: "POST", body: JSON.stringify(body) }),
   },
+  receipts: {
+    get: (token: string) => apiFetch<ReceiptRecord>(`/api/receipts/${token}`),
+  },
 
   auditLogs: {
     list: () => apiFetch<AuditLogRecord[]>("/api/audit-logs"),
