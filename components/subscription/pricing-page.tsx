@@ -2,55 +2,59 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { CheckCircle2, Globe2 } from "lucide-react";
 import { setAppLanguage, useAppLanguage } from "@/lib/i18n";
 
 const plans = [
   {
+    id: "trial",
     name: "Trial",
     priceKey: "Gratis 14 hari",
     descriptionKey: "Coba dulu POS dasar sebelum memilih paket.",
-    features: ["100 produk", "1 kasir", "500 transaksi/bulan", "Diskon aktif", "Struk thermal dasar"],
+    features: ["100 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "Riwayat transaksi terbatas", "Tanpa QRIS Pakasir", "Tanpa import/export"],
     ctaKey: "Mulai Trial",
-    href: "/register",
   },
   {
+    id: "basic",
     name: "Basic",
     priceKey: "Rp100.000 / tahun",
     descriptionKey: "Untuk toko kecil yang butuh kasir digital sederhana.",
-    features: ["300 produk", "1 kasir", "500 transaksi/bulan", "POS, inventaris, diskon, dan struk thermal dasar", "QRIS statis manual"],
+    features: ["300 produk", "1 kasir", "500 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "Struk thermal dasar", "QRIS statis manual", "Riwayat transaksi", "Tanpa QRIS Pakasir", "Tanpa shift kasir"],
     ctaKey: "Daftar Basic",
-    href: "/register",
   },
   {
+    id: "starter",
     name: "Starter",
     priceKey: "Rp19.000 / bulan",
     descriptionKey: "Paket masuk bulanan dengan kapasitas lebih lega.",
-    features: ["500 produk", "1 kasir", "1.000 transaksi/bulan", "POS, inventaris, diskon, QRIS statis, dan riwayat transaksi"],
+    features: ["500 produk", "1 kasir", "1.000 transaksi/bulan", "POS kasir", "Inventaris produk", "Diskon aktif", "QRIS statis manual", "Struk thermal 58/80mm", "Riwayat transaksi", "Laporan sederhana", "Tanpa QRIS Pakasir"],
     ctaKey: "Daftar Starter",
-    href: "/register",
     featured: true,
   },
   {
+    id: "pro",
     name: "Pro",
     priceKey: "Rp49.000 / bulan",
     descriptionKey: "Untuk UMKM yang butuh pembayaran dan operasional lebih lengkap.",
-    features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", "Import/export, diskon, QRIS Pakasir, hutang, dan shift", "Laporan omzet dan laba"],
+    features: ["1.000 produk", "3 kasir", "3.000 transaksi/bulan", "Semua fitur Starter", "Import/export Excel/CSV", "QRIS Pakasir otomatis", "Catatan hutang pelanggan", "Shift kasir", "Laporan omzet dan laba", "Backup manual"],
     ctaKey: "Daftar Pro",
-    href: "/register",
   },
   {
+    id: "business",
     name: "Business",
     priceKey: "Rp99.000 / bulan",
     descriptionKey: "Untuk toko yang butuh kapasitas besar dan prioritas support.",
-    features: ["Produk tanpa batas", "Kasir tanpa batas", "Transaksi tanpa batas", "Semua fitur Pro aktif", "Backup otomatis dan prioritas support"],
+    features: ["Produk tanpa batas", "Kasir tanpa batas", "Transaksi tanpa batas", "Semua fitur Pro aktif", "Backup otomatis", "Restore data", "Dashboard owner lengkap", "Log aktivitas", "Export laporan", "Prioritas support"],
     ctaKey: "Daftar Business",
-    href: "/register",
   },
 ];
 
 export function PricingPage() {
   const { language, t } = useAppLanguage();
+  const [selectedPlan, setSelectedPlan] = useState("starter");
+  const selected = plans.find((plan) => plan.id === selectedPlan) ?? plans[2];
+  const registerHref = selected.id === "trial" ? "/register?plan=trial" : `/register?plan=${selected.id}`;
 
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#0b1c30]">
@@ -79,11 +83,14 @@ export function PricingPage() {
 
         <div className="mt-8 grid gap-4 lg:grid-cols-5">
           {plans.map((plan) => (
-            <Link key={plan.name} href={plan.href} className={plan.featured ? "block rounded-2xl border-2 border-primary bg-emerald-50 p-5 shadow-[0_18px_40px_rgba(0,105,72,0.12)] transition hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(0,105,72,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "block rounded-2xl border border-[#d9e3de] bg-white p-5 transition hover:-translate-y-1 hover:border-primary hover:shadow-[0_18px_40px_rgba(11,28,48,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"}>
+            <button key={plan.name} type="button" onClick={() => setSelectedPlan(plan.id)} className={`${plan.featured ? "border-2 border-primary bg-emerald-50 shadow-[0_18px_40px_rgba(0,105,72,0.12)]" : "border border-[#d9e3de] bg-white"} ${selectedPlan === plan.id ? "ring-2 ring-primary ring-offset-2" : ""} flex h-full flex-col rounded-2xl p-5 text-left transition hover:-translate-y-1 hover:border-primary hover:shadow-[0_18px_40px_rgba(11,28,48,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`} aria-pressed={selectedPlan === plan.id}>
               <div className="min-h-[128px]">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-2xl font-black">{plan.name}</h2>
-                  {plan.featured ? <span className="rounded-full bg-primary px-3 py-1 text-xs font-black uppercase text-white">{t("Best Value")}</span> : null}
+                  <div className="flex flex-col items-end gap-2">
+                    {plan.featured ? <span className="rounded-full bg-primary px-3 py-1 text-xs font-black uppercase text-white">{t("Best Value")}</span> : null}
+                    {selectedPlan === plan.id ? <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black uppercase text-sky-800">{t("Dipilih")}</span> : null}
+                  </div>
                 </div>
                 <p className="mt-2 text-xl font-black text-primary">{t(plan.priceKey)}</p>
                 <p className="mt-3 text-sm font-semibold leading-relaxed text-[#3d4a42]">{t(plan.descriptionKey)}</p>
@@ -96,11 +103,17 @@ export function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <span className={plan.featured ? "mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-black text-white" : "mt-6 inline-flex w-full items-center justify-center rounded-xl border border-primary bg-white px-4 py-3 text-sm font-black text-primary"}>
-                {t(plan.ctaKey)}
-              </span>
-            </Link>
+            </button>
           ))}
+        </div>
+        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-[#d9e3de] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-[#3d4a42]">{t("Paket dipilih")}</p>
+            <p className="text-xl font-black text-[#0b1c30]">{selected.name} • {t(selected.priceKey)}</p>
+          </div>
+          <Link href={registerHref} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-black text-white hover:bg-primary/90">
+            {t(selected.ctaKey)}
+          </Link>
         </div>
       </section>
     </main>

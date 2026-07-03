@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { CalendarDays, CheckCircle2, Edit3, ImagePlus, Loader2, MessageCircle, Plus, QrCode, RefreshCw, ShieldCheck, Upload, UserCheck, UserX, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, Edit3, ImagePlus, Loader2, MessageCircle, Plus, QrCode, RefreshCw, ShieldCheck, Trash2, Upload, UserCheck, UserX, X } from "lucide-react";
 import { api, type CashierRow, type OwnerAdminRow } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,10 @@ export function AdminManagement() {
   const [editQrisImage, setEditQrisImage] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<OwnerAdminRow | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const qrisInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadAdmins() {
@@ -214,6 +218,36 @@ export function AdminManagement() {
       setMessage(isActive ? t("Admin berhasil diaktifkan kembali.") : t("Admin berhasil dinonaktifkan."));
     } catch (err) {
       setError(err instanceof Error ? err.message : isActive ? t("Gagal mengaktifkan admin") : t("Gagal menonaktifkan admin"));
+    }
+  }
+
+  function openDelete(row: OwnerAdminRow) {
+    setDeleting(row);
+    setDeletePassword("");
+    setDeleteError(null);
+  }
+
+  async function deleteAdmin() {
+    if (!deleting) return;
+    if (!deletePassword) {
+      setDeleteError(t("Password owner wajib diisi."));
+      return;
+    }
+    setDeleteSaving(true);
+    setDeleteError(null);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.owner.admins.remove(deleting.admin.id, { ownerPassword: deletePassword });
+      setAdmins((current) => current.filter((row) => row.admin.id !== deleting.admin.id));
+      setCashiers((current) => current.filter((row) => row.profile.adminId !== deleting.admin.id && row.profile.shopId !== deleting.profile.shopId));
+      setMessage(t("Admin dan data cabangnya berhasil dihapus permanen."));
+      setDeleting(null);
+      setDeletePassword("");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t("Gagal menghapus admin"));
+    } finally {
+      setDeleteSaving(false);
     }
   }
 
@@ -363,6 +397,7 @@ export function AdminManagement() {
                       ) : (
                         <Button variant="secondary" size="sm" onClick={() => setAdminActive(row.admin.id, true)}><UserCheck className="mr-2 h-4 w-4" /> {t("Aktifkan")}</Button>
                       )}
+                      <Button variant="destructive" size="sm" className="col-span-2" onClick={() => openDelete(row)}><Trash2 className="mr-2 h-4 w-4" /> {t("Hapus Admin")}</Button>
                     </div>
                   </div>
                 );
@@ -426,6 +461,7 @@ export function AdminManagement() {
                           ) : (
                             <Button variant="secondary" size="sm" onClick={() => setAdminActive(row.admin.id, true)}><UserCheck className="mr-2 h-4 w-4" /> {t("Aktifkan")}</Button>
                           )}
+                          <Button variant="destructive" size="sm" onClick={() => openDelete(row)}><Trash2 className="mr-2 h-4 w-4" /> {t("Hapus")}</Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -578,6 +614,35 @@ export function AdminManagement() {
             <Button className="w-full" size="lg" onClick={saveEdit} disabled={editSaving}>
               {editSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Edit3 className="mr-2 h-4 w-4" />} {t("Simpan Perubahan")}
             </Button>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={deleting !== null}
+        title={t("Hapus Admin")}
+        description={t("Aksi ini permanen dan akan menghapus data cabang admin dari storage. Masukkan password owner untuk konfirmasi.")}
+        onClose={() => !deleteSaving ? setDeleting(null) : undefined}
+      >
+        {deleting ? (
+          <div className="space-y-4">
+            {deleteError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{deleteError}</p> : null}
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p className="font-black">{t("Data yang akan dihapus")}</p>
+              <p className="mt-2">{deleting.admin.name} - {deleting.shop.name}</p>
+              <p className="mt-1 text-xs font-semibold">{t("Termasuk produk, kasir, transaksi, hutang, withdrawal, invoice, dan data toko cabang ini.")}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Password Owner")}</Label>
+              <Input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder={t("Masukkan password owner")} autoFocus />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button type="button" variant="outline" onClick={() => setDeleting(null)} disabled={deleteSaving}>{t("Batalkan")}</Button>
+              <Button type="button" variant="destructive" onClick={deleteAdmin} disabled={deleteSaving}>
+                {deleteSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {t("Hapus Permanen")}
+              </Button>
+            </div>
           </div>
         ) : null}
       </Modal>

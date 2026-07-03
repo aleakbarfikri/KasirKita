@@ -19,6 +19,7 @@ export const productSchema = z.object({
   discountValue: z.coerce.number().int().min(0).optional().default(0),
   stock: z.coerce.number().int().min(0).optional().nullable(),
   photoUrl: z.string().max(2_000_000).optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
 });
 
 export const updateProductSchema = productSchema.partial();
@@ -93,7 +94,7 @@ export const adminUpdateSchema = z.object({
   qrisStaticImageUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   activeUntil: z.string().trim().optional().nullable().or(z.literal("")),
-  planType: z.enum(["trial", "basic", "pro", "business"]).optional(),
+  planType: z.enum(["trial", "basic", "starter", "pro", "business"]).optional(),
   planStatus: z.enum(["trialing", "active", "expired", "manual"]).optional(),
 });
 
