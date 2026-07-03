@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Ban, Download, Loader2, RefreshCw } from "lucide-react";
-import { api, paymentMethodLabel, transactionStatusLabel, type TransactionRecord } from "@/lib/api-client";
+import QRCode from "qrcode";
+import { Ban, Download, ExternalLink, Loader2, Printer, ReceiptText, RefreshCw } from "lucide-react";
+import { api, paymentMethodLabel, transactionStatusLabel, type ReceiptRecord, type TransactionRecord } from "@/lib/api-client";
 import { cacheTransactions, readCachedTransactions } from "@/lib/offline-pos";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, shortDate } from "@/lib/utils";
 import { useAppLanguage, type AppLanguage } from "@/lib/i18n";
+
+type ReceiptPaperWidth = "58mm" | "80mm";
 
 function statusVariant(status: TransactionRecord["status"]) {
   if (status === "success") return "success" as const;
@@ -55,12 +60,92 @@ function statusLabel(status: TransactionRecord["status"], language: AppLanguage)
   return map[id] ?? id;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
+}
+
+async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
+  const trx = receipt.transaction;
+  const contentPadding = paperWidth === "80mm" ? "10px" : "7px";
+  const qrSize = paperWidth === "80mm" ? 160 : 132;
+  const qrDataUrl = receipt.publicUrl ? await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: qrSize }) : "";
+  const itemRows = receipt.items.map((item) => `
+    <div class="item">
+      <div class="item-name">${escapeHtml(item.name)}</div>
+      <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.price * item.quantity))}</span></div>
+      ${item.discountAmount ? `<div class="muted small">Diskon item: ${escapeHtml(formatCurrency(item.discountAmount))} / pcs</div>` : ""}
+    </div>
+  `).join("");
+  const html = `<!doctype html>
+    <html><head><title>Reprint ${escapeHtml(trx.id)}</title>
+    <style>
+      @page { size: ${paperWidth} auto; margin: 0; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #fff; color: #000; font: 11px "Courier New", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.28; }
+      .receipt { width: ${paperWidth}; max-width: ${paperWidth}; padding: ${contentPadding}; box-sizing: border-box; }
+      .center { text-align: center; }
+      .shop { font-weight: 800; font-size: 13px; text-transform: uppercase; }
+      .watermark { margin-bottom: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: lowercase; }
+      .line { border-top: 1px dashed #000; margin: 8px 0; }
+      .row { display: flex; justify-content: space-between; gap: 8px; }
+      .row span:first-child { min-width: 0; overflow-wrap: anywhere; }
+      .row span:last-child { text-align: right; }
+      .item { margin: 6px 0; }
+      .item-name { font-weight: 700; overflow-wrap: anywhere; }
+      .muted { color: #333; }
+      .total { font-size: 13px; font-weight: 900; }
+      .qr { display: block; width: ${paperWidth === "80mm" ? "34mm" : "28mm"}; height: ${paperWidth === "80mm" ? "34mm" : "28mm"}; margin: 4px auto 2px; }
+      .small { font-size: 9px; }
+    </style></head><body>
+      <div class="receipt">
+        <div class="center">
+          ${receipt.showWatermark ? `<div class="watermark">${escapeHtml(receipt.watermarkText || "www.kasir-kita.com")}</div>` : ""}
+          <div class="shop">${escapeHtml(receipt.shop.name)}</div>
+          ${receipt.shop.address ? `<div>${escapeHtml(receipt.shop.address)}</div>` : ""}
+          <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
+        </div>
+        <div class="line"></div>
+        <div class="row"><span>Invoice</span><span>${escapeHtml(shortOrderId(trx.id))}</span></div>
+        <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
+        <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
+        <div class="row"><span>Metode</span><span>${escapeHtml(paymentMethodLabel(trx.paymentMethod))}</span></div>
+        <div class="line"></div>
+        ${itemRows}
+        <div class="line"></div>
+        ${trx.subtotal !== undefined ? `<div class="row"><span>Subtotal</span><span>${escapeHtml(formatCurrency(trx.subtotal))}</span></div>` : ""}
+        ${trx.discountAmount ? `<div class="row"><span>Diskon</span><span>-${escapeHtml(formatCurrency(trx.discountAmount))}</span></div>` : ""}
+        <div class="row total"><span>Total</span><span>${escapeHtml(formatCurrency(trx.total))}</span></div>
+        ${trx.paidAmount !== null && trx.paidAmount !== undefined ? `<div class="row"><span>Dibayar</span><span>${escapeHtml(formatCurrency(trx.paidAmount))}</span></div>` : ""}
+        ${trx.changeAmount !== null && trx.changeAmount !== undefined ? `<div class="row"><span>Kembalian</span><span>${escapeHtml(formatCurrency(trx.changeAmount))}</span></div>` : ""}
+        ${qrDataUrl ? `<div class="line"></div><div class="center"><div>Struk digital</div><img class="qr" src="${qrDataUrl}" alt="QR struk digital" /><div class="small">Scan / simpan QR ini</div></div>` : ""}
+        <div class="line"></div>
+        <div class="center">REPRINT</div>
+        <div class="center">Terima kasih</div>
+      </div>
+      <script>
+        window.addEventListener("load", function () {
+          setTimeout(function () { window.print(); }, 180);
+        });
+      </script>
+    </body></html>`;
+  const win = window.open("", "_blank", "width=360,height=720");
+  if (!win) throw new Error("Popup print diblokir browser. Izinkan popup untuk mencetak struk.");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
 export function TransactionHistory() {
   const { language, t } = useAppLanguage();
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionRecord | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
+  const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadTransactions() {
@@ -142,7 +227,43 @@ export function TransactionHistory() {
     }
   }
 
+  async function openTransactionDetail(transaction: TransactionRecord) {
+    setSelectedTransaction(transaction);
+    setSelectedReceipt(null);
+    setReceiptLoading(Boolean(transaction.receiptToken));
+    if (!transaction.receiptToken) return;
+    try {
+      const receipt = await api.receipts.get(transaction.receiptToken);
+      setSelectedReceipt(receipt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat struk transaksi");
+    } finally {
+      setReceiptLoading(false);
+    }
+  }
+
+  async function reprintSelectedReceipt() {
+    if (!selectedReceipt) return;
+    setPrinting(true);
+    setError(null);
+    try {
+      await printThermalReceipt(selectedReceipt, receiptPaperWidth);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal reprint struk");
+    } finally {
+      setPrinting(false);
+    }
+  }
+
+  function closeDetail() {
+    if (printing) return;
+    setSelectedTransaction(null);
+    setSelectedReceipt(null);
+    setReceiptLoading(false);
+  }
+
   return (
+    <>
     <Card className="w-full min-w-0 max-w-full bg-white">
       <CardHeader>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -167,7 +288,7 @@ export function TransactionHistory() {
           <>
             <div className="space-y-3 md:hidden">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="rounded-2xl border border-[#bccac0] bg-white p-4">
+                <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-2xl border border-[#bccac0] bg-white p-4 text-left transition hover:border-primary hover:shadow-[0_10px_28px_rgba(11,28,48,0.08)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-extrabold text-[#0b1c30]">{shortOrderId(transaction.id)}</p>
@@ -183,7 +304,7 @@ export function TransactionHistory() {
                     <div><p className="text-xs text-[#3d4a42]">Ref</p><p className="font-bold">{transaction.externalRef ? shortOrderId(transaction.externalRef) : "-"}</p></div>
                   </div>
                   {transaction.status === "success" ? (
-                    <Button variant="outline" size="sm" className="mt-4 w-full text-red-700" onClick={() => voidTransaction(transaction)} disabled={voidingId === transaction.id}>
+                    <Button variant="outline" size="sm" className="mt-4 w-full text-red-700" onClick={(event) => { event.stopPropagation(); voidTransaction(transaction); }} disabled={voidingId === transaction.id}>
                       {voidingId === transaction.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
                       Void Transaksi
                     </Button>
@@ -196,7 +317,7 @@ export function TransactionHistory() {
                 <TableHeader><TableRow><TableHead>{t("Tanggal")}</TableHead><TableHead>{t("Order ID")}</TableHead><TableHead>{t("Barang")}</TableHead><TableHead>{t("Metode")}</TableHead><TableHead>{t("Total")}</TableHead><TableHead>{t("Laba")}</TableHead><TableHead>{t("Status")}</TableHead><TableHead>Ref</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
+                    <TableRow key={transaction.id} onClick={() => openTransactionDetail(transaction)} className="cursor-pointer">
                       <TableCell>{shortDate(transaction.createdAt)}</TableCell>
                       <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                       <TableCell className="max-w-[16rem] truncate" title={itemSummary(transaction)}>{itemSummary(transaction)}</TableCell>
@@ -207,7 +328,7 @@ export function TransactionHistory() {
                       <TableCell className="max-w-[8rem] truncate whitespace-nowrap text-muted-foreground" title={transaction.externalRef || ""}>{transaction.externalRef ? shortOrderId(transaction.externalRef) : "-"}</TableCell>
                       <TableCell>
                         {transaction.status === "success" ? (
-                          <Button variant="outline" size="sm" className="text-red-700" onClick={() => voidTransaction(transaction)} disabled={voidingId === transaction.id}>
+                          <Button variant="outline" size="sm" className="text-red-700" onClick={(event) => { event.stopPropagation(); voidTransaction(transaction); }} disabled={voidingId === transaction.id}>
                             {voidingId === transaction.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
                             Void
                           </Button>
@@ -222,5 +343,92 @@ export function TransactionHistory() {
         )}
       </CardContent>
     </Card>
+    <Modal
+      open={Boolean(selectedTransaction)}
+      title={selectedTransaction ? shortOrderId(selectedTransaction.id) : t("Detail Transaksi")}
+      description={selectedTransaction ? `${shortDate(selectedTransaction.createdAt)} • ${methodLabel(selectedTransaction.paymentMethod, language)}` : undefined}
+      onClose={closeDetail}
+    >
+      {selectedTransaction ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 rounded-2xl bg-[#f8f9ff] p-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Status")}</p>
+              <Badge variant={statusVariant(selectedTransaction.status)} className="mt-1 normal-case tracking-normal">{statusLabel(selectedTransaction.status, language)}</Badge>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Kasir")}</p>
+              <p className="mt-1 font-black text-[#0b1c30]">{selectedTransaction.cashierName || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">{t("Metode")}</p>
+              <p className="mt-1 font-black text-[#0b1c30]">{methodLabel(selectedTransaction.paymentMethod, language)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3d4a42]">Ref</p>
+              <p className="mt-1 break-all font-black text-[#0b1c30]">{selectedTransaction.externalRef || "-"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#d9e3de] bg-white">
+            <div className="border-b border-[#e6eee9] px-4 py-3 font-black text-[#0b1c30]">{t("Barang")}</div>
+            <div className="divide-y divide-[#edf2ef]">
+              {(selectedTransaction.items || []).map((item) => (
+                <div key={item.id} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div>
+                    <p className="font-bold text-[#0b1c30]">{item.name}</p>
+                    <p className="text-xs font-semibold text-[#3d4a42]">SKU {item.sku || "-"} • {item.quantity} x {formatCurrency(item.price)}</p>
+                    {item.discountAmount ? <p className="text-xs font-semibold text-primary">Diskon item {formatCurrency(item.discountAmount)} / pcs</p> : null}
+                  </div>
+                  <p className="font-black text-[#0b1c30]">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</p>
+                </div>
+              ))}
+              {!selectedTransaction.items?.length ? <p className="px-4 py-3 text-sm font-semibold text-[#3d4a42]">-</p> : null}
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-2xl bg-[#eff4ff] p-4 text-sm">
+            {selectedTransaction.subtotal !== undefined ? <div className="flex justify-between gap-3"><span>Subtotal</span><span className="font-bold">{formatCurrency(selectedTransaction.subtotal)}</span></div> : null}
+            {selectedTransaction.discountAmount ? <div className="flex justify-between gap-3 text-primary"><span>Diskon</span><span className="font-bold">-{formatCurrency(selectedTransaction.discountAmount)}</span></div> : null}
+            <div className="flex justify-between gap-3 text-lg font-black text-[#0b1c30]"><span>Total</span><span>{formatCurrency(selectedTransaction.total)}</span></div>
+            {selectedTransaction.paidAmount !== null && selectedTransaction.paidAmount !== undefined ? <div className="flex justify-between gap-3"><span>Dibayar</span><span className="font-bold">{formatCurrency(selectedTransaction.paidAmount)}</span></div> : null}
+            {selectedTransaction.changeAmount !== null && selectedTransaction.changeAmount !== undefined ? <div className="flex justify-between gap-3"><span>Kembalian</span><span className="font-bold">{formatCurrency(selectedTransaction.changeAmount)}</span></div> : null}
+            <div className="flex justify-between gap-3"><span>{t("Laba")}</span><span className="font-bold">{formatCurrency(selectedTransaction.grossProfit ?? 0)}</span></div>
+          </div>
+
+          <div className="rounded-2xl border border-[#d9e3de] bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-[0.16em] text-[#3d4a42]">{t("Ukuran Struk")}</Label>
+                <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(event.target.value as ReceiptPaperWidth)} className="mt-2 h-10 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-bold">
+                  <option value="58mm">58mm ({t("thermal kecil")})</option>
+                  <option value="80mm">80mm ({t("thermal besar")})</option>
+                </select>
+              </div>
+              <Button onClick={reprintSelectedReceipt} disabled={!selectedReceipt || receiptLoading || printing}>
+                {printing || receiptLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                Reprint
+              </Button>
+            </div>
+            {!selectedTransaction.receiptToken ? <p className="mt-3 text-xs font-semibold text-amber-700">Struk lama tidak punya token reprint.</p> : null}
+            {selectedTransaction.receiptToken && !selectedReceipt && !receiptLoading ? <p className="mt-3 text-xs font-semibold text-red-700">Struk tidak bisa dimuat.</p> : null}
+            {selectedReceipt?.publicUrl ? (
+              <a href={selectedReceipt.publicUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center text-sm font-bold text-primary">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Buka struk digital
+              </a>
+            ) : null}
+          </div>
+
+          {selectedTransaction.status === "success" ? (
+            <Button variant="outline" className="w-full text-red-700" onClick={() => voidTransaction(selectedTransaction)} disabled={voidingId === selectedTransaction.id}>
+              {voidingId === selectedTransaction.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
+              Void Transaksi
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </Modal>
+    </>
   );
 }
