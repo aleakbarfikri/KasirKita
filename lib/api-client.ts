@@ -319,6 +319,8 @@ export type ReceiptRecord = {
     name: string;
   };
   publicUrl?: string;
+  showWatermark?: boolean;
+  watermarkText?: string;
 };
 
 type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error?: { message?: string; details?: unknown } };

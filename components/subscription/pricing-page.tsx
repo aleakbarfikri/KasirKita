@@ -56,7 +56,7 @@ export function PricingPage() {
     <main className="min-h-screen bg-[#f6f8fc] text-[#0b1c30]">
       <header className="border-b border-[#d9e3de] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
-          <Link href="/login" className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
             <Image src="/kasirkita-mark.png" alt="KasirKita" width={44} height={44} className="h-11 w-11" />
             <span className="text-xl font-black text-primary">KasirKita</span>
           </Link>
@@ -65,7 +65,7 @@ export function PricingPage() {
               <Globe2 className="h-4 w-4 text-primary" />
               {language === "id" ? "EN" : "ID"}
             </button>
-            <Link href="/login" className="hidden rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary sm:inline-flex">{t("Login")}</Link>
+            <Link href="/login" className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary">{t("Login")}</Link>
           </div>
         </div>
       </header>
@@ -79,7 +79,7 @@ export function PricingPage() {
 
         <div className="mt-8 grid gap-4 lg:grid-cols-5">
           {plans.map((plan) => (
-            <div key={plan.name} className={plan.featured ? "rounded-2xl border-2 border-primary bg-emerald-50 p-5 shadow-[0_18px_40px_rgba(0,105,72,0.12)]" : "rounded-2xl border border-[#d9e3de] bg-white p-5"}>
+            <Link key={plan.name} href={plan.href} className={plan.featured ? "block rounded-2xl border-2 border-primary bg-emerald-50 p-5 shadow-[0_18px_40px_rgba(0,105,72,0.12)] transition hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(0,105,72,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "block rounded-2xl border border-[#d9e3de] bg-white p-5 transition hover:-translate-y-1 hover:border-primary hover:shadow-[0_18px_40px_rgba(11,28,48,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"}>
               <div className="min-h-[128px]">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-2xl font-black">{plan.name}</h2>
@@ -96,10 +96,10 @@ export function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href={plan.href} className={plan.featured ? "mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-black text-white hover:bg-primary/90" : "mt-6 inline-flex w-full items-center justify-center rounded-xl border border-primary bg-white px-4 py-3 text-sm font-black text-primary hover:bg-primary/5"}>
+              <span className={plan.featured ? "mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-black text-white" : "mt-6 inline-flex w-full items-center justify-center rounded-xl border border-primary bg-white px-4 py-3 text-sm font-black text-primary"}>
                 {t(plan.ctaKey)}
-              </Link>
-            </div>
+              </span>
+            </Link>
           ))}
         </div>
       </section>

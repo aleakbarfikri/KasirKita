@@ -472,6 +472,7 @@ export function PosInterface() {
     const trx = receipt.transaction;
     const lines = [
       receipt.shop.name,
+      receipt.showWatermark ? receipt.watermarkText || "www.kasir-kita.com" : "",
       receipt.shop.address || "",
       receipt.shop.phone ? `Telp: ${receipt.shop.phone}` : "",
       "",
@@ -517,6 +518,7 @@ export function PosInterface() {
         .receipt { width: ${paperWidth}; max-width: ${paperWidth}; padding: ${contentPadding}; box-sizing: border-box; }
         .center { text-align: center; }
         .shop { font-weight: 800; font-size: 13px; text-transform: uppercase; }
+        .watermark { margin-bottom: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: lowercase; }
         .line { border-top: 1px dashed #000; margin: 8px 0; }
         .row { display: flex; justify-content: space-between; gap: 8px; }
         .row span:first-child { min-width: 0; overflow-wrap: anywhere; }
@@ -531,6 +533,7 @@ export function PosInterface() {
       </style></head><body>
         <div class="receipt">
           <div class="center">
+            ${receipt.showWatermark ? `<div class="watermark">${escapeHtml(receipt.watermarkText || "www.kasir-kita.com")}</div>` : ""}
             <div class="shop">${escapeHtml(receipt.shop.name)}</div>
             ${receipt.shop.address ? `<div>${escapeHtml(receipt.shop.address)}</div>` : ""}
             <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>

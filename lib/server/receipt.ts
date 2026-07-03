@@ -9,6 +9,9 @@ export function receiptPublicUrl(token: string | null | undefined, origin?: stri
 export function buildReceipt(db: AppDb, transaction: Transaction, origin?: string | null) {
   const shop = db.shops.find((row) => row.id === transaction.shopId);
   const cashier = db.users.find((row) => row.id === transaction.cashierId);
+  const adminProfile = db.adminProfiles.find((row) => row.shopId === transaction.shopId);
+  const planType = adminProfile?.planType || "basic";
+  const showWatermark = planType !== "pro" && planType !== "business";
   const items = db.transactionItems
     .filter((item) => item.transactionId === transaction.id)
     .map((item) => ({
@@ -33,5 +36,7 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
       name: cashier?.name || "Kasir",
     },
     publicUrl: receiptPublicUrl(transaction.receiptToken, origin),
+    showWatermark,
+    watermarkText: "www.kasir-kita.com",
   };
 }
