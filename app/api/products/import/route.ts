@@ -2,6 +2,7 @@ import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { addAuditLog, now, readDb, writeDb, type Product } from "@/lib/server/data-store";
+import { assertFeatureAllowed, assertProductLimit } from "@/lib/server/subscription";
 
 type ImportRow = {
   sku: string;
@@ -140,6 +141,7 @@ export async function POST(request: Request) {
     }
 
     const scope = await getAdminScope(session.user.id);
+    assertFeatureAllowed(scope.adminProfile, "importExport");
     const importedRows = rowsFromCsv(await file.text());
     if (!importedRows.length) return fail("File CSV kosong atau belum berisi produk.", 422);
 
@@ -152,6 +154,7 @@ export async function POST(request: Request) {
     }
 
     const db = await readDb();
+    assertProductLimit(db, scope.adminProfile, importedRows.length);
     const timestamp = now();
     let created = 0;
     let updated = 0;

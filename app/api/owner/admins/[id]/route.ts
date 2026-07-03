@@ -2,6 +2,7 @@ import { assertOwnerOwnsAdmin, authError, requireOwner } from "@/lib/server/auth
 import { fail, ok, readJson } from "@/lib/server/http";
 import { adminUpdateSchema } from "@/lib/server/validators";
 import { now, readDb, rowWithAdminProfile, writeDb } from "@/lib/server/data-store";
+import { applyManualSubscription, ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 type Params = { params: { id: string } };
 
@@ -43,6 +44,12 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.qrisStaticImageUrl !== undefined) shop.qrisStaticImageUrl = body.qrisStaticImageUrl || null;
     if (typeof body.isActive === "boolean") profile.isActive = body.isActive;
     if (body.activeUntil !== undefined) profile.activeUntil = body.activeUntil || null;
+    if (body.planType !== undefined || body.planStatus !== undefined) {
+      applyManualSubscription(profile, body.planType || ensureSubscriptionDefaults(profile).planType || "pro", body.activeUntil !== undefined ? body.activeUntil : profile.activeUntil);
+      if (body.planStatus) profile.planStatus = body.planStatus;
+    } else {
+      ensureSubscriptionDefaults(profile);
+    }
 
     const t = now();
     user.updatedAt = t;

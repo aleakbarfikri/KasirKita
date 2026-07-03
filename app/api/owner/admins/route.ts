@@ -3,6 +3,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { adminCreateSchema } from "@/lib/server/validators";
 import { hashPassword, now, publicUser, readDb, rowWithAdminProfile, writeDb, type AdminProfile, type AppUser, type Balance, type Shop } from "@/lib/server/data-store";
+import { applyManualSubscription, ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
@@ -15,7 +16,7 @@ export async function GET() {
     const db = await readDb();
     const rows = db.adminProfiles
       .filter((profile) => profile.ownerId === session.user.id)
-      .map((profile) => rowWithAdminProfile(db, profile))
+      .map((profile) => rowWithAdminProfile(db, ensureSubscriptionDefaults(profile)))
       .filter(Boolean);
     return ok((rows as NonNullable<ReturnType<typeof rowWithAdminProfile>>[]).sort((a, b) => b.profile.createdAt.localeCompare(a.profile.createdAt)));
   } catch (error) {
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
       createdAt: t,
       updatedAt: t,
     };
+    applyManualSubscription(profile, body.activeUntil ? "pro" : "pro", body.activeUntil || null);
     const balance: Balance = { adminId: user.id, totalEarnedQrisApi: 0, totalWithdrawn: 0, updatedAt: t };
 
     db.users.push(user);

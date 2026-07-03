@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getShopByIdFromDb, getUserByIdFromDb, isAdminProfileActive, publicUser, readDb, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
+import { ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 type SessionUser = {
   id: string;
@@ -75,6 +76,7 @@ export async function getAdminScope(adminId: string) {
   const db = await readDb();
   const profile = db.adminProfiles.find((row) => row.userId === adminId && isAdminProfileActive(row));
   if (profile) {
+    ensureSubscriptionDefaults(profile);
     const shop = getShopByIdFromDb(db, profile.shopId);
     if (!shop) {
       throw Object.assign(new Error("Shop not found for this admin"), { status: 403 });
@@ -86,6 +88,7 @@ export async function getAdminScope(adminId: string) {
       shopId: profile.shopId,
       shopName: shop.name,
       qrisStaticImageUrl: shop.qrisStaticImageUrl,
+      adminProfile: profile,
     };
   }
 
@@ -97,6 +100,7 @@ export async function getAdminScope(adminId: string) {
   if (!parentAdminProfile) {
     throw Object.assign(new Error("Parent admin subscription is inactive or expired"), { status: 403 });
   }
+  ensureSubscriptionDefaults(parentAdminProfile);
   const shop = getShopByIdFromDb(db, cashierProfile.shopId);
   if (!shop) {
     throw Object.assign(new Error("Shop not found for this admin"), { status: 403 });
@@ -108,6 +112,7 @@ export async function getAdminScope(adminId: string) {
     shopId: cashierProfile.shopId,
     shopName: shop.name,
     qrisStaticImageUrl: shop.qrisStaticImageUrl,
+    adminProfile: parentAdminProfile,
   };
 }
 

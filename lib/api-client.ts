@@ -14,6 +14,7 @@ export type MeResponse = {
   user: SessionUser;
   session: unknown;
   shop?: ShopRecord | null;
+  adminProfile?: AdminProfile | null;
 };
 
 export type ProfileUpdateResponse = {
@@ -163,6 +164,10 @@ export type AdminProfile = {
   shopId: string;
   isActive: boolean;
   activeUntil?: string | null;
+  planType?: "trial" | "basic" | "pro" | "business";
+  planStatus?: "trialing" | "active" | "expired" | "manual";
+  trialStartedAt?: string | null;
+  subscriptionStartedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -281,6 +286,27 @@ export type CheckoutResponse = {
   };
 };
 
+export type SubscriptionInvoiceRecord = {
+  id: string;
+  ownerId: string;
+  adminId: string;
+  planType: "basic" | "pro" | "business";
+  billingPeriod: "monthly" | "yearly";
+  amount: number;
+  provider: "pakasir";
+  providerOrderId: string;
+  status: "pending" | "paid" | "expired" | "failed";
+  paymentUrl?: string | null;
+  qrString?: string | null;
+  qrImageDataUrl?: string | null;
+  totalPayment?: number | null;
+  fee?: number | null;
+  expiredAt?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ReceiptRecord = {
   transaction: TransactionRecord;
   items: CheckoutItem[];
@@ -375,6 +401,11 @@ export const api = {
   },
 
   checkout: (body: CheckoutPayload) => apiFetch<CheckoutResponse>("/api/pos/checkout", { method: "POST", body: JSON.stringify(body) }),
+  subscription: {
+    checkout: (body: { planType: "basic" | "pro" | "business"; billingPeriod: "monthly" | "yearly" }) =>
+      apiFetch<{ invoice: SubscriptionInvoiceRecord; payment: { qrImageDataUrl?: string; paymentUrl: string; totalPayment: number } }>("/api/subscription/checkout", { method: "POST", body: JSON.stringify(body) }),
+    poll: (id: string) => apiFetch<{ invoice: SubscriptionInvoiceRecord; status: "pending" | "paid"; profile?: AdminProfile; providerStatus?: string }>(`/api/subscription/invoices/${id}`),
+  },
   pollPakasir: (reference: string) => apiFetch<{ status: "pending" | "paid" | "failed" | "cancelled"; providerStatus?: string; warning?: string; transaction: TransactionRecord }>(`/api/pakasir/status/${reference}`),
 
   transactions: {
@@ -419,7 +450,7 @@ export const api = {
       list: () => apiFetch<OwnerAdminRow[]>("/api/owner/admins"),
       create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string; shopPhone?: string; activeUntil?: string }) =>
         apiFetch<OwnerAdminRow>("/api/owner/admins", { method: "POST", body: JSON.stringify(body) }),
-      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null }) =>
+      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null; planType?: AdminProfile["planType"]; planStatus?: AdminProfile["planStatus"] }) =>
         apiFetch<OwnerAdminRow>(`/api/owner/admins/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
       deactivate: (id: string) => apiFetch<AdminProfile>(`/api/owner/admins/${id}`, { method: "DELETE" }),
     },

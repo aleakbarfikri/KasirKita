@@ -4,6 +4,7 @@ import { hashPassword, now, publicUser, readDb, writeDb, type AppUser, type Cash
 import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { cashierCreateSchema } from "@/lib/server/validators";
+import { assertCashierLimit } from "@/lib/server/subscription";
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
     const body = parsed.data;
     const db = await readDb();
+    assertCashierLimit(db, scope.adminProfile);
 
     if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);
     if (db.users.some((user) => user.username.toLowerCase() === body.username.toLowerCase())) return fail("Username sudah digunakan.", 409);

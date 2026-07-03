@@ -1,6 +1,7 @@
 import { fail, ok } from "@/lib/server/http";
 import { authError, requireAuth } from "@/lib/server/auth-guard";
 import { isAdminProfileActive, readDb } from "@/lib/server/data-store";
+import { ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 export async function GET() {
   try {
@@ -10,7 +11,9 @@ export async function GET() {
     if (session.user.role === "admin") {
       const db = await readDb();
       const profile = db.adminProfiles.find((row) => row.userId === session.user.id && isAdminProfileActive(row));
+      if (profile) ensureSubscriptionDefaults(profile);
       shop = profile ? db.shops.find((row) => row.id === profile.shopId) ?? null : null;
+      return ok({ user: session.user, session: session.session, shop, adminProfile: profile ?? null });
     } else if (session.user.role === "cashier") {
       const db = await readDb();
       const profile = db.cashierProfiles.find((row) => row.userId === session.user.id && row.isActive && row.approvalStatus === "approved");

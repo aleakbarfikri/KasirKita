@@ -56,6 +56,23 @@ export const adminCreateSchema = z.object({
   activeUntil: z.string().trim().optional().or(z.literal("")),
 });
 
+export const registerAdminSchema = z.object({
+  ownerId: z.string().trim().optional().or(z.literal("")),
+  name: z.string().trim().min(2, "Nama pemilik minimal 2 karakter"),
+  username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
+  password: z.string().min(8, "Password minimal 8 karakter"),
+  shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter"),
+  shopAddress: z.string().trim().optional(),
+  shopPhone: z.string().trim().optional(),
+  verificationCode: z.string().trim().regex(/^\d{6}$/, "Kode verifikasi harus 6 angka"),
+});
+
+export const registerVerificationRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
+  shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter").optional().or(z.literal("")),
+});
+
 export const cashierCreateSchema = z.object({
   name: z.string().trim().min(2, "Nama kasir minimal 2 karakter"),
   username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
@@ -76,6 +93,8 @@ export const adminUpdateSchema = z.object({
   qrisStaticImageUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   activeUntil: z.string().trim().optional().nullable().or(z.literal("")),
+  planType: z.enum(["trial", "basic", "pro", "business"]).optional(),
+  planStatus: z.enum(["trialing", "active", "expired", "manual"]).optional(),
 });
 
 export const paymentConfigSchema = z.object({

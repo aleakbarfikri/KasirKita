@@ -50,6 +50,13 @@ function adminEffectiveActive(row?: OwnerAdminRow) {
   return Boolean(row?.profile.isActive && !isExpired(row.profile.activeUntil));
 }
 
+function planLabel(plan?: string | null) {
+  if (plan === "trial") return "Trial";
+  if (plan === "basic") return "Basic";
+  if (plan === "business") return "Business";
+  return "Pro";
+}
+
 function cashierStatus(row: CashierRow, admin?: OwnerAdminRow) {
   if (row.profile.approvalStatus === "pending") return { label: "Menunggu Approval", variant: "warning" as const };
   if (row.profile.approvalStatus === "rejected") return { label: "Ditolak", variant: "danger" as const };
@@ -80,6 +87,7 @@ export function AdminManagement() {
   const [editShopAddress, setEditShopAddress] = useState("");
   const [editShopPhone, setEditShopPhone] = useState("");
   const [editActiveUntil, setEditActiveUntil] = useState("");
+  const [editPlanType, setEditPlanType] = useState<"trial" | "basic" | "pro" | "business">("pro");
   const [editQrisImage, setEditQrisImage] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -150,6 +158,7 @@ export function AdminManagement() {
     setEditShopAddress(row.shop.address ?? "");
     setEditShopPhone(row.shop.phone ?? "");
     setEditActiveUntil(row.profile.activeUntil ?? "");
+    setEditPlanType(row.profile.planType ?? "pro");
     setEditQrisImage(row.shop.qrisStaticImageUrl ?? "");
     setEditError(null);
   }
@@ -181,6 +190,8 @@ export function AdminManagement() {
         shopAddress: editShopAddress.trim(),
         shopPhone: editShopPhone.trim(),
         activeUntil: editActiveUntil || null,
+        planType: editPlanType,
+        planStatus: editPlanType === "trial" ? "trialing" : "manual",
         qrisStaticImageUrl: editQrisImage,
       });
       setAdmins((current) => current.map((row) => row.admin.id === updated.admin.id ? updated : row));
@@ -334,6 +345,7 @@ export function AdminManagement() {
                     </div>
                     <div className="mt-3 grid gap-2 text-sm text-[#3d4a42]">
                       <p><span className="font-bold text-[#0b1c30]">{t("Alamat Toko")}:</span> {row.shop.address || t("Tanpa alamat")}</p>
+                      <p><span className="font-bold text-[#0b1c30]">{t("Paket")}:</span> {planLabel(row.profile.planType)}</p>
                       <p><span className="font-bold text-[#0b1c30]">{t("Masa Aktif")}:</span> {activeUntilText(row.profile.activeUntil)}</p>
                       <p><span className="font-bold text-[#0b1c30]">{t("Saldo QRIS Pakasir")}:</span> {formatCurrency(Math.max(available, 0))}</p>
                       {row.shop.phone ? (
@@ -365,6 +377,7 @@ export function AdminManagement() {
                   <TableHead>{t("Nomer Telpon")}</TableHead>
                   <TableHead>{t("QRIS Statis")}</TableHead>
                   <TableHead>{t("Status")}</TableHead>
+                  <TableHead>{t("Paket")}</TableHead>
                   <TableHead>{t("Masa Aktif")}</TableHead>
                   <TableHead>{t("Saldo QRIS Pakasir")}</TableHead>
                   <TableHead>{t("Total Withdrawn")}</TableHead>
@@ -395,6 +408,7 @@ export function AdminManagement() {
                       </TableCell>
                       <TableCell>{row.shop.qrisStaticImageUrl ? <Badge variant="success" className="normal-case tracking-normal"><QrCode className="mr-1 h-3.5 w-3.5" /> {t("Ada QRIS")}</Badge> : <Badge variant="secondary" className="normal-case tracking-normal">{t("Belum ada")}</Badge>}</TableCell>
                       <TableCell><Badge variant={effectiveActive ? "success" : expired ? "warning" : "secondary"}>{effectiveActive ? t("Aktif") : expired ? "Expired" : t("Nonaktif")}</Badge></TableCell>
+                      <TableCell><Badge variant="secondary" className="normal-case tracking-normal">{planLabel(row.profile.planType)}</Badge></TableCell>
                       <TableCell>
                         <div className="inline-flex items-center gap-2 rounded-full bg-[#eff4ff] px-3 py-1.5 text-sm font-bold text-[#0b1c30]">
                           <CalendarDays className="h-4 w-4 text-primary" />
@@ -523,6 +537,16 @@ export function AdminManagement() {
             <div className="space-y-2"><Label>{t("Nama UMKM/Cabang")}</Label><Input value={editShopName} onChange={(event) => setEditShopName(event.target.value)} placeholder="UMKM Melati" /></div>
             <div className="space-y-2"><Label>{t("Alamat Cabang")}</Label><Input value={editShopAddress} onChange={(event) => setEditShopAddress(event.target.value)} placeholder="Jl. Melati No. 12" /></div>
             <div className="space-y-2"><Label>{t("Nomer Telpon")}</Label><Input value={editShopPhone} onChange={(event) => setEditShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
+            <div className="space-y-2">
+              <Label>{t("Paket Subscription")}</Label>
+              <select value={editPlanType} onChange={(event) => setEditPlanType(event.target.value as typeof editPlanType)} className="flex h-11 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold text-[#0b1c30] outline-none focus:ring-2 focus:ring-primary/30">
+                <option value="trial">Trial</option>
+                <option value="basic">Basic - Rp100.000/tahun</option>
+                <option value="pro">Pro</option>
+                <option value="business">Business</option>
+              </select>
+              <p className="text-xs text-[#3d4a42]">{t("Owner bisa mengubah paket dan masa aktif admin secara manual.")}</p>
+            </div>
             <div className="space-y-2">
               <Label>{t("Masa Aktif Subscription")}</Label>
               <Input type="date" value={editActiveUntil} onChange={(event) => setEditActiveUntil(event.target.value)} min={todayJakarta()} />
