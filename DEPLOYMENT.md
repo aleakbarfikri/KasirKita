@@ -30,6 +30,7 @@ The app can run locally with a JSON file. For Vercel production, use Postgres so
 ```txt
 POSTGRES_URL
 KASIRKITA_AUTH_SECRET
+KASIRKITA_DATA_ENCRYPTION_KEY
 KASIRKITA_BOOTSTRAP_OWNER_USERNAME
 KASIRKITA_BOOTSTRAP_OWNER_EMAIL
 KASIRKITA_BOOTSTRAP_OWNER_PASSWORD
@@ -40,6 +41,10 @@ KASIRKITA_BOOTSTRAP_OWNER_PASSWORD
 ```bash
 openssl rand -base64 32
 ```
+
+Generate `KASIRKITA_DATA_ENCRYPTION_KEY` separately with the same command. It
+encrypts Pakasir/WhatsApp credentials and Owner MFA secrets. Keep a recovery
+copy in a password manager or OS keychain. Do not reuse the auth or backup key.
 
 4. Redeploy the project. Confirm that the Owner can log in, remove all three
    bootstrap variables, and redeploy again.

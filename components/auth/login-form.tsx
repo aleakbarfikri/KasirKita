@@ -34,6 +34,7 @@ export function LoginForm() {
   const next = searchParams.get("next");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const result = await authClient.signIn.username({ username, password });
+      const result = await authClient.signIn.username({ username, password, mfaCode });
       if (result.error) {
         setError(result.error.message ?? "Login gagal");
         return;
@@ -118,6 +119,11 @@ export function LoginForm() {
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="mfaCode">Kode MFA Owner</Label>
+            <Input id="mfaCode" value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" placeholder="Opsional untuk admin/kasir" />
+            <p className="text-xs text-slate-500">Owner yang mengaktifkan MFA wajib memasukkan 6 digit authenticator atau recovery code.</p>
           </div>
           {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={loading}>

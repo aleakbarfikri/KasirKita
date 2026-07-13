@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/server/http";
 import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
 import { confirmQrisPayment } from "@/lib/server/payment-confirmation";
 import { readDb, withDbTransaction } from "@/lib/server/data-store";
+import { paymentCredentials } from "@/lib/server/payment-secrets";
 
 type Params = { params: Promise<{ reference: string }> };
 
@@ -19,12 +20,13 @@ export async function GET(_request: Request, props: Params) {
     if (transaction.status === "failed" || transaction.status === "cancelled") return ok({ status: transaction.status, providerStatus: transaction.status, transaction });
 
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
-    if (!config?.pakasirSlug || !config?.pakasirApiKey) return fail("Slug dan API Key Pakasir belum dikonfigurasi.", 422);
+    const credentials = paymentCredentials(config);
+    if (!credentials.pakasirSlug || !credentials.pakasirApiKey) return fail("Slug dan API Key Pakasir belum dikonfigurasi.", 422);
 
     let providerStatus = "pending";
     let isPaid = false;
     try {
-      const pakasir = await getPakasirTransactionStatus({ slug: config.pakasirSlug, apiKey: config.pakasirApiKey, orderId: transaction.id, amount: transaction.total });
+      const pakasir = await getPakasirTransactionStatus({ slug: credentials.pakasirSlug, apiKey: credentials.pakasirApiKey, orderId: transaction.id, amount: transaction.total });
       providerStatus = pakasir.status;
       isPaid = pakasir.isPaid;
     } catch (error) {

@@ -11,12 +11,12 @@ async function parseError(response: Response) {
 
 export const authClient = {
   signIn: {
-    username: async ({ username, password }: { username: string; password: string }) => {
+    username: async ({ username, password, mfaCode }: { username: string; password: string; mfaCode?: string }) => {
       const response = await fetch("/api/auth/sign-in/username", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, mfaCode }),
       });
       if (!response.ok) return { data: null, error: { message: await parseError(response) } };
       return { data: await response.json(), error: null };

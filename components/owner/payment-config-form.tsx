@@ -14,6 +14,8 @@ export function PaymentConfigForm() {
   const [whatsappProvider, setWhatsappProvider] = useState("");
   const [whatsappApiKey, setWhatsappApiKey] = useState("");
   const [whatsappSender, setWhatsappSender] = useState("");
+  const [pakasirKeyHint, setPakasirKeyHint] = useState<string | null>(null);
+  const [whatsappKeyHint, setWhatsappKeyHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -25,9 +27,11 @@ export function PaymentConfigForm() {
     try {
       const config = await api.owner.paymentConfig.get();
       setSlug(config?.pakasirSlug ?? "");
-      setApiKey(config?.pakasirApiKey ?? "");
+      setApiKey("");
+      setPakasirKeyHint(config?.pakasirApiKeyMasked ?? null);
       setWhatsappProvider(config?.whatsappProvider ?? "");
-      setWhatsappApiKey(config?.whatsappApiKey ?? "");
+      setWhatsappApiKey("");
+      setWhatsappKeyHint(config?.whatsappApiKeyMasked ?? null);
       setWhatsappSender(config?.whatsappSender ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat konfigurasi Pakasir");
@@ -45,13 +49,17 @@ export function PaymentConfigForm() {
     setError(null);
     setMessage(null);
     try {
-      await api.owner.paymentConfig.save({
+      const saved = await api.owner.paymentConfig.save({
         pakasirSlug: slug.trim(),
         pakasirApiKey: apiKey.trim(),
         whatsappProvider: whatsappProvider.trim(),
         whatsappApiKey: whatsappApiKey.trim(),
         whatsappSender: whatsappSender.trim(),
       });
+      setApiKey("");
+      setWhatsappApiKey("");
+      setPakasirKeyHint(saved.pakasirApiKeyMasked ?? null);
+      setWhatsappKeyHint(saved.whatsappApiKeyMasked ?? null);
       setMessage("Konfigurasi Pakasir berhasil disimpan.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan konfigurasi Pakasir");
@@ -81,7 +89,8 @@ export function PaymentConfigForm() {
               </div>
               <div className="space-y-2">
                 <Label>API Key Pakasir</Label>
-                <Input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="pk_live_xxxxxxxxx" autoCapitalize="none" autoCorrect="off" />
+                <Input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={pakasirKeyHint ? "Kosongkan untuk mempertahankan key tersimpan" : "pk_live_xxxxxxxxx"} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
+                {pakasirKeyHint ? <p className="text-xs text-[#3d4a42]">Key tersimpan: <span className="font-mono">{pakasirKeyHint}</span>. Nilai lengkap tidak pernah dikirim ke browser.</p> : null}
               </div>
               <div className="border-t border-[#bccac0] pt-4">
                 <h3 className="font-extrabold text-[#0b1c30]">Konfigurasi WhatsApp Bot</h3>
@@ -93,7 +102,8 @@ export function PaymentConfigForm() {
               </div>
               <div className="space-y-2">
                 <Label>API Key WhatsApp</Label>
-                <Input value={whatsappApiKey} onChange={(event) => setWhatsappApiKey(event.target.value)} placeholder="token provider WhatsApp" autoCapitalize="none" autoCorrect="off" />
+                <Input type="password" value={whatsappApiKey} onChange={(event) => setWhatsappApiKey(event.target.value)} placeholder={whatsappKeyHint ? "Kosongkan untuk mempertahankan key tersimpan" : "token provider WhatsApp"} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
+                {whatsappKeyHint ? <p className="text-xs text-[#3d4a42]">Key tersimpan: <span className="font-mono">{whatsappKeyHint}</span>.</p> : null}
               </div>
               <div className="space-y-2">
                 <Label>Sender / Device ID</Label>

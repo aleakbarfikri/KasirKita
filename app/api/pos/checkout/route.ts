@@ -7,6 +7,7 @@ import { buildReceipt } from "@/lib/server/receipt";
 import { checkoutSchema } from "@/lib/server/validators";
 import { addAuditLog, now, withDbTransaction, type Debt, type PaymentConfig, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
+import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
   const safeSubtotal = Math.max(0, Math.round(subtotal));
@@ -56,7 +57,9 @@ export async function POST(request: Request) {
       const pakasirConfig: PaymentConfig | null = body.paymentMethod === "qris_pakasir"
         ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) ?? null
         : null;
-      if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
+      if (pakasirConfig) protectPaymentConfig(pakasirConfig);
+      const credentials = paymentCredentials(pakasirConfig);
+      if (body.paymentMethod === "qris_pakasir" && (!credentials.pakasirSlug || !credentials.pakasirApiKey)) {
         throw Object.assign(new Error("Slug dan API Key Pakasir belum diisi. Buka Owner > API Config terlebih dahulu."), { status: 422 });
       }
 
@@ -152,7 +155,7 @@ export async function POST(request: Request) {
       return {
         replayed: false as const,
         result: { transaction, items, debt, receipt: buildReceipt(db, transaction, origin) },
-        pakasirConfig,
+        pakasirConfig: credentials,
       };
     });
 

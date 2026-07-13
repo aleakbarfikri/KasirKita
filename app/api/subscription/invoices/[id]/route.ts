@@ -3,6 +3,7 @@ import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
 import { confirmSubscriptionPayment } from "@/lib/server/payment-confirmation";
 import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
+import { paymentCredentials } from "@/lib/server/payment-secrets";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,11 +18,12 @@ export async function GET(_request: Request, props: Params) {
     if (invoice.status === "paid") return ok({ invoice, status: "paid" });
 
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
-    if (!config?.pakasirSlug || !config?.pakasirApiKey) return fail("Owner belum mengisi Slug/API Key Pakasir.", 422);
+    const credentials = paymentCredentials(config);
+    if (!credentials.pakasirSlug || !credentials.pakasirApiKey) return fail("Owner belum mengisi Slug/API Key Pakasir.", 422);
 
     const pakasir = await getPakasirTransactionStatus({
-      slug: config.pakasirSlug,
-      apiKey: config.pakasirApiKey,
+      slug: credentials.pakasirSlug,
+      apiKey: credentials.pakasirApiKey,
       orderId: invoice.providerOrderId,
       amount: invoice.amount,
     });

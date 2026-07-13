@@ -19,7 +19,9 @@ function subjectKey(subject?: string) {
 /** Uses Redis when configured and falls back to a per-instance guard. */
 export async function enforceRateLimit(request: Request, action: string, options: LimitOptions, subject?: string) {
   const now = Date.now();
-  const key = `${action}:${clientKey(request)}${subjectKey(subject)}`;
+  // Account/user limits must remain stable when an attacker changes IP.
+  // IP-only limits keep using the client address when no subject is supplied.
+  const key = subject ? `${action}${subjectKey(subject)}` : `${action}:${clientKey(request)}`;
   try {
     const sharedCount = await incrementSharedCounter(`kasirkita:rate-limit:${key}`, Math.ceil(options.windowMs / 1000));
     if (sharedCount !== null) return { allowed: sharedCount <= options.limit, remaining: Math.max(0, options.limit - sharedCount) };

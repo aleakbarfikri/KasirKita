@@ -62,6 +62,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   Email: { id: "Email", en: "Email" },
   "Password Awal": { id: "Password Awal", en: "Initial Password" },
   "minimal 8 karakter": { id: "minimal 8 karakter", en: "minimum 8 characters" },
+  "minimal 12 karakter": { id: "minimal 12 karakter", en: "minimum 12 characters" },
   "Buat Kasir": { id: "Buat Kasir", en: "Create Cashier" },
   Kasir: { id: "Kasir", en: "Cashier" },
   Status: { id: "Status", en: "Status" },

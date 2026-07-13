@@ -51,8 +51,8 @@ export async function PATCH(request: Request) {
         return fail("Semua field password wajib diisi.", 422);
       }
 
-      if (newPassword.length < 8) {
-        return fail("Password baru minimal 8 karakter.", 422);
+      if (newPassword.length < 12) {
+        return fail("Password baru minimal 12 karakter.", 422);
       }
 
       if (newPassword !== confirmPassword) {

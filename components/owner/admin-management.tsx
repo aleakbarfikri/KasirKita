@@ -332,7 +332,7 @@ export function AdminManagement() {
             <p className="text-xs text-[#3d4a42]">{t("Gunakan huruf kecil, angka, atau underscore. Contoh: admin_cabang_4")}</p>
           </div>
           <div className="space-y-2"><Label>Email</Label><Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin4@kasirkita.test" /></div>
-          <div className="space-y-2"><Label>{t("Password Awal")}</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder={t("minimal 8 karakter")} /></div>
+          <div className="space-y-2"><Label>{t("Password Awal")}</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={12} placeholder="minimal 12 karakter" /></div>
           <div className="space-y-2"><Label>{t("Nama UMKM/Cabang")}</Label><Input value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="UMKM Sumber Rezeki" /></div>
           <div className="space-y-2"><Label>{t("Alamat Cabang")}</Label><Input value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" /></div>
           <div className="space-y-2"><Label>{t("Nomer Telpon")}</Label><Input value={shopPhone} onChange={(event) => setShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>

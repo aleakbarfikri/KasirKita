@@ -1,4 +1,6 @@
 import { createOffsiteBackup } from "@/lib/server/offsite-backup";
+import { withDbTransaction } from "@/lib/server/data-store";
+import { protectPaymentConfig } from "@/lib/server/payment-secrets";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -8,6 +10,9 @@ export async function GET(request: Request) {
   }
 
   try {
+    await withDbTransaction((db) => {
+      db.paymentConfigs.forEach(protectPaymentConfig);
+    });
     const backup = await createOffsiteBackup("scheduled-daily");
     return Response.json({ ok: true, data: backup });
   } catch {

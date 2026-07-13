@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 
 function OwnerMetricRow({
   title,
@@ -382,6 +383,7 @@ export function OwnerDashboardClient() {
         </div>
 
         <aside className="space-y-6">
+          <OwnerMfaCard />
           <Card className="bg-white">
             <CardHeader className="border-b border-[#e2e8f0]">
               <CardTitle className="flex items-center gap-2">

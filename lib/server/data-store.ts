@@ -240,6 +240,15 @@ export type EmailVerification = {
   createdAt: string;
 };
 
+export type OwnerMfaConfig = {
+  ownerId: string;
+  encryptedSecret: string;
+  enabled: boolean;
+  recoveryCodeHashes: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AppDb = {
   users: AppUser[];
   sessions: AppSession[];
@@ -258,6 +267,7 @@ export type AppDb = {
   cashShifts: CashShift[];
   subscriptionInvoices: SubscriptionInvoice[];
   emailVerifications: EmailVerification[];
+  ownerMfaConfigs: OwnerMfaConfig[];
 };
 
 function resolveDataDir() {
@@ -413,6 +423,7 @@ export function defaultDb(): AppDb {
     cashShifts: [],
     subscriptionInvoices: [],
     emailVerifications: [],
+    ownerMfaConfigs: [],
   };
 }
 
@@ -436,6 +447,7 @@ function normalizeDb(db: AppDb): AppDb {
     cashShifts: db.cashShifts ?? [],
     subscriptionInvoices: db.subscriptionInvoices ?? [],
     emailVerifications: db.emailVerifications ?? [],
+    ownerMfaConfigs: db.ownerMfaConfigs ?? [],
   };
 }
 
