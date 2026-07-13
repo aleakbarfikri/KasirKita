@@ -1,8 +1,8 @@
 import { authError, getAdminScope, requireAdmin } from "@/lib/server/auth-guard";
 import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
-import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
+import { confirmSubscriptionPayment } from "@/lib/server/payment-confirmation";
+import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
-import { applyPaidSubscription } from "@/lib/server/subscription";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -27,24 +27,20 @@ export async function GET(_request: Request, props: Params) {
     });
 
     if (pakasir.isPaid) {
-      const profile = db.adminProfiles.find((row) => row.userId === scope.adminId);
-      if (!profile) return fail("Profil admin tidak ditemukan.", 404);
-      applyPaidSubscription(profile, invoice.planType, invoice.billingPeriod);
-      invoice.status = "paid";
-      invoice.paidAt = now();
-      invoice.updatedAt = now();
-      addAuditLog(db, {
-        actorId: session.user.id,
-        actorRole: "admin",
+      const confirmed = await withDbTransaction((currentDb) => confirmSubscriptionPayment(currentDb, {
+        invoiceId: params.id,
+        adminId: scope.adminId,
         shopId: scope.shopId,
-        action: "confirm_subscription_payment",
-        entityType: "subscription_invoice",
-        entityId: invoice.id,
-        message: `Pembayaran subscription ${invoice.planType} sukses. Masa aktif diperpanjang sampai ${profile.activeUntil || "tanpa batas"}.`,
-        metadata: { planType: invoice.planType, billingPeriod: invoice.billingPeriod, amount: invoice.amount, activeUntil: profile.activeUntil },
+        actorId: session.user.id,
+        providerStatus: pakasir.status,
+      }));
+      return ok({
+        invoice: confirmed.invoice,
+        status: confirmed.invoice.status,
+        profile: confirmed.profile,
+        providerStatus: pakasir.status,
+        replayed: !confirmed.applied,
       });
-      await writeDb(db);
-      return ok({ invoice, status: "paid", profile, providerStatus: pakasir.status });
     }
 
     return ok({ invoice, status: "pending", providerStatus: pakasir.status });

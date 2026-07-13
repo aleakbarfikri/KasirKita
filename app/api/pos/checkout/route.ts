@@ -5,7 +5,7 @@ import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { createPakasirQris } from "@/lib/server/pakasir";
 import { buildReceipt } from "@/lib/server/receipt";
 import { checkoutSchema } from "@/lib/server/validators";
-import { addAuditLog, now, readDb, writeDb, type Debt, type Transaction, type TransactionItem } from "@/lib/server/data-store";
+import { addAuditLog, now, withDbTransaction, type Debt, type PaymentConfig, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
@@ -31,128 +31,148 @@ export async function POST(request: Request) {
     const paidAmount = body.paidAmount ?? 0;
     const transactionId = createId("trx");
     const receiptToken = createId("rcpt");
+    const origin = new URL(request.url).origin;
+    const idempotencyKey = request.headers.get("idempotency-key")?.trim() || null;
 
     if (body.paymentMethod === "cash" && paidAmount < total) return fail("Cash paid amount cannot be lower than total", 422);
     if (body.paymentMethod === "debt" && !body.customerName) return fail("Customer name is required for debt transaction", 422);
-
-    const db = await readDb();
-    const idempotencyKey = request.headers.get("idempotency-key")?.trim() || null;
     if (idempotencyKey && !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) return fail("Idempotency-Key tidak valid.", 422);
-    const existing = idempotencyKey ? db.transactions.find((row) => row.shopId === scope.shopId && row.idempotencyKey === idempotencyKey) : null;
-    if (existing) {
-      const existingItems = db.transactionItems.filter((item) => item.transactionId === existing.id);
-      return ok({ transaction: existing, items: existingItems, receipt: buildReceipt(db, existing, new URL(request.url).origin), replayed: true });
-    }
-    assertMonthlyTransactionLimit(db, scope.adminProfile);
-    const pakasirConfig = body.paymentMethod === "qris_pakasir" ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) : null;
-    if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
-      return fail("Slug dan API Key Pakasir belum diisi. Buka Owner > API Config terlebih dahulu.", 422);
-    }
 
-    const t = now();
-    const externalRef = body.paymentMethod === "qris_pakasir" ? transactionId : null;
-    const status = body.paymentMethod === "qris_pakasir" ? "pending" : "success";
-    const transaction: Transaction = {
-      id: transactionId,
-      shopId: scope.shopId,
-      cashierId: session.user.id,
-      paymentMethod: body.paymentMethod,
-      subtotal,
-      discountType: body.discountType ?? "none",
-      discountValue: body.discountValue ?? 0,
-      discountAmount,
-      total,
-      paidAmount: body.paymentMethod === "cash" ? paidAmount : null,
-      changeAmount: body.paymentMethod === "cash" ? paidAmount - total : null,
-      status,
-      externalRef,
-      receiptToken,
-      idempotencyKey,
-      note: body.note ?? null,
-      createdAt: t,
-      updatedAt: t,
-    };
+    const atomic = await withDbTransaction((db) => {
+      const existing = idempotencyKey ? db.transactions.find((row) => row.shopId === scope.shopId && row.idempotencyKey === idempotencyKey) : null;
+      if (existing) {
+        const existingItems = db.transactionItems.filter((item) => item.transactionId === existing.id);
+        return {
+          replayed: true as const,
+          result: { transaction: existing, items: existingItems, receipt: buildReceipt(db, existing, origin), replayed: true },
+          pakasirConfig: null,
+        };
+      }
 
-    const items: TransactionItem[] = body.items.map((item) => {
-      const product = item.productId ? db.products.find((row) => row.id === item.productId && row.shopId === scope.shopId) : null;
-      return {
-        id: createId("trxi"),
-        transactionId,
-        productId: item.productId ?? null,
-        sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
-        name: item.name,
-        originalPrice: item.originalPrice ?? item.price,
-        price: item.price,
-        costPrice: product?.costPrice ?? 0,
-        discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - item.price),
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
-      };
-    });
+      const currentProfile = db.adminProfiles.find((row) => row.userId === scope.adminId);
+      if (!currentProfile) throw Object.assign(new Error("Profil admin tidak ditemukan."), { status: 404 });
+      assertMonthlyTransactionLimit(db, currentProfile);
 
-    if (body.paymentMethod === "qris_pakasir") {
-      applySuccessfulTransactionStock(db, scope.shopId, items, { validateOnly: true });
-    } else {
-      applySuccessfulTransactionStock(db, scope.shopId, items);
-    }
+      const pakasirConfig: PaymentConfig | null = body.paymentMethod === "qris_pakasir"
+        ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) ?? null
+        : null;
+      if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
+        throw Object.assign(new Error("Slug dan API Key Pakasir belum diisi. Buka Owner > API Config terlebih dahulu."), { status: 422 });
+      }
 
-    let debt: Debt | null = null;
-    if (body.paymentMethod === "debt") {
-      debt = {
-        id: createId("debt"),
+      const t = now();
+      const externalRef = body.paymentMethod === "qris_pakasir" ? transactionId : null;
+      const status = body.paymentMethod === "qris_pakasir" ? "pending" : "success";
+      const transaction: Transaction = {
+        id: transactionId,
         shopId: scope.shopId,
-        adminId: scope.adminId,
-        transactionId,
-        customerName: body.customerName!,
-        customerPhone: body.customerPhone ?? null,
-        amount: total,
-        paidAmount: 0,
-        status: "open",
-        dueDate: body.debtDueDate ? new Date(body.debtDueDate).toISOString() : null,
+        cashierId: session.user.id,
+        paymentMethod: body.paymentMethod,
+        subtotal,
+        discountType: body.discountType ?? "none",
+        discountValue: body.discountValue ?? 0,
+        discountAmount,
+        total,
+        paidAmount: body.paymentMethod === "cash" ? paidAmount : null,
+        changeAmount: body.paymentMethod === "cash" ? paidAmount - total : null,
+        status,
+        externalRef,
+        receiptToken,
+        idempotencyKey,
         note: body.note ?? null,
         createdAt: t,
         updatedAt: t,
       };
-      db.debts.push(debt);
-    }
 
-    db.transactions.push(transaction);
-    db.transactionItems.push(...items);
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: session.user.role === "cashier" ? "cashier" : "admin",
-      shopId: scope.shopId,
-      action: "create_transaction",
-      entityType: "transaction",
-      entityId: transactionId,
-      message: `${session.user.name || session.user.username || "Kasir"} membuat transaksi ${body.paymentMethod} senilai ${total}.`,
-      metadata: { paymentMethod: body.paymentMethod, subtotal, discountAmount, total, itemCount: items.length, status },
-    });
-    if (debt) {
+      const items: TransactionItem[] = body.items.map((item) => {
+        const product = item.productId ? db.products.find((row) => row.id === item.productId && row.shopId === scope.shopId) : null;
+        return {
+          id: createId("trxi"),
+          transactionId,
+          productId: item.productId ?? null,
+          sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
+          name: item.name,
+          originalPrice: item.originalPrice ?? item.price,
+          price: item.price,
+          costPrice: product?.costPrice ?? 0,
+          discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - item.price),
+          quantity: item.quantity,
+          subtotal: item.price * item.quantity,
+        };
+      });
+
+      if (body.paymentMethod === "qris_pakasir") applySuccessfulTransactionStock(db, scope.shopId, items, { validateOnly: true });
+      else applySuccessfulTransactionStock(db, scope.shopId, items);
+
+      let debt: Debt | null = null;
+      if (body.paymentMethod === "debt") {
+        debt = {
+          id: createId("debt"),
+          shopId: scope.shopId,
+          adminId: scope.adminId,
+          transactionId,
+          customerName: body.customerName!,
+          customerPhone: body.customerPhone ?? null,
+          amount: total,
+          paidAmount: 0,
+          status: "open",
+          dueDate: body.debtDueDate ? new Date(body.debtDueDate).toISOString() : null,
+          note: body.note ?? null,
+          createdAt: t,
+          updatedAt: t,
+        };
+        db.debts.push(debt);
+      }
+
+      db.transactions.push(transaction);
+      db.transactionItems.push(...items);
       addAuditLog(db, {
         actorId: session.user.id,
         actorRole: session.user.role === "cashier" ? "cashier" : "admin",
         shopId: scope.shopId,
-        action: "create_debt",
-        entityType: "debt",
-        entityId: debt.id,
-        message: `Hutang baru dicatat untuk ${debt.customerName} senilai ${debt.amount}.`,
-        metadata: { transactionId, customerPhone: debt.customerPhone },
+        action: "create_transaction",
+        entityType: "transaction",
+        entityId: transactionId,
+        message: `${session.user.name || session.user.username || "Kasir"} membuat transaksi ${body.paymentMethod} senilai ${total}.`,
+        metadata: { paymentMethod: body.paymentMethod, subtotal, discountAmount, total, itemCount: items.length, status },
       });
-    }
-    await writeDb(db);
-    const result = { transaction, items, debt, receipt: buildReceipt(db, transaction, new URL(request.url).origin) };
+      if (debt) {
+        addAuditLog(db, {
+          actorId: session.user.id,
+          actorRole: session.user.role === "cashier" ? "cashier" : "admin",
+          shopId: scope.shopId,
+          action: "create_debt",
+          entityType: "debt",
+          entityId: debt.id,
+          message: `Hutang baru dicatat untuk ${debt.customerName} senilai ${debt.amount}.`,
+          metadata: { transactionId, customerPhone: debt.customerPhone },
+        });
+      }
+
+      return {
+        replayed: false as const,
+        result: { transaction, items, debt, receipt: buildReceipt(db, transaction, origin) },
+        pakasirConfig,
+      };
+    });
+
+    if (atomic.replayed) return ok(atomic.result);
 
     if (body.paymentMethod === "qris_pakasir") {
       try {
-        const pakasir = await createPakasirQris({ slug: pakasirConfig!.pakasirSlug!, apiKey: pakasirConfig!.pakasirApiKey!, orderId: transactionId, amount: total });
+        const pakasir = await createPakasirQris({
+          slug: atomic.pakasirConfig!.pakasirSlug!,
+          apiKey: atomic.pakasirConfig!.pakasirApiKey!,
+          orderId: transactionId,
+          amount: total,
+        });
         return ok({
-          ...result,
+          ...atomic.result,
           payment: {
             provider: "pakasir",
             status: "pending",
             orderId: transactionId,
-            reference: externalRef!,
+            reference: transactionId,
             amount: total,
             totalPayment: pakasir.totalPayment,
             fee: pakasir.fee,
@@ -164,19 +184,19 @@ export async function POST(request: Request) {
           },
         }, { status: 201 });
       } catch (error) {
-        const retryDb = await readDb();
-        const row = retryDb.transactions.find((trx) => trx.id === transactionId);
-        if (row) {
-          row.status = "failed";
-          row.note = error instanceof Error ? error.message : "Gagal membuat transaksi Pakasir";
-          row.updatedAt = now();
-          await writeDb(retryDb);
-        }
+        await withDbTransaction((db) => {
+          const row = db.transactions.find((trx) => trx.id === transactionId && trx.status === "pending");
+          if (row) {
+            row.status = "failed";
+            row.note = error instanceof Error ? error.message : "Gagal membuat transaksi Pakasir";
+            row.updatedAt = now();
+          }
+        });
         return fail(error instanceof Error ? error.message : "Gagal membuat transaksi Pakasir", 502);
       }
     }
 
-    return ok(result, { status: 201 });
+    return ok(atomic.result, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Invalid checkout payload. SKU item boleh kosong, tetapi nama, harga, dan quantity wajib valid.", 422, error);
     const { message, status } = authError(error);
