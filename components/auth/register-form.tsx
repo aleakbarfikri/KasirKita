@@ -49,6 +49,8 @@ export function RegisterForm() {
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [password, setPassword] = useState("");
+  const [usernameEditable, setUsernameEditable] = useState(false);
+  const [passwordEditable, setPasswordEditable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
@@ -97,7 +99,7 @@ export function RegisterForm() {
       const loginPath = isPaidPlan(selectedPlan) ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
       window.setTimeout(() => router.push(loginPath), 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal daftar trial.");
+      setError(err instanceof Error ? err.message : "Gagal mendaftar.");
     } finally {
       setLoading(false);
     }
@@ -113,27 +115,37 @@ export function RegisterForm() {
         </div>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={submit} autoComplete="off" className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Nama Pemilik</Label>
-            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ayu Lestari" required />
+            <Input name="registration_owner_name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ayu Lestari" required />
           </div>
           <div className="space-y-2">
             <Label>Nama UMKM</Label>
-            <Input value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="Warung Sumber Rezeki" required />
+            <Input name="registration_shop_name" autoComplete="organization" value={shopName} onChange={(event) => setShopName(event.target.value)} placeholder="Warung Sumber Rezeki" required />
           </div>
           <div className="space-y-2">
             <Label>Username</Label>
-            <Input value={username} onChange={(event) => setUsername(normalizeUsername(event.target.value))} placeholder="warung_rezeki" required />
+            <Input
+              name="registration_username"
+              autoComplete="off"
+              value={username}
+              readOnly={!usernameEditable}
+              onFocus={() => setUsernameEditable(true)}
+              onChange={(event) => setUsername(normalizeUsername(event.target.value))}
+              placeholder="warung_rezeki"
+              spellCheck={false}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@umkm.com" required />
+            <Input name="registration_email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@umkm.com" required />
           </div>
           <div className="space-y-2">
             <Label>Kode Verifikasi Email</Label>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <Input value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 angka" inputMode="numeric" required />
+              <Input name="registration_verification_code" autoComplete="one-time-code" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 angka" inputMode="numeric" required />
               <Button type="button" variant="outline" onClick={sendCode} disabled={sendingCode || !email || !shopName}>
                 {sendingCode ? "Mengirim..." : codeSent ? "Kirim Ulang" : "Kirim Kode"}
               </Button>
@@ -142,20 +154,31 @@ export function RegisterForm() {
           </div>
           <div className="space-y-2">
             <Label>Password</Label>
-            <Input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="minimal 8 karakter" required />
+            <Input
+              name="registration_new_password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              value={password}
+              readOnly={!passwordEditable}
+              onFocus={() => setPasswordEditable(true)}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="minimal 8 karakter"
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label>Nomor WhatsApp</Label>
-            <Input value={shopPhone} onChange={(event) => setShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" />
+            <Input name="registration_phone" autoComplete="tel" value={shopPhone} onChange={(event) => setShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Alamat Toko</Label>
-            <Input value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" />
+            <Input name="registration_address" autoComplete="street-address" value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" />
           </div>
           {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{error}</p> : null}
           {message ? <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">{message}</p> : null}
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center">
-            <Button type="submit" className="w-full sm:w-auto" disabled={loading}>{loading ? "Mendaftarkan..." : "Daftar Trial Gratis"}</Button>
+            <Button type="submit" className="w-full sm:w-auto" disabled={loading}>{loading ? "Mendaftarkan..." : "Daftar Gratis"}</Button>
             <Link href="/login" className="text-sm font-bold text-primary">Sudah punya akun? Login</Link>
             <Link href="/pricing" className="text-sm font-bold text-primary">Lihat paket</Link>
           </div>
