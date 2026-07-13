@@ -11,7 +11,8 @@ function shortInvoiceId(id?: string | null) {
   return shortId ? `TRX-${shortId}` : "-";
 }
 
-export default async function DigitalReceiptPage({ params }: { params: { token: string } }) {
+export default async function DigitalReceiptPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const db = await readDb();
   const transaction = db.transactions.find((row) => row.receiptToken === params.token);
   if (!transaction) notFound();

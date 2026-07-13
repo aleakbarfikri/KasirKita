@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "test": "tsx --test tests/**/*.test.ts",
     "db:setup": "tsx scripts/seed-json-db.ts",
     "db:reset": "tsx scripts/seed-json-db.ts",
     "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
@@ -14,20 +15,20 @@
   },
   "dependencies": {
     "@types/node": "^20.14.10",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "autoprefixer": "^10.4.19",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
     "lucide-react": "^0.468.0",
-    "next": "^14.2.4",
-    "postcss": "^8.4.39",
+    "next": "16.2.10",
+    "postcss": "^8.5.10",
     "postgres": "^3.4.5",
     "qrcode": "^1.5.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "tailwind-merge": "^2.4.0",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3",
@@ -35,6 +36,13 @@
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "16.2.10",
     "tsx": "latest"
+  },
+  "overrides": {
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "postcss": "$postcss"
   }
 }

@@ -4,9 +4,10 @@ import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
 import { addAuditLog, incrementBalance, now, readDb, writeDb } from "@/lib/server/data-store";
 
-type Params = { params: { reference: string } };
+type Params = { params: Promise<{ reference: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(_request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requirePosUser();
     const scope = await getAdminScope(session.user.id);

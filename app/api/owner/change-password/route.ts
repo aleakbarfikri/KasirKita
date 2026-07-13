@@ -4,6 +4,7 @@ import {
   hashPassword,
   now,
   readDb,
+  revokeUserSessions,
   verifyPassword,
   writeDb,
 } from "@/lib/server/data-store";
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
 
     owner.passwordHash = hashPassword(newPassword);
     owner.updatedAt = now();
+    revokeUserSessions(db, owner.id);
 
     await writeDb(db);
 

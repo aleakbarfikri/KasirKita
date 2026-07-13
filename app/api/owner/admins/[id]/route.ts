@@ -4,14 +4,15 @@ import { adminUpdateSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, rowWithAdminProfile, verifyPassword, writeDb } from "@/lib/server/data-store";
 import { applyManualSubscription, ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
   return issues?.map((issue) => issue.message).filter(Boolean).join(". ") || "Data edit admin belum lengkap atau formatnya salah.";
 }
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireOwner();
     await assertOwnerOwnsAdmin(session.user.id, params.id);
@@ -65,7 +66,8 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireOwner();
     await assertOwnerOwnsAdmin(session.user.id, params.id);

@@ -2,9 +2,10 @@ import { authError, requireOwner } from "@/lib/server/auth-guard";
 import { fail, ok } from "@/lib/server/http";
 import { incrementBalance, now, readDb, writeDb } from "@/lib/server/data-store";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(_request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireOwner();
     const db = await readDb();
