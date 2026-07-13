@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "db:setup": "tsx scripts/seed-json-db.ts",
     "db:reset": "tsx scripts/seed-json-db.ts",
     "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
