@@ -5,6 +5,7 @@ import {
   now,
   publicUser,
   readDb,
+  revokeUserSessions,
   verifyPassword,
   writeDb,
 } from "@/lib/server/data-store";
@@ -67,6 +68,7 @@ export async function PATCH(request: Request) {
       }
 
       user.passwordHash = hashPassword(newPassword);
+      revokeUserSessions(db, user.id);
     }
 
     if (name) user.name = name;

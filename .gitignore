@@ -5,7 +5,6 @@ out
 .env
 .DS_Store
 .data
-package-lock.json
 .vercel
 .env*
 tsconfig.tsbuildinfo

@@ -25,12 +25,11 @@ Better Auth berjalan di:
 /api/auth/[...all]
 ```
 
-Login memakai username plugin:
-
-```txt
-Owner: ownerkasirkita / Regina050322
-Admin dibuat oleh Owner dari aplikasi
-```
+Tidak ada credential Owner bawaan. Database kosong membuat Owner satu kali dari
+variabel `KASIRKITA_BOOTSTRAP_OWNER_USERNAME`,
+`KASIRKITA_BOOTSTRAP_OWNER_EMAIL`, dan
+`KASIRKITA_BOOTSTRAP_OWNER_PASSWORD`. Hapus ketiga variabel setelah login
+pertama berhasil. Admin dibuat oleh Owner dari aplikasi.
 
 ## Database
 

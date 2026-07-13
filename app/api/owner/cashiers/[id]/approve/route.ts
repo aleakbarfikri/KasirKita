@@ -3,7 +3,8 @@ import { rowWithCashierProfile } from "@/lib/server/cashier-helpers";
 import { now, readDb, writeDb } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
 
-export async function POST(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await requireOwner();
     const db = await readDb();

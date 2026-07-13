@@ -1,7 +1,8 @@
 import { buildReceipt } from "@/lib/server/receipt";
 import { readDb } from "@/lib/server/data-store";
 
-export async function GET(request: Request, { params }: { params: { token: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const db = await readDb();
   const transaction = db.transactions.find((row) => row.receiptToken === params.token);
   if (!transaction) {

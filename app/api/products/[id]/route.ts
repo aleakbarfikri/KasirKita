@@ -4,7 +4,7 @@ import { updateProductSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
 import { assertFeatureAllowed } from "@/lib/server/subscription";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 async function assertCanAccessProduct(userId: string, role: string | undefined, productId: string) {
   const db = await readDb();
@@ -21,7 +21,8 @@ async function assertCanAccessProduct(userId: string, role: string | undefined, 
   if (product.shopId !== scope.shopId) throw Object.assign(new Error("Product not found"), { status: 404 });
 }
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(_request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAuth();
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
@@ -33,7 +34,8 @@ export async function GET(_request: Request, { params }: Params) {
   }
 }
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAuth();
     if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses mengubah inventaris.", 403);
@@ -85,7 +87,8 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(_request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAuth();
     if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses menghapus inventaris.", 403);

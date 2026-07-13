@@ -3,6 +3,7 @@ import { createId } from "@/lib/server/ids";
 import { registerAdminSchema } from "@/lib/server/validators";
 import { hashPassword, now, publicUser, readDb, verifyPassword, writeDb, type AdminProfile, type AppUser, type Balance, type Shop } from "@/lib/server/data-store";
 import { startTrialProfile } from "@/lib/server/subscription";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
@@ -11,9 +12,13 @@ function getZodMessage(error: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = await enforceRateLimit(request, "register:verify:ip", { limit: 20, windowMs: 15 * 60 * 1000 });
+    if (!ipLimit.allowed) return fail("Terlalu banyak percobaan verifikasi. Coba lagi beberapa menit lagi.", 429);
     const parsed = registerAdminSchema.safeParse(await readJson(request));
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
     const body = parsed.data;
+    const emailLimit = await enforceRateLimit(request, "register:verify:email", { limit: 8, windowMs: 15 * 60 * 1000 }, body.email);
+    if (!emailLimit.allowed) return fail("Terlalu banyak percobaan verifikasi. Coba lagi beberapa menit lagi.", 429);
     const db = await readDb();
 
     if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);

@@ -4,9 +4,10 @@ import { createId } from "@/lib/server/ids";
 import { debtPaymentSchema } from "@/lib/server/validators";
 import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function POST(request: Request, { params }: Params) {
+export async function POST(request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);

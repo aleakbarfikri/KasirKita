@@ -4,9 +4,10 @@ import { restoreSuccessfulTransactionStock } from "@/lib/server/inventory";
 import { voidTransactionSchema } from "@/lib/server/validators";
 import { addAuditLog, incrementBalance, now, readDb, writeDb } from "@/lib/server/data-store";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function POST(request: Request, { params }: Params) {
+export async function POST(request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAuth();
     const body = voidTransactionSchema.parse(await readJson(request));
