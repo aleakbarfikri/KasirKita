@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { createId } from "@/lib/server/ids";
-import { createSignedSessionToken, isAdminProfileActive, now, publicUser, readDb, sessionTokenHash, verifyPassword, verifySignedSessionToken, writeDb } from "@/lib/server/data-store";
+import { createSignedSessionToken, isAdminProfileActive, now, publicUser, readDb, sessionTokenHash, verifyPassword, verifySignedSessionToken, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
+import { verifyOwnerMfaCode } from "@/lib/server/mfa";
 
 const COOKIE_NAME = "kasirkita_session";
 const SESSION_DAYS = 7;
@@ -30,7 +31,7 @@ export async function POST(request: Request, props: Params) {
   if (action === "sign-in/username") {
     const ipLimit = await enforceRateLimit(request, "auth:sign-in:ip", { limit: 30, windowMs: 15 * 60 * 1000 });
     if (!ipLimit.allowed) return fail("Terlalu banyak percobaan login. Coba lagi beberapa menit lagi.", 429);
-    const body = await readJson(request) as { username?: string; password?: string };
+    const body = await readJson(request) as { username?: string; password?: string; mfaCode?: string };
     const username = String(body.username || "").trim().toLowerCase();
     const password = String(body.password || "");
     if (!username || !password) return fail("Username dan password wajib diisi.", 422);
@@ -59,25 +60,40 @@ export async function POST(request: Request, props: Params) {
       }
     }
 
+    const mfaConfig = user.role === "owner" ? db.ownerMfaConfigs.find((row) => row.ownerId === user.id && row.enabled) : null;
+    if (mfaConfig) {
+      const mfaLimit = await enforceRateLimit(request, "auth:mfa:account", { limit: 8, windowMs: 15 * 60 * 1000 }, username);
+      if (!mfaLimit.allowed) return fail("Terlalu banyak kode MFA salah. Coba lagi beberapa menit lagi.", 429);
+      if (!String(body.mfaCode || "").trim()) return fail("Kode MFA Owner wajib diisi.", 401, { mfaRequired: true });
+    }
+
     const t = now();
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const sessionId = createId("sess");
     const token = createSignedSessionToken(user.id, sessionId, expiresAt);
-    db.sessions = db.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
-    db.sessions.push({ id: sessionId, token: sessionTokenHash(token), userId: user.id, expiresAt, createdAt: t, updatedAt: t });
-    await writeDb(db);
+    const signedInUser = await withDbTransaction((currentDb) => {
+      const currentUser = currentDb.users.find((row) => row.id === user.id);
+      if (!currentUser) throw Object.assign(new Error("Akun tidak ditemukan."), { status: 401 });
+      const currentMfa = currentUser.role === "owner" ? currentDb.ownerMfaConfigs.find((row) => row.ownerId === currentUser.id && row.enabled) : null;
+      if (currentMfa && !verifyOwnerMfaCode(currentMfa, String(body.mfaCode || "")).valid) {
+        throw Object.assign(new Error("Kode MFA atau recovery code tidak valid."), { status: 401 });
+      }
+      currentDb.sessions = currentDb.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
+      currentDb.sessions.push({ id: sessionId, token: sessionTokenHash(token), userId: currentUser.id, expiresAt, createdAt: t, updatedAt: t });
+      return publicUser(currentUser);
+    });
     await setSessionCookie(token);
 
-    return ok({ user: publicUser(user), session: { id: sessionId, userId: user.id, expiresAt } });
+    return ok({ user: signedInUser, session: { id: sessionId, userId: user.id, expiresAt } });
   }
 
   if (action === "sign-out") {
     const token = (await cookies()).get(COOKIE_NAME)?.value;
     const signed = token ? verifySignedSessionToken(token) : null;
     if (signed) {
-      const db = await readDb();
-      db.sessions = db.sessions.filter((row) => row.id !== signed.sessionId);
-      await writeDb(db);
+      await withDbTransaction((db) => {
+        db.sessions = db.sessions.filter((row) => row.id !== signed.sessionId);
+      });
     }
     await clearSessionCookie();
     return ok({ signedOut: true });

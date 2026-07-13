@@ -20,10 +20,10 @@ function snapshotEnv(keys: readonly string[]) {
 }
 
 function restoreEnv(snapshot: Map<string, string | undefined>) {
-  for (const [key, value] of snapshot) {
+  snapshot.forEach((value, key) => {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
-  }
+  });
 }
 
 test("empty database has no hardcoded Owner", () => {
@@ -59,7 +59,7 @@ test("production rejects a missing or placeholder auth secret", () => {
   const keys = ["NODE_ENV", "KASIRKITA_AUTH_SECRET", "NEXTAUTH_SECRET"];
   const snapshot = snapshotEnv(keys);
   try {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     delete process.env.NEXTAUTH_SECRET;
     process.env.KASIRKITA_AUTH_SECRET = "change-this-secret-minimum-32-characters";
     assert.throws(
@@ -75,7 +75,7 @@ test("signed session binds the user, server-side session id, and expiry", () => 
   const keys = ["NODE_ENV", "KASIRKITA_AUTH_SECRET", "NEXTAUTH_SECRET"];
   const snapshot = snapshotEnv(keys);
   try {
-    process.env.NODE_ENV = "test";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "test";
     process.env.KASIRKITA_AUTH_SECRET = "test-only-secret-with-more-than-32-characters";
     const expiresAt = new Date(Date.now() + 60_000).toISOString();
     const token = createSignedSessionToken("user_1", "sess_1", expiresAt);

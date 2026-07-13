@@ -26,7 +26,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const row = rowWithCashierProfile(db, profile);
     return ok(row);
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") return fail("Password kasir minimal 8 karakter.", 422, error);
+    if (error instanceof Error && error.name === "ZodError") return fail("Password kasir minimal 12 karakter.", 422, error);
     const { message, status } = authError(error);
     return fail(message, status);
   }

@@ -240,6 +240,15 @@ export type EmailVerification = {
   createdAt: string;
 };
 
+export type OwnerMfaConfig = {
+  ownerId: string;
+  encryptedSecret: string;
+  enabled: boolean;
+  recoveryCodeHashes: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AppDb = {
   users: AppUser[];
   sessions: AppSession[];
@@ -258,6 +267,7 @@ export type AppDb = {
   cashShifts: CashShift[];
   subscriptionInvoices: SubscriptionInvoice[];
   emailVerifications: EmailVerification[];
+  ownerMfaConfigs: OwnerMfaConfig[];
 };
 
 function resolveDataDir() {
@@ -413,6 +423,7 @@ export function defaultDb(): AppDb {
     cashShifts: [],
     subscriptionInvoices: [],
     emailVerifications: [],
+    ownerMfaConfigs: [],
   };
 }
 
@@ -436,17 +447,16 @@ function normalizeDb(db: AppDb): AppDb {
     cashShifts: db.cashShifts ?? [],
     subscriptionInvoices: db.subscriptionInvoices ?? [],
     emailVerifications: db.emailVerifications ?? [],
+    ownerMfaConfigs: db.ownerMfaConfigs ?? [],
   };
 }
 
 const CLOUD_DB_KEY = process.env.KASIRKITA_CLOUD_DB_KEY || "kasirkita:db";
 const CLOUD_BACKUPS_INDEX_KEY = `${CLOUD_DB_KEY}:backups:index`;
 const POSTGRES_STATE_KEY = process.env.KASIRKITA_POSTGRES_STATE_KEY || "default";
+const postgresVersions = new WeakMap<AppDb, number>();
 
-type PostgresClient = ((strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>) & {
-  end?: () => Promise<void>;
-  json: (value: unknown) => unknown;
-};
+type PostgresClient = ReturnType<typeof postgres>;
 
 let postgresClient: PostgresClient | null = null;
 
@@ -467,7 +477,7 @@ async function getPostgresClient() {
     idle_timeout: 20,
     connect_timeout: 10,
     ssl: process.env.POSTGRES_SSL === "false" ? false : "require",
-  }) as unknown as PostgresClient;
+  });
   return postgresClient;
 }
 
@@ -476,9 +486,11 @@ async function ensurePostgresTables(sql: PostgresClient) {
     create table if not exists kasirkita_app_state (
       key text primary key,
       data jsonb not null,
+      version bigint not null default 0,
       updated_at timestamptz not null default now()
     )
   `;
+  await sql`alter table kasirkita_app_state add column if not exists version bigint not null default 0`;
 
   await sql`
     create table if not exists kasirkita_backups (
@@ -489,6 +501,7 @@ async function ensurePostgresTables(sql: PostgresClient) {
       created_at timestamptz not null default now()
     )
   `;
+
 }
 
 async function readPostgresDb(): Promise<AppDb | null> {
@@ -497,17 +510,25 @@ async function readPostgresDb(): Promise<AppDb | null> {
 
   await ensurePostgresTables(sql);
   const rows = await sql`
-    select data
+    select data, version
     from kasirkita_app_state
     where key = ${POSTGRES_STATE_KEY}
     limit 1
-  ` as Array<{ data: AppDb }>;
+  ` as unknown as Array<{ data: AppDb; version: number | string }>;
 
-  if (rows[0]?.data) return normalizeDb(rows[0].data);
+  if (!rows[0]?.data) {
+    const fresh = defaultDb();
+    await sql`
+      insert into kasirkita_app_state (key, data, version, updated_at)
+      values (${POSTGRES_STATE_KEY}, ${sql.json(JSON.parse(JSON.stringify(fresh)))}, 0, now())
+      on conflict (key) do nothing
+    `;
+    return readPostgresDb();
+  }
 
-  const fresh = defaultDb();
-  await writePostgresDb(fresh);
-  return fresh;
+  const db = normalizeDb(rows[0].data);
+  postgresVersions.set(db, Number(rows[0].version));
+  return db;
 }
 
 async function writePostgresDb(db: AppDb): Promise<boolean> {
@@ -515,12 +536,31 @@ async function writePostgresDb(db: AppDb): Promise<boolean> {
   if (!sql) return false;
 
   await ensurePostgresTables(sql);
-  await sql`
-    insert into kasirkita_app_state (key, data, updated_at)
-    values (${POSTGRES_STATE_KEY}, ${sql.json(db)}, now())
-    on conflict (key)
-    do update set data = excluded.data, updated_at = now()
-  `;
+  const previousVersion = postgresVersions.get(db);
+  if (previousVersion === undefined) {
+    const rows = await sql`
+      insert into kasirkita_app_state (key, data, version, updated_at)
+      values (${POSTGRES_STATE_KEY}, ${sql.json(JSON.parse(JSON.stringify(db)))}, 0, now())
+      on conflict (key) do update
+      set data = excluded.data,
+          version = kasirkita_app_state.version + 1,
+          updated_at = now()
+      returning version
+    ` as unknown as Array<{ version: number | string }>;
+    postgresVersions.set(db, Number(rows[0].version));
+    return true;
+  }
+
+  const rows = await sql`
+    update kasirkita_app_state
+    set data = ${sql.json(JSON.parse(JSON.stringify(db)))}, version = version + 1, updated_at = now()
+    where key = ${POSTGRES_STATE_KEY} and version = ${previousVersion}
+    returning version
+  ` as unknown as Array<{ version: number | string }>;
+  if (!rows[0]) {
+    throw Object.assign(new Error("Data berubah karena permintaan lain. Silakan ulangi tindakan."), { status: 409, code: "DB_WRITE_CONFLICT" });
+  }
+  postgresVersions.set(db, Number(rows[0].version));
   return true;
 }
 
@@ -541,7 +581,7 @@ export async function createBackup(reason = "manual"): Promise<BackupInfo> {
     await ensurePostgresTables(sql);
     const rows = await sql`
       insert into kasirkita_backups (id, reason, data, size_bytes, created_at)
-      values (${id}, ${reason}, ${sql.json(db)}, ${sizeBytes}, now())
+      values (${id}, ${reason}, ${sql.json(JSON.parse(JSON.stringify(db)))}, ${sizeBytes}, now())
       returning id, reason, size_bytes as "sizeBytes", created_at as "createdAt"
     ` as Array<BackupInfo>;
     return {
@@ -980,6 +1020,65 @@ export async function writeDb(db: AppDb): Promise<void> {
   fs.writeFileSync(file, JSON.stringify(db, null, 2));
 }
 
+let localMutationTail: Promise<void> = Promise.resolve();
+
+async function withLocalMutationLock<T>(task: () => Promise<T>): Promise<T> {
+  const previous = localMutationTail;
+  let release!: () => void;
+  localMutationTail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Runs a read-modify-write operation under one database transaction.
+ * PostgreSQL locks the single application-state row, so concurrent requests
+ * see the latest committed stock/payment state instead of overwriting it.
+ */
+export async function withDbTransaction<T>(mutator: (db: AppDb) => T | Promise<T>): Promise<T> {
+  const sql = await getPostgresClient();
+  if (sql) {
+    await ensurePostgresTables(sql);
+    return await sql.begin(async (tx) => {
+      const fresh = defaultDb();
+      await tx`
+        insert into kasirkita_app_state (key, data, version, updated_at)
+        values (${POSTGRES_STATE_KEY}, ${tx.json(JSON.parse(JSON.stringify(fresh)))}, 0, now())
+        on conflict (key) do nothing
+      `;
+      const rows = await tx`
+        select data, version
+        from kasirkita_app_state
+        where key = ${POSTGRES_STATE_KEY}
+        for update
+      ` as unknown as Array<{ data: AppDb; version: number | string }>;
+      const db = normalizeDb(rows[0].data);
+      const result = await mutator(db);
+      const nextVersion = Number(rows[0].version) + 1;
+      await tx`
+        update kasirkita_app_state
+        set data = ${tx.json(JSON.parse(JSON.stringify(db)))}, version = ${nextVersion}, updated_at = now()
+        where key = ${POSTGRES_STATE_KEY}
+      `;
+      postgresVersions.set(db, nextVersion);
+      return result;
+    }) as T;
+  }
+
+  return withLocalMutationLock(async () => {
+    const db = await readDb();
+    const result = await mutator(db);
+    await writeDb(db);
+    return result;
+  });
+}
+
 export async function resetDb() {
   const fresh = defaultDb();
   const wrotePostgres = await writePostgresDb(fresh);
@@ -995,10 +1094,7 @@ export async function resetDb() {
 }
 
 export async function withDb<T>(mutator: (db: AppDb) => T): Promise<T> {
-  const db = await readDb();
-  const result = mutator(db);
-  await writeDb(db);
-  return result;
+  return withDbTransaction(mutator);
 }
 
 export function revokeUserSessions(db: AppDb, userId: string) {

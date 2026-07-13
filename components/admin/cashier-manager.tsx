@@ -91,8 +91,8 @@ export function CashierManager() {
 
   async function savePassword() {
     if (!editingPassword) return;
-    if (newPassword.length < 8) {
-      setPasswordError("Password kasir minimal 8 karakter.");
+    if (newPassword.length < 12) {
+      setPasswordError("Password kasir minimal 12 karakter.");
       return;
     }
 
@@ -130,7 +130,7 @@ export function CashierManager() {
           <div className="space-y-2"><Label>{t("Nama Kasir")}</Label><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Budi Kasir" /></div>
           <div className="space-y-2"><Label>{t("Username")}</Label><Input value={username} onChange={(event) => setUsername(normalizeUsername(event.target.value))} placeholder="kasir_budi" /></div>
           <div className="space-y-2"><Label>{t("Email")}</Label><Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="kasir@example.com" /></div>
-          <div className="space-y-2"><Label>{t("Password Awal")}</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder={t("minimal 8 karakter")} /></div>
+          <div className="space-y-2"><Label>{t("Password Awal")}</Label><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={12} placeholder="minimal 12 karakter" /></div>
           <Button className="w-full" onClick={createCashier} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} {t("Buat Kasir")}</Button>
         </CardContent>
       </Card>
@@ -198,7 +198,7 @@ export function CashierManager() {
             <p className="font-bold">{editingPassword?.cashier.name}</p>
             <p className="text-[#3d4a42]">{t("Username")}: {editingPassword?.cashier.username}</p>
           </div>
-          <div className="space-y-2"><Label>{t("Password Baru")}</Label><Input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder={t("minimal 8 karakter")} /></div>
+          <div className="space-y-2"><Label>{t("Password Baru")}</Label><Input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={12} placeholder="minimal 12 karakter" /></div>
           <Button className="w-full" onClick={savePassword} disabled={passwordSaving}>{passwordSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} {t("Simpan Password")}</Button>
         </div>
       </Modal>

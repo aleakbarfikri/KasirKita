@@ -23,8 +23,8 @@ export function OwnerChangePasswordCard() {
     setError(null);
     setSuccess(null);
 
-    if (newPassword.length < 8) {
-      setError("Password baru minimal 8 karakter.");
+    if (newPassword.length < 12) {
+      setError("Password baru minimal 12 karakter.");
       return;
     }
 
@@ -99,7 +99,7 @@ export function OwnerChangePasswordCard() {
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
-              minLength={8}
+              minLength={12}
               required
             />
           </div>
@@ -112,7 +112,7 @@ export function OwnerChangePasswordCard() {
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
-              minLength={8}
+              minLength={12}
               required
             />
           </div>

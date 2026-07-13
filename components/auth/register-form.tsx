@@ -158,12 +158,12 @@ export function RegisterForm() {
               name="registration_new_password"
               type="password"
               autoComplete="new-password"
-              minLength={8}
+              minLength={12}
               value={password}
               readOnly={!passwordEditable}
               onFocus={() => setPasswordEditable(true)}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="minimal 8 karakter"
+              placeholder="minimal 12 karakter"
               required
             />
           </div>

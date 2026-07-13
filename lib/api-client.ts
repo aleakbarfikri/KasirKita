@@ -216,9 +216,11 @@ export type PaymentConfig = {
   id?: string;
   ownerId?: string;
   pakasirSlug?: string | null;
-  pakasirApiKey?: string | null;
+  pakasirApiKeyMasked?: string | null;
+  pakasirApiKeyConfigured?: boolean;
   whatsappProvider?: string | null;
-  whatsappApiKey?: string | null;
+  whatsappApiKeyMasked?: string | null;
+  whatsappApiKeyConfigured?: boolean;
   whatsappSender?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -473,7 +475,7 @@ export const api = {
     },
     paymentConfig: {
       get: () => apiFetch<PaymentConfig>("/api/owner/payment-config"),
-      save: (body: Exclude<PaymentConfig, null>) => apiFetch<Exclude<PaymentConfig, null>>("/api/owner/payment-config", { method: "PUT", body: JSON.stringify(body) }),
+      save: (body: { pakasirSlug?: string; pakasirApiKey?: string; whatsappProvider?: string; whatsappApiKey?: string; whatsappSender?: string }) => apiFetch<Exclude<PaymentConfig, null>>("/api/owner/payment-config", { method: "PUT", body: JSON.stringify(body) }),
     },
     withdrawals: {
       list: () => apiFetch<OwnerWithdrawalRow[]>("/api/owner/withdrawals"),

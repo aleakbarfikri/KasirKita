@@ -1,8 +1,9 @@
 import { authError, getAdminScope, requirePosUser } from "@/lib/server/auth-guard";
 import { fail, ok } from "@/lib/server/http";
-import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
-import { addAuditLog, incrementBalance, now, readDb, writeDb } from "@/lib/server/data-store";
+import { confirmQrisPayment } from "@/lib/server/payment-confirmation";
+import { readDb, withDbTransaction } from "@/lib/server/data-store";
+import { paymentCredentials } from "@/lib/server/payment-secrets";
 
 type Params = { params: Promise<{ reference: string }> };
 
@@ -19,12 +20,13 @@ export async function GET(_request: Request, props: Params) {
     if (transaction.status === "failed" || transaction.status === "cancelled") return ok({ status: transaction.status, providerStatus: transaction.status, transaction });
 
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
-    if (!config?.pakasirSlug || !config?.pakasirApiKey) return fail("Slug dan API Key Pakasir belum dikonfigurasi.", 422);
+    const credentials = paymentCredentials(config);
+    if (!credentials.pakasirSlug || !credentials.pakasirApiKey) return fail("Slug dan API Key Pakasir belum dikonfigurasi.", 422);
 
     let providerStatus = "pending";
     let isPaid = false;
     try {
-      const pakasir = await getPakasirTransactionStatus({ slug: config.pakasirSlug, apiKey: config.pakasirApiKey, orderId: transaction.id, amount: transaction.total });
+      const pakasir = await getPakasirTransactionStatus({ slug: credentials.pakasirSlug, apiKey: credentials.pakasirApiKey, orderId: transaction.id, amount: transaction.total });
       providerStatus = pakasir.status;
       isPaid = pakasir.isPaid;
     } catch (error) {
@@ -32,23 +34,23 @@ export async function GET(_request: Request, props: Params) {
     }
 
     if (isPaid) {
-      transaction.status = "success";
-      transaction.updatedAt = now();
-      const items = db.transactionItems.filter((item) => item.transactionId === transaction.id);
-      applySuccessfulTransactionStock(db, transaction.shopId, items, { allowNegative: true, ignoreMissing: true });
-      incrementBalance(db, scope.adminId, "totalEarnedQrisApi", transaction.total);
-      addAuditLog(db, {
-        actorId: session.user.id,
-        actorRole: session.user.role === "cashier" ? "cashier" : "admin",
+      const confirmed = await withDbTransaction((currentDb) => confirmQrisPayment(currentDb, {
+        reference: params.reference,
+        cashierId: session.user.id,
+        adminId: scope.adminId,
         shopId: scope.shopId,
-        action: "confirm_qris_pakasir",
-        entityType: "transaction",
-        entityId: transaction.id,
-        message: `Pembayaran QRIS KasirKita dikonfirmasi sukses senilai ${transaction.total}.`,
-        metadata: { providerStatus, total: transaction.total },
+        actorRole: session.user.role === "cashier" ? "cashier" : "admin",
+        providerStatus,
+      }));
+      if (confirmed.transaction.status !== "success") {
+        return ok({ status: confirmed.transaction.status, providerStatus, transaction: confirmed.transaction });
+      }
+      return ok({
+        status: "paid",
+        providerStatus,
+        transaction: confirmed.transaction,
+        replayed: !confirmed.applied,
       });
-      await writeDb(db);
-      return ok({ status: "paid", providerStatus, transaction });
     }
 
     return ok({ status: "pending", providerStatus, transaction });

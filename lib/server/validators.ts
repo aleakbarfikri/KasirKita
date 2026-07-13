@@ -50,7 +50,7 @@ export const adminCreateSchema = z.object({
   name: z.string().trim().min(2, "Nama admin minimal 2 karakter"),
   username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
   email: z.string().trim().toLowerCase().email("Email tidak valid"),
-  password: z.string().min(8, "Password minimal 8 karakter"),
+  password: z.string().min(12, "Password minimal 12 karakter"),
   shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter"),
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),
@@ -62,7 +62,7 @@ export const registerAdminSchema = z.object({
   name: z.string().trim().min(2, "Nama pemilik minimal 2 karakter"),
   username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
   email: z.string().trim().toLowerCase().email("Email tidak valid"),
-  password: z.string().min(8, "Password minimal 8 karakter"),
+  password: z.string().min(12, "Password minimal 12 karakter"),
   shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter"),
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),
@@ -78,11 +78,11 @@ export const cashierCreateSchema = z.object({
   name: z.string().trim().min(2, "Nama kasir minimal 2 karakter"),
   username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),
   email: z.string().trim().toLowerCase().email("Email tidak valid"),
-  password: z.string().min(8, "Password minimal 8 karakter"),
+  password: z.string().min(12, "Password minimal 12 karakter"),
 });
 
 export const cashierPasswordSchema = z.object({
-  password: z.string().min(8, "Password kasir minimal 8 karakter"),
+  password: z.string().min(12, "Password kasir minimal 12 karakter"),
 });
 
 export const adminUpdateSchema = z.object({

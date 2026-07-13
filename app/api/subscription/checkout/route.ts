@@ -4,6 +4,7 @@ import { createPakasirQris } from "@/lib/server/pakasir";
 import { addAuditLog, now, readDb, writeDb, type SubscriptionInvoice } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { PLAN_CONFIG, type BillingPeriod, type PaidSubscriptionPlan } from "@/lib/server/subscription";
+import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
 
 function isPaidPlan(value: unknown): value is PaidSubscriptionPlan {
   return value === "basic" || value === "starter" || value === "pro" || value === "business";
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
 
     const db = await readDb();
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
-    if (!config?.pakasirSlug || !config?.pakasirApiKey) return fail("Owner belum mengisi Slug/API Key Pakasir untuk pembayaran subscription.", 422);
+    if (config) protectPaymentConfig(config);
+    const credentials = paymentCredentials(config);
+    if (!credentials.pakasirSlug || !credentials.pakasirApiKey) return fail("Owner belum mengisi Slug/API Key Pakasir untuk pembayaran subscription.", 422);
 
     const duplicate = db.subscriptionInvoices
       .filter((row) => row.adminId === scope.adminId && row.planType === body.planType && row.billingPeriod === billingPeriod && row.status === "pending")
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
     const t = now();
     const invoiceId = createId("subinv");
     const providerOrderId = invoiceId;
-    const pakasir = await createPakasirQris({ slug: config.pakasirSlug, apiKey: config.pakasirApiKey, orderId: providerOrderId, amount });
+    const pakasir = await createPakasirQris({ slug: credentials.pakasirSlug, apiKey: credentials.pakasirApiKey, orderId: providerOrderId, amount });
     const invoice: SubscriptionInvoice = {
       id: invoiceId,
       ownerId: scope.ownerId,

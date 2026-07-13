@@ -380,8 +380,8 @@ export function AppShell({
     setProfileSuccess(null);
 
     if (newPassword || currentPassword || confirmPassword) {
-      if (newPassword.length < 8) {
-        setProfileError("Password baru minimal 8 karakter.");
+      if (newPassword.length < 12) {
+        setProfileError("Password baru minimal 12 karakter.");
         return;
       }
 
@@ -833,7 +833,7 @@ export function AppShell({
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={12}
                   />
                 </div>
                 <div className="space-y-2">
@@ -844,7 +844,7 @@ export function AppShell({
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={12}
                   />
                 </div>
               </div>
