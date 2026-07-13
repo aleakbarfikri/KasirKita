@@ -84,8 +84,8 @@ export async function POST(request: Request) {
     verification.consumedAt = now();
     await writeDb(db);
 
-    return ok({ admin: publicUser(user), profile, shop, balance, trialDays: 14 }, { status: 201 });
+    return ok({ admin: publicUser(user), profile, shop, balance, plan: "free" }, { status: 201 });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Gagal daftar trial.", 400);
+    return fail(error instanceof Error ? error.message : "Gagal mendaftar.", 400);
   }
 }

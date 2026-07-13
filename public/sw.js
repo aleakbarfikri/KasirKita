@@ -1,4 +1,4 @@
-const CACHE_NAME = "kasirkita-pos-shell-v1";
+const CACHE_NAME = "kasirkita-pos-shell-v2";
 const APP_SHELL = [
   "/",
   "/admin/pos",
@@ -38,7 +38,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/admin/pos")))
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
     );
     return;
   }
