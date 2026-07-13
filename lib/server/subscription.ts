@@ -12,6 +12,7 @@ export type PlanConfig = {
   productLimit: number | null;
   cashierLimit: number | null;
   monthlyTransactionLimit: number | null;
+  branchLimit: number | null;
   reportDays: number | null;
   features: Record<FeatureKey, boolean>;
 };
@@ -28,14 +29,15 @@ const basicFeatures: Record<FeatureKey, boolean> = {
 
 export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
   trial: {
-    label: "Trial",
+    label: "Free",
     priceMonthly: null,
     priceYearly: 0,
-    productLimit: 100,
+    productLimit: 50,
     cashierLimit: 1,
     monthlyTransactionLimit: 500,
-    reportDays: 14,
-    features: { ...basicFeatures, discounts: true },
+    branchLimit: 1,
+    reportDays: 30,
+    features: { ...basicFeatures, discounts: true, qrisPakasir: true },
   },
   basic: {
     label: "Basic",
@@ -44,6 +46,7 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
     productLimit: 300,
     cashierLimit: 1,
     monthlyTransactionLimit: 500,
+    branchLimit: 1,
     reportDays: 7,
     features: { ...basicFeatures, discounts: true },
   },
@@ -54,6 +57,7 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
     productLimit: 500,
     cashierLimit: 1,
     monthlyTransactionLimit: 1_000,
+    branchLimit: 1,
     reportDays: 30,
     features: {
       ...basicFeatures,
@@ -63,10 +67,11 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
   pro: {
     label: "Pro",
     priceMonthly: 49_000,
-    priceYearly: 499_000,
-    productLimit: 1_000,
-    cashierLimit: 3,
-    monthlyTransactionLimit: 3_000,
+    priceYearly: 468_000,
+    productLimit: 5_000,
+    cashierLimit: 5,
+    monthlyTransactionLimit: 10_000,
+    branchLimit: 1,
     reportDays: 90,
     features: {
       discounts: true,
@@ -80,11 +85,12 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
   },
   business: {
     label: "Business",
-    priceMonthly: 99_000,
-    priceYearly: 999_000,
+    priceMonthly: 129_000,
+    priceYearly: 1_188_000,
     productLimit: null,
     cashierLimit: null,
     monthlyTransactionLimit: null,
+    branchLimit: 5,
     reportDays: null,
     features: {
       discounts: true,
@@ -119,7 +125,11 @@ export function getSubscriptionStatus(profile: AdminProfile) {
 
 export function ensureSubscriptionDefaults(profile: AdminProfile) {
   if (!profile.planType) profile.planType = "pro";
-  if (!profile.planStatus) profile.planStatus = profile.planType === "trial" ? "trialing" : "active";
+  if (profile.planType === "trial") {
+    profile.planStatus = "active";
+    profile.activeUntil = null;
+    profile.isActive = true;
+  } else if (!profile.planStatus) profile.planStatus = "active";
   return profile;
 }
 
@@ -148,10 +158,11 @@ export function nextActiveUntil(current: string | null | undefined, period: Bill
 export function startTrialProfile(profile: AdminProfile, trialDays = 14) {
   const t = now();
   profile.planType = "trial";
-  profile.planStatus = "trialing";
+  profile.planStatus = "active";
   profile.trialStartedAt = t;
   profile.subscriptionStartedAt = null;
-  profile.activeUntil = dateInputValue(addDays(new Date(), trialDays));
+  // Free is a permanent entry plan. Keep the trialDays argument for backward compatibility.
+  profile.activeUntil = null;
   profile.isActive = true;
   profile.updatedAt = t;
   return profile;
@@ -160,7 +171,7 @@ export function startTrialProfile(profile: AdminProfile, trialDays = 14) {
 export function applyManualSubscription(profile: AdminProfile, planType: SubscriptionPlan, activeUntil?: string | null) {
   const t = now();
   profile.planType = planType;
-  profile.planStatus = planType === "trial" ? "trialing" : "manual";
+  profile.planStatus = planType === "trial" ? "active" : "manual";
   profile.subscriptionStartedAt = planType === "trial" ? null : profile.subscriptionStartedAt || t;
   profile.activeUntil = activeUntil || null;
   profile.isActive = true;
@@ -204,6 +215,16 @@ export function assertCashierLimit(db: AppDb, profile: AdminProfile, incomingCou
   const activeCount = db.cashierProfiles.filter((cashier) => cashier.adminId === profile.userId && cashier.isActive && cashier.approvalStatus !== "rejected").length;
   if (activeCount + incomingCount > limit) {
     throw Object.assign(new Error(`Limit kasir paket ${getPlanConfig(profile.planType).label} adalah ${limit}. Upgrade paket untuk tambah kasir lagi.`), { status: 402 });
+  }
+}
+
+export function assertBranchLimit(db: AppDb, ownerId: string, profile: AdminProfile, incomingCount = 1) {
+  ensureSubscriptionDefaults(profile);
+  const limit = getPlanConfig(profile.planType).branchLimit;
+  if (limit === null) return;
+  const count = db.adminProfiles.filter((row) => row.ownerId === ownerId && row.isActive).length;
+  if (count + incomingCount > limit) {
+    throw Object.assign(new Error(`Paket ${getPlanConfig(profile.planType).label} maksimal ${limit} cabang. Upgrade ke Business untuk sampai 5 cabang.`), { status: 402 });
   }
 }
 

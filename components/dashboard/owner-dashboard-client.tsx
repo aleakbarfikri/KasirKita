@@ -54,12 +54,12 @@ function OwnerMetricRow({
   }[tone];
 
   return (
-    <div className="grid min-w-0 gap-4 rounded-xl border border-[#e2e8f0] bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+    <div className="grid min-w-0 gap-5 rounded-xl border border-[#e2e8f0] bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center sm:px-6 sm:py-6">
       <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
         <Icon className="h-8 w-8" />
       </div>
-      <div className="min-w-0 border-[#dfe7e3] sm:border-l sm:pl-7">
-        <p className="text-lg font-black leading-tight text-[#0f172a]">{title}</p>
+      <div className="min-w-0 border-[#dfe7e3] sm:border-l sm:pl-8">
+        <p className="text-lg font-black leading-relaxed text-[#0f172a]">{title}</p>
         <p className="mt-1 text-sm font-semibold leading-relaxed text-[#64748b] sm:text-base">{helper}</p>
       </div>
       <p className={`min-w-0 break-words text-left text-3xl font-black tracking-normal sm:whitespace-nowrap sm:text-right sm:text-4xl ${valueClass}`}>{value}</p>
@@ -249,7 +249,7 @@ export function OwnerDashboardClient() {
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
           <Card className="overflow-hidden border-[#d9e3de] bg-white/95">
-            <CardContent className="space-y-2 p-3 sm:p-4">
+            <CardContent className="space-y-4 p-5 sm:p-6">
               <OwnerMetricRow
               title="Total Pendapatan"
               value={formatCurrency(stats.totalRevenue)}
@@ -293,8 +293,8 @@ export function OwnerDashboardClient() {
 
                 return (
                   <Card key={row.admin.id} className="bg-white transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
-                    <CardContent className="p-5">
-                      <div className="flex items-start gap-4">
+                    <CardContent className="p-6 sm:p-7">
+                      <div className="flex items-start gap-5">
                         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1e293b] font-bold text-white">
                           KK
                         </div>
@@ -316,7 +316,7 @@ export function OwnerDashboardClient() {
                             </Badge>
                           </div>
 
-                          <div className="mt-4 grid grid-cols-2 border-t border-[#e2e8f0] pt-4">
+                          <div className="mt-5 grid grid-cols-2 gap-5 border-t border-[#e2e8f0] pt-5">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#64748b]">
                                 Transaksi Hari Ini

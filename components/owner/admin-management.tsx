@@ -577,11 +577,9 @@ export function AdminManagement() {
             <div className="space-y-2">
               <Label>{t("Paket Subscription")}</Label>
               <select value={editPlanType} onChange={(event) => setEditPlanType(event.target.value as typeof editPlanType)} className="flex h-11 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold text-[#0b1c30] outline-none focus:ring-2 focus:ring-primary/30">
-                <option value="trial">Trial</option>
-                <option value="basic">{t("Basic - Rp100.000/tahun")}</option>
-                <option value="starter">{t("Starter - Rp19.000/bulan")}</option>
-                <option value="pro">Pro</option>
-                <option value="business">Business</option>
+                <option value="trial">{t("Free - Gratis selamanya")}</option>
+                <option value="pro">{t("Pro - Rp49.000/bulan atau Rp39.000/bulan tahunan")}</option>
+                <option value="business">{t("Business - Rp129.000/bulan atau Rp99.000/bulan tahunan")}</option>
               </select>
               <p className="text-xs text-[#3d4a42]">{t("Owner bisa mengubah paket dan masa aktif admin secara manual.")}</p>
             </div>

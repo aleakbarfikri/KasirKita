@@ -110,6 +110,7 @@ export type Transaction = {
   status: "pending" | "success" | "failed" | "cancelled";
   externalRef?: string | null;
   receiptToken?: string | null;
+  idempotencyKey?: string | null;
   note?: string | null;
   createdAt: string;
   updatedAt: string;

@@ -28,6 +28,24 @@ export async function POST(request: Request) {
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
     if (!config?.pakasirSlug || !config?.pakasirApiKey) return fail("Owner belum mengisi Slug/API Key Pakasir untuk pembayaran subscription.", 422);
 
+    const duplicate = db.subscriptionInvoices
+      .filter((row) => row.adminId === scope.adminId && row.planType === body.planType && row.billingPeriod === billingPeriod && row.status === "pending")
+      .find((row) => !row.expiredAt || new Date(row.expiredAt).getTime() > Date.now());
+    if (duplicate) {
+      return ok({
+        invoice: duplicate,
+        payment: {
+          paymentUrl: duplicate.paymentUrl,
+          qrString: duplicate.qrString,
+          qrImageDataUrl: duplicate.qrImageDataUrl,
+          totalPayment: duplicate.totalPayment,
+          fee: duplicate.fee,
+          expiredAt: duplicate.expiredAt,
+        },
+        replayed: true,
+      });
+    }
+
     const t = now();
     const invoiceId = createId("subinv");
     const providerOrderId = invoiceId;

@@ -254,6 +254,8 @@ export type CheckoutItem = {
 };
 
 export type CheckoutPayload = {
+  /** Preserved by the offline queue so a retry cannot create a second sale. */
+  idempotencyKey?: string;
   paymentMethod: PaymentMethod;
   paidAmount?: number;
   discountType?: "none" | "percent" | "amount";
@@ -402,7 +404,10 @@ export const api = {
     },
   },
 
-  checkout: (body: CheckoutPayload) => apiFetch<CheckoutResponse>("/api/pos/checkout", { method: "POST", body: JSON.stringify(body) }),
+  checkout: (body: CheckoutPayload) => {
+    const idempotencyKey = body.idempotencyKey || crypto.randomUUID();
+    return apiFetch<CheckoutResponse>("/api/pos/checkout", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ ...body, idempotencyKey }) });
+  },
   subscription: {
     checkout: (body: { planType: "basic" | "starter" | "pro" | "business"; billingPeriod: "monthly" | "yearly" }) =>
       apiFetch<{ invoice: SubscriptionInvoiceRecord; payment: { qrImageDataUrl?: string; paymentUrl: string; totalPayment: number } }>("/api/subscription/checkout", { method: "POST", body: JSON.stringify(body) }),
