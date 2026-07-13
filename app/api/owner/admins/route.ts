@@ -3,7 +3,7 @@ import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { adminCreateSchema } from "@/lib/server/validators";
 import { hashPassword, now, publicUser, readDb, rowWithAdminProfile, writeDb, type AdminProfile, type AppUser, type Balance, type Shop } from "@/lib/server/data-store";
-import { applyManualSubscription, ensureSubscriptionDefaults } from "@/lib/server/subscription";
+import { applyManualSubscription, assertBranchLimit, ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
@@ -32,6 +32,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
     const body = parsed.data;
     const db = await readDb();
+    const ownerProfile = db.adminProfiles.find((profile) => profile.ownerId === session.user.id);
+    if (ownerProfile) assertBranchLimit(db, session.user.id, ownerProfile);
 
     if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);
     if (db.users.some((user) => user.username.toLowerCase() === body.username.toLowerCase())) return fail("Username sudah digunakan.", 409);

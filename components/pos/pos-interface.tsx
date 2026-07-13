@@ -795,6 +795,7 @@ export function PosInterface() {
     setSubmitting(true);
     setError(null);
     const payload: CheckoutPayload = {
+      idempotencyKey: crypto.randomUUID(),
       paymentMethod: method,
       paidAmount: method === "cash" ? cashReceived : undefined,
       discountType: checkoutDiscountType,

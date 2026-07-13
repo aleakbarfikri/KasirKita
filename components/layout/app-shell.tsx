@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { GlobalSubscriptionModal } from "@/components/subscription/global-subscription-modal";
 import {
   AlertTriangle,
   Activity,
@@ -30,7 +31,6 @@ import {
   NotebookTabs,
   Package,
   RefreshCw,
-  Search,
   Store,
   UserRound,
   Users,
@@ -575,14 +575,6 @@ export function AppShell({
                 <BrandMark compact />
               </Link>
             </div>
-            <div className="relative hidden w-full max-w-md md:block">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f7a72]" />
-              <input
-                aria-label="Quick search"
-                className="h-10 w-full rounded-xl border border-[#bec9c1] bg-[#f8fafc] pl-11 pr-4 text-sm font-semibold text-[#151b2d] outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
-                placeholder={role === "owner" ? t("Cari admin, transaksi, atau withdraw...") : t("Cari produk, transaksi, atau kasir...")}
-              />
-            </div>
             <div className="hidden border-l border-[#bec9c1] pl-4 text-sm md:block">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748b]">{t("Login sebagai")}</p>
               <p className="font-bold text-primary">{role === "owner" ? t("Owner") : t("Admin")}</p>
@@ -715,6 +707,20 @@ export function AppShell({
                     <UserRound className="h-4 w-4 text-primary" />
                     {t("Profil & Password")}
                   </button>
+                  {role === "admin" ? (
+                    <Link
+                      href="/admin?subscription=1"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setProfileOpen(false);
+                        window.dispatchEvent(new Event("kasirkita:open-subscription"));
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold text-[#0f172a] transition hover:bg-[#f1f5f9]"
+                    >
+                      <Activity className="h-4 w-4 text-primary" />
+                      {t("Paket Subscription")}
+                    </Link>
+                  ) : null}
                   <button
                     onClick={signOut}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold text-red-700 transition hover:bg-red-50"
@@ -856,6 +862,7 @@ export function AppShell({
           </div>
         </form>
       </Modal>
+      {role === "admin" && pathname !== "/admin" ? <GlobalSubscriptionModal /> : null}
     </div>
   );
 }

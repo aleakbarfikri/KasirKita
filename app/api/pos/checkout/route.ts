@@ -36,6 +36,13 @@ export async function POST(request: Request) {
     if (body.paymentMethod === "debt" && !body.customerName) return fail("Customer name is required for debt transaction", 422);
 
     const db = await readDb();
+    const idempotencyKey = request.headers.get("idempotency-key")?.trim() || null;
+    if (idempotencyKey && !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) return fail("Idempotency-Key tidak valid.", 422);
+    const existing = idempotencyKey ? db.transactions.find((row) => row.shopId === scope.shopId && row.idempotencyKey === idempotencyKey) : null;
+    if (existing) {
+      const existingItems = db.transactionItems.filter((item) => item.transactionId === existing.id);
+      return ok({ transaction: existing, items: existingItems, receipt: buildReceipt(db, existing, new URL(request.url).origin), replayed: true });
+    }
     assertMonthlyTransactionLimit(db, scope.adminProfile);
     const pakasirConfig = body.paymentMethod === "qris_pakasir" ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) : null;
     if (body.paymentMethod === "qris_pakasir" && (!pakasirConfig?.pakasirSlug || !pakasirConfig?.pakasirApiKey)) {
@@ -60,6 +67,7 @@ export async function POST(request: Request) {
       status,
       externalRef,
       receiptToken,
+      idempotencyKey,
       note: body.note ?? null,
       createdAt: t,
       updatedAt: t,

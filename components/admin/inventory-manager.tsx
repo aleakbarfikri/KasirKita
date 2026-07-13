@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Camera, Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, ScanLine, Upload, X } from "lucide-react";
+import type { IScannerControls } from "@zxing/browser";
 import { api, type ProductRecord } from "@/lib/api-client";
 import { cacheProducts, readCachedProducts } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
@@ -18,6 +19,8 @@ import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 export function InventoryManager() {
   const { t } = useAppLanguage();
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const scannerVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
   const [items, setItems] = useState<ProductRecord[]>([]);
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -43,6 +46,54 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   const [editStock, setEditStock] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerStarting, setScannerStarting] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+
+  const stopScanner = useCallback(() => {
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
+  }, []);
+
+  const closeScanner = useCallback(() => {
+    stopScanner();
+    setScannerOpen(false);
+    setScannerStarting(false);
+  }, [stopScanner]);
+
+  useEffect(() => {
+    if (!scannerOpen || !scannerVideoRef.current) return;
+    let active = true;
+    setScannerStarting(true);
+    setScannerError(null);
+
+    async function startScanner() {
+      try {
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Kamera membutuhkan HTTPS atau localhost.");
+        }
+        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const reader = new BrowserMultiFormatReader(undefined, { delayBetweenScanAttempts: 180, delayBetweenScanSuccess: 500 });
+        const controls = await reader.decodeFromConstraints(
+          { audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+          scannerVideoRef.current!,
+          (result) => {
+            if (!result || !active) return;
+            setSku(result.getText().trim());
+            closeScanner();
+          },
+        );
+        if (!active) controls.stop();
+        else scannerControlsRef.current = controls;
+      } catch (error) {
+        if (active) setScannerError(error instanceof Error ? error.message : "Gagal membuka kamera.");
+      } finally {
+        if (active) setScannerStarting(false);
+      }
+    }
+    startScanner();
+    return () => { active = false; stopScanner(); };
+  }, [closeScanner, scannerOpen, stopScanner]);
 
   async function loadProducts() {
     setLoading(true);
@@ -289,7 +340,13 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2"><Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label><Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} /></div>
+              <div className="space-y-2">
+                <Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label>
+                <div className="flex gap-2">
+                  <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} className="min-w-0" />
+                  <Button type="button" variant="outline" size="icon" title="Scan barcode SKU" aria-label="Scan barcode SKU" onClick={() => setScannerOpen(true)}><ScanLine className="h-5 w-5" /></Button>
+                </div>
+              </div>
               <div className="space-y-2"><Label>{t("Stok")}</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
@@ -406,6 +463,17 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               {t("Simpan Perubahan")}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={scannerOpen} title="Scan Barcode SKU" description="Arahkan kamera ke barcode produk. Kode akan masuk otomatis ke kolom SKU." onClose={closeScanner}>
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-2">
+            <video ref={scannerVideoRef} className="aspect-video w-full rounded-xl object-cover" muted playsInline />
+            <div className="pointer-events-none absolute inset-8 rounded-xl border-2 border-emerald-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]" />
+          </div>
+          <p className="text-sm font-semibold text-slate-600">{scannerStarting ? "Meminta izin kamera..." : scannerError || "Arahkan barcode ke dalam kotak."}</p>
+          <Button type="button" variant="outline" className="w-full" onClick={closeScanner}><X className="mr-2 h-4 w-4" /> Tutup Scanner</Button>
         </div>
       </Modal>
     </>

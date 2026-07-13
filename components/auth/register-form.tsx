@@ -20,11 +20,11 @@ function normalizeUsername(value: string) {
 type PaidPlan = "basic" | "starter" | "pro" | "business";
 
 const planLabels: Record<"trial" | PaidPlan, string> = {
-  trial: "Trial gratis 14 hari",
+  trial: "Free — gratis selamanya",
   basic: "Basic Rp100.000 / tahun",
   starter: "Starter Rp19.000 / bulan",
-  pro: "Pro Rp49.000 / bulan",
-  business: "Business Rp99.000 / bulan",
+  pro: "Pro mulai Rp39.000 / bulan",
+  business: "Business mulai Rp99.000 / bulan",
 };
 
 function isSelectedPlan(value?: string | null): value is keyof typeof planLabels {
@@ -40,6 +40,7 @@ export function RegisterForm() {
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
   const selectedPlan = isSelectedPlan(requestedPlan) ? requestedPlan : "trial";
+  const selectedBillingPeriod = searchParams.get("billingPeriod") === "monthly" ? "monthly" : "yearly";
   const [name, setName] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
@@ -78,7 +79,7 @@ export function RegisterForm() {
     setMessage(null);
     setError(null);
     try {
-      const result = await apiFetch<OwnerAdminRow & { trialDays: number }>("/api/register", {
+      const result = await apiFetch<OwnerAdminRow & { plan: "free" }>("/api/register", {
         method: "POST",
         body: JSON.stringify({
           name,
@@ -91,8 +92,8 @@ export function RegisterForm() {
           password,
         }),
       });
-      setMessage(`Trial ${result.trialDays} hari aktif. Username login: ${result.admin.username}`);
-      const nextPath = isPaidPlan(selectedPlan) ? `/admin?checkoutPlan=${selectedPlan}#subscription` : "/login";
+      setMessage(`Akun Free aktif. Username login: ${result.admin.username}`);
+      const nextPath = isPaidPlan(selectedPlan) ? `/admin?checkoutPlan=${selectedPlan}&billingPeriod=${selectedBillingPeriod}#subscription` : "/login";
       const loginPath = isPaidPlan(selectedPlan) ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
       window.setTimeout(() => router.push(loginPath), 1200);
     } catch (err) {
@@ -105,8 +106,8 @@ export function RegisterForm() {
   return (
     <Card className="mx-auto w-full max-w-2xl rounded-[2rem] border-slate-200 shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-3xl text-slate-950">Daftar Trial KasirKita</CardTitle>
-        <p className="text-sm text-slate-500">Coba gratis 14 hari. Setelah daftar, login sebagai admin UMKM.</p>
+        <CardTitle className="text-3xl text-slate-950">Daftar KasirKita</CardTitle>
+        <p className="text-sm text-slate-500">Mulai dengan paket Free tanpa batas waktu. Setelah daftar, login sebagai admin UMKM.</p>
         <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           Paket dipilih: {planLabels[selectedPlan]}
         </div>

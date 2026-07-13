@@ -8,6 +8,7 @@ import { api, debtStatusLabel, paymentMethodLabel, transactionStatusLabel, type 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
@@ -21,6 +22,18 @@ function isSubscriptionPlanChoice(value?: string | null): value is SubscriptionP
 
 function isPaidSubscriptionPlanChoice(value?: string | null): value is PaidSubscriptionPlanChoice {
   return value === "basic" || value === "starter" || value === "pro" || value === "business";
+}
+
+function dateInputValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function addDaysInput(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + days);
+  return dateInputValue(date);
 }
 
 const defaultBillingPeriod: Record<PaidSubscriptionPlanChoice, "monthly" | "yearly"> = {
@@ -126,6 +139,7 @@ export function AdminDashboardClient() {
   const { t } = useAppLanguage();
   const searchParams = useSearchParams();
   const checkoutPlan = searchParams.get("checkoutPlan");
+  const checkoutBillingPeriod = searchParams.get("billingPeriod") === "monthly" ? "monthly" : "yearly";
   const autoCheckoutStarted = useRef(false);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
@@ -136,8 +150,22 @@ export function AdminDashboardClient() {
   const [shopName, setShopName] = useState("UMKM Berkah");
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("starter");
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("pro");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("yearly");
+  const [reportStart, setReportStart] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return dateInputValue(date); });
+  const [reportEnd, setReportEnd] = useState(() => dateInputValue(new Date()));
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(searchParams.get("subscription") === "1");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSubscriptionModalOpen(searchParams.get("subscription") === "1");
+  }, [searchParams]);
+
+  useEffect(() => {
+    const openSubscription = () => setSubscriptionModalOpen(true);
+    window.addEventListener("kasirkita:open-subscription", openSubscription);
+    return () => window.removeEventListener("kasirkita:open-subscription", openSubscription);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -146,7 +174,8 @@ export function AdminDashboardClient() {
         const [me, transactionRows, debtRows, withdrawalRows, invoiceRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list(), api.subscription.listInvoices().catch(() => [])]);
         setShopName(me.user.shopName || "UMKM Berkah");
         setAdminProfile(me.adminProfile ?? null);
-        setSelectedPlan(isPaidSubscriptionPlanChoice(checkoutPlan) ? checkoutPlan : isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "starter");
+        setSelectedPlan(isPaidSubscriptionPlanChoice(checkoutPlan) ? checkoutPlan : isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "pro");
+        if (isPaidSubscriptionPlanChoice(checkoutPlan)) setBillingPeriod(checkoutBillingPeriod);
         setTransactions(transactionRows);
         setDebts(debtRows);
         setWithdrawals(withdrawalRows);
@@ -158,7 +187,7 @@ export function AdminDashboardClient() {
       }
     }
     load();
-  }, [checkoutPlan]);
+  }, [checkoutBillingPeriod, checkoutPlan]);
 
   async function createSubscriptionInvoice(planType: "basic" | "starter" | "pro" | "business", billingPeriod: "monthly" | "yearly") {
     setSubscriptionLoading(true);
@@ -178,8 +207,8 @@ export function AdminDashboardClient() {
     if (loading || autoCheckoutStarted.current || !isPaidSubscriptionPlanChoice(checkoutPlan)) return;
     autoCheckoutStarted.current = true;
     setSelectedPlan(checkoutPlan);
-    createSubscriptionInvoice(checkoutPlan, defaultBillingPeriod[checkoutPlan]);
-  }, [checkoutPlan, loading]);
+    createSubscriptionInvoice(checkoutPlan, checkoutBillingPeriod || defaultBillingPeriod[checkoutPlan]);
+  }, [checkoutBillingPeriod, checkoutPlan, loading]);
 
   async function checkSubscriptionPayment() {
     if (!invoice) return;
@@ -208,10 +237,22 @@ export function AdminDashboardClient() {
     return { todaySales, todayProfit, todayCount: todaySuccess.length, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
   }, [debts, transactions, withdrawals]);
 
+  const reportTransactions = useMemo(() => {
+    const start = new Date(`${reportStart}T00:00:00`);
+    const end = new Date(`${reportEnd}T23:59:59.999`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+    return transactions.filter((transaction) => {
+      const createdAt = new Date(transaction.createdAt).getTime();
+      return createdAt >= start.getTime() && createdAt <= end.getTime();
+    });
+  }, [reportEnd, reportStart, transactions]);
+
   const weeklySales = useMemo(() => {
+    const start = new Date(`${reportStart}T00:00:00`);
+    const end = new Date(`${reportEnd}T00:00:00`);
     const days = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - index));
+      const date = new Date(start);
+      date.setDate(date.getDate() + index);
       return {
         key: date.toDateString(),
         label: date.toLocaleDateString("id-ID", { weekday: "short" }),
@@ -219,7 +260,7 @@ export function AdminDashboardClient() {
       };
     });
 
-    transactions.forEach((transaction) => {
+    reportTransactions.forEach((transaction) => {
       if (transaction.status !== "success") return;
       const found = days.find((day) => day.key === new Date(transaction.createdAt).toDateString());
       if (found) found.value += transaction.total;
@@ -227,16 +268,26 @@ export function AdminDashboardClient() {
 
     const max = Math.max(...days.map((day) => day.value), 1);
     return days.map((day) => ({ ...day, height: Math.max(8, Math.round((day.value / max) * 100)) }));
-  }, [transactions]);
+  }, [reportEnd, reportStart, reportTransactions]);
+
+  const topProducts = useMemo(() => {
+    const totals = new Map<string, number>();
+    reportTransactions.filter((row) => row.status === "success").forEach((row) => {
+      row.items?.forEach((item) => totals.set(item.name, (totals.get(item.name) || 0) + item.quantity));
+    });
+    const rows = Array.from(totals, ([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
+    const max = Math.max(...rows.map((row) => row.quantity), 1);
+    return rows.slice(0, 10).map((row) => ({ ...row, height: Math.max(8, Math.round((row.quantity / max) * 100)) }));
+  }, [reportTransactions]);
 
   const planDetails = [
     {
       id: "trial" as const,
-      name: "Trial",
-      price: t("Gratis 14 hari"),
+      name: "Free",
+      price: t("Gratis selamanya"),
       billingPeriod: null,
       note: t("Cocok untuk coba POS dasar sebelum berlangganan."),
-      features: [t("100 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("Inventaris produk"), t("Diskon aktif"), t("Struk thermal dasar"), t("Riwayat transaksi terbatas"), t("Tanpa QRIS KasirKita"), t("Tanpa import/export")],
+      features: [t("50 produk"), t("1 kasir"), t("500 transaksi/bulan"), t("POS kasir"), t("QRIS KasirKita"), t("Scan barcode SKU"), t("Struk dengan watermark KasirKita")],
     },
     {
       id: "basic" as const,
@@ -257,21 +308,27 @@ export function AdminDashboardClient() {
     {
       id: "pro" as const,
       name: "Pro",
-      price: t("Rp49.000 / bulan"),
-      billingPeriod: "monthly" as const,
+      price: t("Rp39.000 / bulan"),
+      billingPeriod: "yearly" as const,
       note: t("Untuk UMKM yang mulai butuh kontrol stok dan pembayaran lebih lengkap."),
-      features: [t("1.000 produk"), t("3 kasir"), t("3.000 transaksi/bulan"), t("Semua fitur Starter"), t("Import/export Excel/CSV"), t("QRIS KasirKita otomatis"), t("Catatan hutang pelanggan"), t("Shift kasir"), t("Laporan omzet dan laba"), t("Backup manual")],
+      features: [t("5.000 produk"), t("5 kasir"), t("10.000 transaksi/bulan"), t("Semua fitur Free"), t("Import/export CSV"), t("Hutang dan shift kasir"), t("Laporan omzet dan laba"), t("Backup dan restore")],
     },
     {
       id: "business" as const,
       name: "Business",
       price: t("Rp99.000 / bulan"),
-      billingPeriod: "monthly" as const,
+      billingPeriod: "yearly" as const,
       note: t("Untuk toko yang butuh kapasitas besar tanpa batas utama."),
-      features: [t("Produk tanpa batas"), t("Kasir tanpa batas"), t("Transaksi tanpa batas"), t("Semua fitur Pro aktif"), t("Backup otomatis"), t("Restore data"), t("Dashboard owner lengkap"), t("Log aktivitas"), t("Export laporan"), t("Prioritas support")],
+      features: [t("Produk unlimited"), t("Kasir unlimited"), t("Transaksi unlimited"), t("Maksimal 5 cabang"), t("Semua fitur Pro"), t("Backup otomatis"), t("Dashboard lintas cabang"), t("Prioritas support")],
     },
   ];
-  const selectedPlanDetail = planDetails.find((plan) => plan.id === selectedPlan) ?? planDetails[1];
+  const commercialPlanDetails = planDetails.filter((plan) => plan.id === "trial" || plan.id === "pro" || plan.id === "business");
+  const selectedPlanDetail = commercialPlanDetails.find((plan) => plan.id === selectedPlan) ?? commercialPlanDetails[1];
+  const selectedPlanPrice = selectedPlanDetail.id === "pro"
+    ? billingPeriod === "monthly" ? "Rp49.000 / bulan" : "Rp39.000 / bulan"
+    : selectedPlanDetail.id === "business"
+      ? billingPeriod === "monthly" ? "Rp129.000 / bulan" : "Rp99.000 / bulan"
+      : selectedPlanDetail.price;
   const subscriptionReminder = useMemo(() => {
     if (!adminProfile?.activeUntil) return null;
     const today = new Date();
@@ -299,10 +356,14 @@ export function AdminDashboardClient() {
         <Card className="kk-stitch-card w-full min-w-0 overflow-hidden">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-2xl text-[#151b2d]">{t("Penjualan 7 Hari")}</CardTitle>
-              <CardDescription className="font-semibold text-[#505f76]">{t("Grafik transaksi sukses mingguan.")}</CardDescription>
+              <CardTitle className="text-2xl text-[#151b2d]">{t("Riwayat Penjualan")}</CardTitle>
+              <CardDescription className="font-semibold text-[#505f76]">{t("Grafik transaksi sukses sesuai periode yang dipilih.")}</CardDescription>
             </div>
-            <Badge variant="secondary" className="w-fit">{shopName}</Badge>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs font-black text-[#505f76]">{t("Mulai")}<input type="date" value={reportStart} max={reportEnd} onChange={(event) => { const start = event.target.value; setReportStart(start); setReportEnd(addDaysInput(start, 6)); }} className="mt-1 block h-9 rounded-lg border border-[#bec9c1] bg-white px-2 text-xs font-bold text-[#151b2d]" /></label>
+              <label className="text-xs font-black text-[#505f76]">{t("Sampai")}<input type="date" value={reportEnd} min={reportStart} max={addDaysInput(reportStart, 6)} onChange={(event) => setReportEnd(event.target.value)} className="mt-1 block h-9 rounded-lg border border-[#bec9c1] bg-white px-2 text-xs font-bold text-[#151b2d]" /></label>
+              <Badge variant="secondary" className="mb-1 w-fit">{shopName}</Badge>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex h-72 items-end gap-3 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-4">
@@ -353,9 +414,16 @@ export function AdminDashboardClient() {
 
       </div>
 
-      <div className="mt-6 grid w-full min-w-0 max-w-full gap-6">
+      <Card className="mt-6 kk-stitch-card">
+        <CardHeader><CardTitle className="text-2xl text-[#151b2d]">{t("Barang Terlaris")}</CardTitle><CardDescription className="font-semibold text-[#505f76]">{t("Produk dengan jumlah terjual terbanyak pada periode yang dipilih.")}</CardDescription></CardHeader>
+        <CardContent>
+          {topProducts.length === 0 ? <p className="rounded-xl bg-[#f8fafc] p-6 text-center text-sm font-semibold text-[#64748b]">{t("Belum ada data penjualan.")}</p> : <div className="flex h-56 items-end gap-3 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-4">{topProducts.map((row) => <div key={row.name} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2"><div className="relative flex flex-1 items-end rounded-t-xl bg-white"><div className="w-full rounded-t-xl bg-primary/80" style={{ height: `${row.height}%` }} /></div><p className="truncate text-center text-xs font-black text-[#505f76]" title={row.name}>{row.name}</p><p className="text-center text-[11px] font-bold text-primary">{row.quantity} {t("terjual")}</p></div>)}</div>}
+        </CardContent>
+      </Card>
 
-        <Card id="subscription" className="w-full min-w-0 max-w-full scroll-mt-24 bg-white">
+      <div className="mt-6 grid w-full min-w-0 max-w-full gap-6">
+        <Modal open={subscriptionModalOpen} title={t("Subscription")} description={t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")} onClose={() => setSubscriptionModalOpen(false)}>
+        <Card id="subscription" className="w-full min-w-0 max-w-full bg-white">
           <CardHeader>
             <CardTitle>{t("Subscription")}</CardTitle>
             <CardDescription>{t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")}</CardDescription>
@@ -374,7 +442,7 @@ export function AdminDashboardClient() {
             </div>
             <p className="rounded-2xl bg-[#eff4ff] p-3 text-sm font-semibold text-[#3d4a42]">{t("Klik kotak paket untuk memilih, lalu bayar dari tombol di bawah.")}</p>
             <div className="grid gap-3 md:grid-cols-2">
-              {planDetails.map((plan) => (
+              {commercialPlanDetails.map((plan) => (
                 <button
                   key={plan.name}
                   type="button"
@@ -388,7 +456,7 @@ export function AdminDashboardClient() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-lg font-black text-[#0b1c30]">{plan.name}</p>
-                      <p className="text-sm font-extrabold text-primary">{plan.price}</p>
+                      <p className="text-sm font-extrabold text-primary">{plan.id === "pro" ? (billingPeriod === "monthly" ? "Rp49.000 / bulan" : "Rp39.000 / bulan") : plan.id === "business" ? (billingPeriod === "monthly" ? "Rp129.000 / bulan" : "Rp99.000 / bulan") : plan.price}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       {adminProfile?.planType === plan.id ? <Badge variant="success">{t("Aktif")}</Badge> : null}
@@ -407,16 +475,17 @@ export function AdminDashboardClient() {
                 </button>
               ))}
             </div>
+            <div className="flex justify-center"><div className="inline-flex rounded-full border border-[#d9e3de] bg-white p-1"><button type="button" onClick={() => setBillingPeriod("monthly")} className={`rounded-full px-4 py-2 text-sm font-black ${billingPeriod === "monthly" ? "bg-primary text-white" : "text-[#64748b]"}`}>Bulanan</button><button type="button" onClick={() => setBillingPeriod("yearly")} className={`rounded-full px-4 py-2 text-sm font-black ${billingPeriod === "yearly" ? "bg-primary text-white" : "text-[#64748b]"}`}>Tahunan</button></div></div>
             <Button
-              className="w-full"
+              className="w-full min-h-12 whitespace-normal px-4 text-center text-sm leading-tight sm:text-base"
               size="lg"
               disabled={subscriptionLoading || selectedPlanDetail.id === "trial"}
               onClick={() => {
                 if (selectedPlanDetail.id === "trial" || !selectedPlanDetail.billingPeriod) return;
-                createSubscriptionInvoice(selectedPlanDetail.id, selectedPlanDetail.billingPeriod);
+                createSubscriptionInvoice(selectedPlanDetail.id, billingPeriod);
               }}
             >
-              {subscriptionLoading ? t("Membuat invoice...") : selectedPlanDetail.id === "trial" ? t("Trial tidak perlu pembayaran") : `${t("Bayar Paket")} ${selectedPlanDetail.name} ${selectedPlanDetail.price}`}
+              {subscriptionLoading ? t("Membuat invoice...") : selectedPlanDetail.id === "trial" ? t("Trial tidak perlu pembayaran") : `${t("Bayar Paket")} ${selectedPlanDetail.name} ${selectedPlanPrice}`}
             </Button>
             {invoice ? (
               <div className="rounded-2xl border border-[#bccac0] bg-white p-4 text-center">
@@ -453,6 +522,7 @@ export function AdminDashboardClient() {
             </div>
           </CardContent>
         </Card>
+        </Modal>
 
         <Card className="w-full min-w-0 max-w-full bg-white xl:col-span-2">
           <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Riwayat singkat transaksi terbaru.")}</CardDescription></CardHeader>

@@ -134,10 +134,10 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
       ) : null}
       {message ? <p className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Total Belum Lunas")}</p><p className="mt-2 text-3xl font-extrabold text-primary">{formatCurrency(outstanding)}</p></div><NotebookPen className="h-9 w-9 text-primary" /></div></CardContent></Card>
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Jatuh Tempo")}</p><p className="mt-2 text-3xl font-extrabold text-red-700">{formatCurrency(overdue)}</p></div><CalendarClock className="h-9 w-9 text-red-700" /></div></CardContent></Card>
-        <Card className="bg-white"><CardContent className="p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-[#3d4a42]">{t("Sudah Dibayar")}</p><p className="mt-2 text-3xl font-extrabold text-[#00628d]">{formatCurrency(paid)}</p></div><CheckCircle2 className="h-9 w-9 text-[#00628d]" /></div></CardContent></Card>
+      <div className="grid gap-5 md:grid-cols-3">
+        <Card className="bg-white"><CardContent className="p-6 sm:p-7"><div className="flex items-center justify-between gap-5"><div className="min-w-0"><p className="text-sm font-bold leading-relaxed text-[#3d4a42]">{t("Total Belum Lunas")}</p><p className="mt-3 break-words text-3xl font-extrabold text-primary">{formatCurrency(outstanding)}</p></div><NotebookPen className="h-10 w-10 shrink-0 text-primary" /></div></CardContent></Card>
+        <Card className="bg-white"><CardContent className="p-6 sm:p-7"><div className="flex items-center justify-between gap-5"><div className="min-w-0"><p className="text-sm font-bold leading-relaxed text-[#3d4a42]">{t("Jatuh Tempo")}</p><p className="mt-3 break-words text-3xl font-extrabold text-red-700">{formatCurrency(overdue)}</p></div><CalendarClock className="h-10 w-10 shrink-0 text-red-700" /></div></CardContent></Card>
+        <Card className="bg-white"><CardContent className="p-6 sm:p-7"><div className="flex items-center justify-between gap-5"><div className="min-w-0"><p className="text-sm font-bold leading-relaxed text-[#3d4a42]">{t("Sudah Dibayar")}</p><p className="mt-3 break-words text-3xl font-extrabold text-[#00628d]">{formatCurrency(paid)}</p></div><CheckCircle2 className="h-10 w-10 shrink-0 text-[#00628d]" /></div></CardContent></Card>
       </div>
 
       {!ownerView ? (
@@ -162,7 +162,7 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
       ) : null}
 
       <Card className="bg-white">
-        <CardHeader>
+        <CardHeader className="p-6 sm:p-8">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
               <CardTitle>{ownerView ? t("Piutang Semua Cabang") : t("Buku Hutang Pelanggan")}</CardTitle>
@@ -175,7 +175,7 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto px-6 pb-6 sm:px-8 sm:pb-8">
           {loading ? (
             <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat buku hutang...")}</div>
           ) : (
@@ -185,7 +185,7 @@ export function DebtLedger({ ownerView = false }: { ownerView?: boolean }) {
                 {filteredDebts.map((debt) => {
                   const label = isOverdue(debt.status, debt.dueDate) ? "Jatuh Tempo" : debtStatusLabel(debt.status);
                   return (
-                    <TableRow key={debt.id}>
+                    <TableRow key={debt.id} className="align-middle">
                       <TableCell><p className="font-bold">{debt.customerName}</p><p className="text-xs text-[#3d4a42]">{debt.customerPhone || "Tanpa nomor"}</p></TableCell>
                       {ownerView ? <TableCell><p className="font-medium">{debt.shopName}</p><p className="text-xs text-[#3d4a42]">{debt.adminName}</p></TableCell> : null}
                       <TableCell className="font-semibold">{formatCurrency(debt.amount)}</TableCell>

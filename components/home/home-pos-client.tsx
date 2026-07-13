@@ -330,6 +330,7 @@ export function HomePosClient() {
     setSubmitting(true);
     setError(null);
     const payload: CheckoutPayload = {
+      idempotencyKey: crypto.randomUUID(),
       paymentMethod: method,
       paidAmount: method === "cash" ? cashReceived : undefined,
       customerName: method === "debt" ? customerName : undefined,
