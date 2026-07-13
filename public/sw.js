@@ -1,4 +1,4 @@
-const CACHE_NAME = "kasirkita-pos-shell-v2";
+const CACHE_NAME = "kasirkita-pos-shell-v3";
 const APP_SHELL = [
   "/",
   "/admin/pos",
@@ -31,6 +31,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    if (url.pathname !== "/" && url.pathname !== "/admin/pos") return;
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -50,4 +51,9 @@ self.addEventListener("fetch", (event) => {
       return response;
     }))
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "CLEAR_PRIVATE_CACHE") return;
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.delete("/admin/pos")));
 });

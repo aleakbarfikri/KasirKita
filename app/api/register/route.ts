@@ -1,9 +1,11 @@
 import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { registerAdminSchema } from "@/lib/server/validators";
-import { hashPassword, now, publicUser, readDb, verifyPassword, writeDb, type AdminProfile, type AppUser, type Balance, type Shop } from "@/lib/server/data-store";
+import { hashPassword, now, publicUser, verifyPassword, withDbTransaction, type AdminProfile, type AppUser, type Balance, type Shop } from "@/lib/server/data-store";
 import { startTrialProfile } from "@/lib/server/subscription";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
+
+const TERMS_VERSION = "2026-07-13";
 
 function getZodMessage(error: unknown) {
   const issues = typeof error === "object" && error !== null && "issues" in error ? (error as { issues?: Array<{ message?: string }> }).issues : undefined;
@@ -19,72 +21,66 @@ export async function POST(request: Request) {
     const body = parsed.data;
     const emailLimit = await enforceRateLimit(request, "register:verify:email", { limit: 8, windowMs: 15 * 60 * 1000 }, body.email);
     if (!emailLimit.allowed) return fail("Terlalu banyak percobaan verifikasi. Coba lagi beberapa menit lagi.", 429);
-    const db = await readDb();
+    const result = await withDbTransaction((db) => {
+      if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return { ok: false as const, message: "Email sudah digunakan.", status: 409 };
+      if (db.users.some((user) => user.username.toLowerCase() === body.username.toLowerCase())) return { ok: false as const, message: "Username sudah digunakan.", status: 409 };
+      const verification = [...db.emailVerifications].reverse().find((row) => row.email === body.email && row.purpose === "register" && !row.consumedAt);
+      if (!verification) return { ok: false as const, message: "Kode verifikasi belum dikirim atau sudah dipakai.", status: 422 };
+      if (new Date(verification.expiresAt).getTime() <= Date.now()) return { ok: false as const, message: "Kode verifikasi sudah expired. Kirim kode baru.", status: 422 };
+      if (verification.attempts >= 5) return { ok: false as const, message: "Kode verifikasi terlalu sering salah. Kirim kode baru.", status: 429 };
+      if (!verifyPassword(body.verificationCode, verification.codeHash)) {
+        verification.attempts += 1;
+        return { ok: false as const, message: "Kode verifikasi salah.", status: 422 };
+      }
+      const owner = body.ownerId ? db.users.find((user) => user.id === body.ownerId && user.role === "owner") : db.users.find((user) => user.role === "owner");
+      if (!owner) return { ok: false as const, message: "Owner KasirKita belum tersedia. Hubungi admin.", status: 422 };
 
-    if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);
-    if (db.users.some((user) => user.username.toLowerCase() === body.username.toLowerCase())) return fail("Username sudah digunakan.", 409);
-
-    const verification = [...db.emailVerifications]
-      .reverse()
-      .find((row) => row.email === body.email && row.purpose === "register" && !row.consumedAt);
-    if (!verification) return fail("Kode verifikasi belum dikirim atau sudah dipakai.", 422);
-    if (new Date(verification.expiresAt).getTime() <= Date.now()) return fail("Kode verifikasi sudah expired. Kirim kode baru.", 422);
-    if (verification.attempts >= 5) return fail("Kode verifikasi terlalu sering salah. Kirim kode baru.", 429);
-    if (!verifyPassword(body.verificationCode, verification.codeHash)) {
-      verification.attempts += 1;
-      await writeDb(db);
-      return fail("Kode verifikasi salah.", 422);
-    }
-
-    const owner = body.ownerId
-      ? db.users.find((user) => user.id === body.ownerId && user.role === "owner")
-      : db.users.find((user) => user.role === "owner");
-    if (!owner) return fail("Owner KasirKita belum tersedia. Hubungi admin.", 422);
-
-    const t = now();
-    const user: AppUser = {
-      id: createId("user"),
-      name: body.name,
-      email: body.email,
-      emailVerified: true,
-      image: null,
-      username: body.username,
-      displayUsername: body.username,
-      role: "admin",
-      shopName: body.shopName,
-      passwordHash: hashPassword(body.password),
-      createdAt: t,
-      updatedAt: t,
-    };
-    const shop: Shop = {
-      id: createId("shop"),
-      ownerId: owner.id,
-      name: body.shopName,
-      address: body.shopAddress || null,
-      phone: body.shopPhone || null,
-      qrisStaticImageUrl: null,
-      createdAt: t,
-      updatedAt: t,
-    };
-    const profile = startTrialProfile({
-      userId: user.id,
-      ownerId: owner.id,
-      shopId: shop.id,
-      isActive: true,
-      activeUntil: null,
-      createdAt: t,
-      updatedAt: t,
-    } as AdminProfile, 14);
-    const balance: Balance = { adminId: user.id, totalEarnedQrisApi: 0, totalWithdrawn: 0, updatedAt: t };
-
-    db.users.push(user);
-    db.shops.push(shop);
-    db.adminProfiles.push(profile);
-    db.balances.push(balance);
-    verification.consumedAt = now();
-    await writeDb(db);
-
-    return ok({ admin: publicUser(user), profile, shop, balance, plan: "free" }, { status: 201 });
+      const t = now();
+      const user: AppUser = {
+        id: createId("user"),
+        name: body.name,
+        email: body.email,
+        emailVerified: true,
+        image: null,
+        username: body.username,
+        displayUsername: body.username,
+        role: "admin",
+        shopName: body.shopName,
+        passwordHash: hashPassword(body.password),
+        termsAcceptedAt: t,
+        termsVersion: TERMS_VERSION,
+        createdAt: t,
+        updatedAt: t,
+      };
+      const shop: Shop = {
+        id: createId("shop"),
+        ownerId: owner.id,
+        name: body.shopName,
+        address: body.shopAddress || null,
+        phone: body.shopPhone || null,
+        qrisStaticImageUrl: null,
+        createdAt: t,
+        updatedAt: t,
+      };
+      const profile = startTrialProfile({
+        userId: user.id,
+        ownerId: owner.id,
+        shopId: shop.id,
+        isActive: true,
+        activeUntil: null,
+        createdAt: t,
+        updatedAt: t,
+      } as AdminProfile, 14);
+      const balance: Balance = { adminId: user.id, totalEarnedQrisApi: 0, totalWithdrawn: 0, updatedAt: t };
+      db.users.push(user);
+      db.shops.push(shop);
+      db.adminProfiles.push(profile);
+      db.balances.push(balance);
+      verification.consumedAt = t;
+      return { ok: true as const, user, profile, shop, balance };
+    });
+    if (!result.ok) return fail(result.message, result.status);
+    return ok({ admin: publicUser(result.user), profile: result.profile, shop: result.shop, balance: result.balance, plan: "free" }, { status: 201 });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Gagal mendaftar.", 400);
   }

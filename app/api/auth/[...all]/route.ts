@@ -3,7 +3,7 @@ import { createId } from "@/lib/server/ids";
 import { createSignedSessionToken, isAdminProfileActive, now, publicUser, readDb, sessionTokenHash, verifyPassword, verifySignedSessionToken, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
-import { verifyOwnerMfaCode } from "@/lib/server/mfa";
+import { findEnabledMfaConfig, verifyOwnerMfaCode } from "@/lib/server/mfa";
 
 const COOKIE_NAME = "kasirkita_session";
 const SESSION_DAYS = 7;
@@ -60,31 +60,32 @@ export async function POST(request: Request, props: Params) {
       }
     }
 
-    const mfaConfig = user.role === "owner" ? db.ownerMfaConfigs.find((row) => row.ownerId === user.id && row.enabled) : null;
+    const mfaConfig = findEnabledMfaConfig(db, user);
     if (mfaConfig) {
       const mfaLimit = await enforceRateLimit(request, "auth:mfa:account", { limit: 8, windowMs: 15 * 60 * 1000 }, username);
       if (!mfaLimit.allowed) return fail("Terlalu banyak kode MFA salah. Coba lagi beberapa menit lagi.", 429);
-      if (!String(body.mfaCode || "").trim()) return fail("Kode MFA Owner wajib diisi.", 401, { mfaRequired: true });
+      if (!String(body.mfaCode || "").trim()) return fail("Masukkan kode MFA untuk melanjutkan.", 401, { mfaRequired: true, role: user.role });
     }
 
     const t = now();
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const sessionId = createId("sess");
     const token = createSignedSessionToken(user.id, sessionId, expiresAt);
-    const signedInUser = await withDbTransaction((currentDb) => {
+    const signInResult = await withDbTransaction((currentDb) => {
       const currentUser = currentDb.users.find((row) => row.id === user.id);
       if (!currentUser) throw Object.assign(new Error("Akun tidak ditemukan."), { status: 401 });
-      const currentMfa = currentUser.role === "owner" ? currentDb.ownerMfaConfigs.find((row) => row.ownerId === currentUser.id && row.enabled) : null;
+      const currentMfa = findEnabledMfaConfig(currentDb, currentUser);
       if (currentMfa && !verifyOwnerMfaCode(currentMfa, String(body.mfaCode || "")).valid) {
-        throw Object.assign(new Error("Kode MFA atau recovery code tidak valid."), { status: 401 });
+        return { ok: false as const, role: currentUser.role };
       }
       currentDb.sessions = currentDb.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
       currentDb.sessions.push({ id: sessionId, token: sessionTokenHash(token), userId: currentUser.id, expiresAt, createdAt: t, updatedAt: t });
-      return publicUser(currentUser);
+      return { ok: true as const, user: publicUser(currentUser) };
     });
+    if (!signInResult.ok) return fail("Kode MFA atau recovery code tidak valid.", 401, { mfaRequired: true, role: signInResult.role });
     await setSessionCookie(token);
 
-    return ok({ user: signedInUser, session: { id: sessionId, userId: user.id, expiresAt } });
+    return ok({ user: signInResult.user, session: { id: sessionId, userId: user.id, expiresAt } });
   }
 
   if (action === "sign-out") {

@@ -8,6 +8,7 @@ import { useAppLanguage } from "@/lib/i18n";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, api, type SessionUser } from "@/lib/api-client";
 import { cacheSession, clearCachedSession, readCachedSession } from "@/lib/offline-session";
+import { clearOfflineData, readOfflineCheckouts } from "@/lib/offline-pos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,6 +139,7 @@ export function AppShell({
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [profileShopName, setProfileShopName] = useState("");
   const [profileShopAddress, setProfileShopAddress] = useState("");
   const [profileShopPhone, setProfileShopPhone] = useState("");
@@ -362,6 +364,7 @@ export function AppShell({
 
   function openProfileModal() {
     setProfileName(user?.name || "");
+    setProfileEmail(user?.email || "");
     setProfileShopName(user?.shopName || "");
     setProfileShopAddress(profileShopAddress || "");
     setProfileShopPhone(profileShopPhone || "");
@@ -379,13 +382,22 @@ export function AppShell({
     setProfileError(null);
     setProfileSuccess(null);
 
+    if (!/^\S+@\S+\.\S+$/.test(profileEmail.trim())) {
+      setProfileError("Format email tidak valid.");
+      return;
+    }
+    if (profileEmail.trim().toLowerCase() !== user?.email?.toLowerCase() && !currentPassword) {
+      setProfileError("Masukkan password saat ini untuk mengubah email.");
+      return;
+    }
+
     if (newPassword || currentPassword || confirmPassword) {
-      if (newPassword.length < 12) {
+      if ((newPassword || confirmPassword) && newPassword.length < 12) {
         setProfileError("Password baru minimal 12 karakter.");
         return;
       }
 
-      if (newPassword !== confirmPassword) {
+      if ((newPassword || confirmPassword) && newPassword !== confirmPassword) {
         setProfileError("Konfirmasi password baru tidak sama.");
         return;
       }
@@ -396,6 +408,7 @@ export function AppShell({
     try {
       const result = await api.profile.update({
         name: profileName,
+        email: profileEmail,
         shopName: profileShopName,
         shopAddress: profileShopAddress,
         shopPhone: profileShopPhone,
@@ -421,8 +434,13 @@ export function AppShell({
   }
 
   async function signOut() {
+    if (readOfflineCheckouts().length > 0) {
+      window.alert("Masih ada transaksi offline yang belum tersinkron. Sambungkan internet dan sinkronkan terlebih dahulu agar transaksi tidak hilang.");
+      return;
+    }
     await authClient.signOut();
     clearCachedSession();
+    await clearOfflineData();
     router.replace("/login");
     router.refresh();
   }
@@ -753,7 +771,7 @@ export function AppShell({
       <Modal
         open={profileModalOpen}
         title={t("Profil Akun")}
-        description={role === "owner" ? "Kelola nama owner, nama toko/UMKM, dan password." : "Kelola nama admin/kasir dan password login."}
+        description={role === "owner" ? "Kelola nama Owner, email, identitas platform, dan password." : "Kelola identitas admin, email, alamat, telepon, dan password login."}
         onClose={() => setProfileModalOpen(false)}
       >
         <form onSubmit={saveProfile} className="space-y-5">
@@ -773,7 +791,19 @@ export function AppShell({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="profileShopName">{role === "owner" ? "Nama Toko/UMKM" : "Nama Tim/Admin"}</Label>
+              <Label htmlFor="profileEmail">Email</Label>
+              <Input
+                id="profileEmail"
+                type="email"
+                value={profileEmail}
+                onChange={(event) => setProfileEmail(event.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="profileShopName">{role === "owner" ? "Nama Platform/UMKM" : "Nama UMKM"}</Label>
               <Input
                 id="profileShopName"
                 value={profileShopName}
@@ -784,10 +814,10 @@ export function AppShell({
             </div>
           </div>
 
-          {role === "admin" ? (
+          {user?.role === "admin" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="profileShopAddress">Catatan alamat/area kerja</Label>
+                <Label htmlFor="profileShopAddress">Alamat Toko/UMKM</Label>
                 <Input
                   id="profileShopAddress"
                   value={profileShopAddress}
@@ -797,9 +827,10 @@ export function AppShell({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="profileShopPhone">Nomor kontak admin</Label>
+                <Label htmlFor="profileShopPhone">Nomor Telepon</Label>
                 <Input
                   id="profileShopPhone"
+                  type="tel"
                   value={profileShopPhone}
                   onChange={(event) => setProfileShopPhone(event.target.value)}
                   placeholder="08xxxxxxxxxx"
@@ -811,8 +842,9 @@ export function AppShell({
           <div className="rounded-xl border border-[#d7e2dc] bg-[#f8fafc] p-4">
             <div className="mb-4 flex items-center gap-2 font-extrabold text-[#0f172a]">
               <KeyRound className="h-4 w-4 text-primary" />
-              {t("Ganti Password")}
+              {t("Keamanan Akun")}
             </div>
+            <p className="mb-4 text-xs font-semibold text-[#64748b]">Password saat ini wajib diisi jika mengubah email atau password.</p>
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">{t("Password Lama")}</Label>
@@ -852,6 +884,9 @@ export function AppShell({
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            {role === "admin" && user?.role === "admin" ? (
+              <Link href="/account/delete" onClick={() => setProfileModalOpen(false)} className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-bold text-red-700 shadow-sm hover:bg-red-50 sm:mr-auto">Hapus Akun</Link>
+            ) : null}
             <Button type="button" variant="outline" onClick={() => setProfileModalOpen(false)}>
               Tutup
             </Button>

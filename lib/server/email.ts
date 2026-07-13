@@ -54,3 +54,21 @@ export async function sendVerificationCodeEmail(input: SendVerificationCodeInput
     throw Object.assign(new Error(message), { status: 502 });
   }
 }
+
+export async function sendPasswordResetCodeEmail(input: Omit<SendVerificationCodeInput, "shopName">) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw Object.assign(new Error("Email pemulihan akun belum dikonfigurasi."), { status: 503 });
+  const from = process.env.KASIRKITA_EMAIL_FROM || defaultFrom;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: input.to,
+      subject: "Kode Pemulihan Akun KasirKita",
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0b1c30"><h2>Pemulihan Akun KasirKita</h2><p>Gunakan kode berikut untuk membuat password baru.</p><div style="font-size:32px;font-weight:800;letter-spacing:8px;background:#eff4ff;border:1px solid #bccac0;border-radius:16px;padding:16px 20px;text-align:center">${input.code}</div><p style="font-size:13px;color:#3d4a42">Kode berlaku 10 menit. Abaikan email ini jika kamu tidak meminta perubahan password.</p></div>`,
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw Object.assign(new Error(`Gagal mengirim email pemulihan (${response.status}).`), { status: 502 });
+}

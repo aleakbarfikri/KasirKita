@@ -30,8 +30,12 @@ export async function PATCH(request: Request, props: Params) {
     if (body.username && db.users.some((row) => row.id !== user.id && row.username.toLowerCase() === body.username!.toLowerCase())) {
       return fail("Username sudah digunakan.", 409);
     }
+    if (body.email && db.users.some((row) => row.id !== user.id && row.email.toLowerCase() === body.email!.toLowerCase())) {
+      return fail("Email sudah digunakan.", 409);
+    }
 
     if (body.name !== undefined) user.name = body.name;
+    if (body.email !== undefined) user.email = body.email;
     if (body.username !== undefined) {
       user.username = body.username;
       user.displayUsername = body.username;

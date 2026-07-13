@@ -18,6 +18,8 @@ export type AppUser = {
   role: UserRole;
   shopName?: string | null;
   passwordHash: string;
+  termsAcceptedAt?: string | null;
+  termsVersion?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -233,7 +235,7 @@ export type EmailVerification = {
   id: string;
   email: string;
   codeHash: string;
-  purpose: "register";
+  purpose: "register" | "password_reset";
   attempts: number;
   expiresAt: string;
   consumedAt?: string | null;

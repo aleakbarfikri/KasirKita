@@ -65,3 +65,14 @@ export function cacheTransactions(transactions: TransactionRecord[]) {
 export function readCachedTransactions() {
   return readJson<{ transactions: TransactionRecord[]; cachedAt: string } | null>(transactionCacheKey, null);
 }
+
+export async function clearOfflineData() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(checkoutQueueKey);
+  window.localStorage.removeItem(productCacheKey);
+  window.localStorage.removeItem(transactionCacheKey);
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.ready.catch(() => null);
+    registration?.active?.postMessage({ type: "CLEAR_PRIVATE_CACHE" });
+  }
+}

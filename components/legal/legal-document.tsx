@@ -1,0 +1,5 @@
+import Link from "next/link";
+
+export function LegalDocument({ title, updated = "13 Juli 2026", children }: { title: string; updated?: string; children: React.ReactNode }) {
+  return <main className="min-h-screen bg-slate-50 px-5 py-12 text-slate-800"><article className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10"><Link href="/" className="font-black text-primary">← KasirKita</Link><h1 className="mt-6 text-3xl font-black text-slate-950">{title}</h1><p className="mt-2 text-sm text-slate-500">Terakhir diperbarui: {updated}</p><div className="mt-8 space-y-6 leading-7 [&_h2]:text-xl [&_h2]:font-black [&_h2]:text-slate-950 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6">{children}</div><div className="mt-10 flex flex-wrap gap-4 border-t pt-6 text-sm font-bold text-primary"><Link href="/privacy">Privasi</Link><Link href="/terms">Syarat Layanan</Link><Link href="/refund-policy">Refund</Link><Link href="/account-deletion">Hapus Akun</Link></div></article></main>;
+}

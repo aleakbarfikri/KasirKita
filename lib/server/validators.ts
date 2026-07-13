@@ -67,11 +67,22 @@ export const registerAdminSchema = z.object({
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),
   verificationCode: z.string().trim().regex(/^\d{6}$/, "Kode verifikasi harus 6 angka"),
+  acceptTerms: z.literal(true, { error: "Syarat Layanan dan Kebijakan Privasi wajib disetujui" }),
 });
 
 export const registerVerificationRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email tidak valid"),
   shopName: z.string().trim().min(2, "Nama UMKM minimal 2 karakter").optional().or(z.literal("")),
+});
+
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
+});
+
+export const passwordResetConfirmSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
+  verificationCode: z.string().trim().regex(/^\d{6}$/, "Kode verifikasi harus 6 angka"),
+  password: z.string().min(12, "Password baru minimal 12 karakter"),
 });
 
 export const cashierCreateSchema = z.object({
@@ -88,6 +99,7 @@ export const cashierPasswordSchema = z.object({
 export const adminUpdateSchema = z.object({
   name: z.string().trim().min(2).optional(),
   username: z.preprocess(normalizeUsername, z.string().min(3).regex(/^[a-z0-9_]+$/)).optional(),
+  email: z.string().trim().toLowerCase().email("Email tidak valid").optional(),
   shopName: z.string().trim().min(2).optional(),
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),

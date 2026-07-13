@@ -1,9 +1,14 @@
 import crypto from "node:crypto";
-import type { OwnerMfaConfig } from "@/lib/server/data-store";
+import type { AppDb, AppUser, OwnerMfaConfig } from "@/lib/server/data-store";
 import { decryptSecret, encryptSecret, hashOneTimeRecoveryCode } from "@/lib/server/secrets";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function findEnabledMfaConfig(db: AppDb, user: Pick<AppUser, "id" | "role">) {
+  if (user.role !== "owner" && user.role !== "admin") return null;
+  return db.ownerMfaConfigs.find((row) => row.ownerId === user.id && row.enabled) ?? null;
+}
 
 function base32Encode(buffer: Buffer) {
   let bits = "";
