@@ -99,6 +99,7 @@ export const cashierPasswordSchema = z.object({
 export const adminUpdateSchema = z.object({
   name: z.string().trim().min(2).optional(),
   username: z.preprocess(normalizeUsername, z.string().min(3).regex(/^[a-z0-9_]+$/)).optional(),
+  email: z.string().trim().toLowerCase().email("Email tidak valid").optional(),
   shopName: z.string().trim().min(2).optional(),
   shopAddress: z.string().trim().optional(),
   shopPhone: z.string().trim().optional(),

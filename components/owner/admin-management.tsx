@@ -84,6 +84,9 @@ export function AdminManagement() {
   const [error, setError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<OwnerAdminRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editShopName, setEditShopName] = useState("");
   const [editShopAddress, setEditShopAddress] = useState("");
   const [editShopPhone, setEditShopPhone] = useState("");
@@ -159,6 +162,9 @@ export function AdminManagement() {
 
   function openEdit(row: OwnerAdminRow) {
     setEditing(row);
+    setEditName(row.admin.name ?? "");
+    setEditUsername(row.admin.username ?? "");
+    setEditEmail(row.admin.email ?? "");
     setEditShopName(row.shop.name ?? "");
     setEditShopAddress(row.shop.address ?? "");
     setEditShopPhone(row.shop.phone ?? "");
@@ -182,8 +188,9 @@ export function AdminManagement() {
 
   async function saveEdit() {
     if (!editing) return;
-    if (!editShopName.trim()) {
-      setEditError(t("Nama UMKM wajib diisi."));
+    const normalizedUsername = normalizeUsername(editUsername);
+    if (!editName.trim() || normalizedUsername.length < 3 || !editEmail.trim() || !editShopName.trim()) {
+      setEditError(t("Nama admin, username, email, dan nama UMKM wajib diisi."));
       return;
     }
     setEditSaving(true);
@@ -191,6 +198,9 @@ export function AdminManagement() {
     setMessage(null);
     try {
       const updated = await api.owner.admins.update(editing.admin.id, {
+        name: editName.trim(),
+        username: normalizedUsername,
+        email: editEmail.trim(),
         shopName: editShopName.trim(),
         shopAddress: editShopAddress.trim(),
         shopPhone: editShopPhone.trim(),
@@ -201,7 +211,7 @@ export function AdminManagement() {
       });
       setAdmins((current) => current.map((row) => row.admin.id === updated.admin.id ? updated : row));
       setEditing(null);
-      setMessage(t("Data admin, nama UMKM, dan QRIS statis berhasil diperbarui."));
+      setMessage(t("Profil admin, kontak, nama UMKM, dan QRIS statis berhasil diperbarui."));
     } catch (err) {
       setEditError(err instanceof Error ? err.message : t("Gagal menyimpan perubahan admin"));
     } finally {
@@ -375,6 +385,7 @@ export function AdminManagement() {
                         <p className="truncate text-base font-black text-[#0b1c30]">{row.shop.name}</p>
                         <p className="text-sm font-semibold text-[#3d4a42]">{row.admin.name}</p>
                         <p className="text-xs text-[#3d4a42]">@{row.admin.username || row.admin.email}</p>
+                        <p className="truncate text-xs text-[#64748b]">{row.admin.email}</p>
                       </div>
                       <Badge variant={effectiveActive ? "success" : expired ? "warning" : "secondary"}>{effectiveActive ? t("Aktif") : expired ? "Expired" : t("Nonaktif")}</Badge>
                     </div>
@@ -429,7 +440,7 @@ export function AdminManagement() {
                   const effectiveActive = row.profile.isActive && !expired;
                   return (
                     <TableRow key={row.admin.id}>
-                      <TableCell><p className="font-medium">{row.admin.username || row.admin.email}</p><p className="text-xs text-[#3d4a42]">{row.admin.name}</p></TableCell>
+                      <TableCell><p className="font-medium">{row.admin.username || row.admin.email}</p><p className="text-xs text-[#3d4a42]">{row.admin.name}</p><p className="text-xs text-[#64748b]">{row.admin.email}</p></TableCell>
                       <TableCell className="min-w-[150px] align-middle"><p className="font-bold text-[#0b1c30]">{row.shop.name}</p></TableCell>
                       <TableCell className="min-w-[180px] align-middle"><p className="max-w-[220px] whitespace-normal text-sm leading-relaxed text-[#3d4a42]">{row.shop.address || t("Tanpa alamat")}</p></TableCell>
                       <TableCell>
@@ -563,7 +574,7 @@ export function AdminManagement() {
         </CardContent>
       </Card>
 
-      <Modal open={editing !== null} title={t("Edit Admin UMKM")} description={t("Edit nama UMKM dan QRIS statis yang akan tampil di pembayaran QRIS Statis milik admin ini.")} onClose={() => !editSaving ? setEditing(null) : undefined}>
+      <Modal open={editing !== null} title={t("Edit Admin UMKM")} description={t("Edit identitas admin, email, kontak toko, paket, dan QRIS statis.")} onClose={() => !editSaving ? setEditing(null) : undefined}>
         {editing ? (
           <div className="space-y-4">
             {editError ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{editError}</p> : null}
@@ -571,9 +582,14 @@ export function AdminManagement() {
               <p className="font-bold text-[#0b1c30]">{editing.admin.name}</p>
               <p className="text-[#3d4a42]">Username: {editing.admin.username || editing.admin.email}</p>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label>{t("Nama Admin")}</Label><Input value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="Ayu Lestari" /></div>
+              <div className="space-y-2"><Label>Username</Label><Input value={editUsername} onChange={(event) => setEditUsername(normalizeUsername(event.target.value))} placeholder="ayu_lestari" /></div>
+              <div className="space-y-2 sm:col-span-2"><Label>Email</Label><Input type="email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} placeholder="admin@umkm.com" /></div>
+            </div>
             <div className="space-y-2"><Label>{t("Nama UMKM/Cabang")}</Label><Input value={editShopName} onChange={(event) => setEditShopName(event.target.value)} placeholder="UMKM Melati" /></div>
             <div className="space-y-2"><Label>{t("Alamat Cabang")}</Label><Input value={editShopAddress} onChange={(event) => setEditShopAddress(event.target.value)} placeholder="Jl. Melati No. 12" /></div>
-            <div className="space-y-2"><Label>{t("Nomer Telpon")}</Label><Input value={editShopPhone} onChange={(event) => setEditShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
+            <div className="space-y-2"><Label>{t("Nomor Telepon")}</Label><Input type="tel" value={editShopPhone} onChange={(event) => setEditShopPhone(event.target.value)} placeholder="08xxxxxxxxxx" /></div>
             <div className="space-y-2">
               <Label>{t("Paket Subscription")}</Label>
               <select value={editPlanType} onChange={(event) => setEditPlanType(event.target.value as typeof editPlanType)} className="flex h-11 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-semibold text-[#0b1c30] outline-none focus:ring-2 focus:ring-primary/30">

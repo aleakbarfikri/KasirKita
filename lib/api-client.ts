@@ -390,7 +390,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 export const api = {
   me: () => apiFetch<MeResponse>("/api/me"),
   profile: {
-    update: (body: { name?: string; shopName?: string; shopAddress?: string; shopPhone?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
+    update: (body: { name?: string; email?: string; shopName?: string; shopAddress?: string; shopPhone?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
       apiFetch<ProfileUpdateResponse>("/api/profile", { method: "PATCH", body: JSON.stringify(body) }),
   },
 
@@ -463,7 +463,7 @@ export const api = {
       list: () => apiFetch<OwnerAdminRow[]>("/api/owner/admins"),
       create: (body: { name: string; username: string; email: string; password: string; shopName: string; shopAddress?: string; shopPhone?: string; activeUntil?: string }) =>
         apiFetch<OwnerAdminRow>("/api/owner/admins", { method: "POST", body: JSON.stringify(body) }),
-      update: (id: string, body: { name?: string; username?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null; planType?: AdminProfile["planType"]; planStatus?: AdminProfile["planStatus"] }) =>
+      update: (id: string, body: { name?: string; username?: string; email?: string; shopName?: string; shopAddress?: string; shopPhone?: string; qrisStaticImageUrl?: string; isActive?: boolean; activeUntil?: string | null; planType?: AdminProfile["planType"]; planStatus?: AdminProfile["planStatus"] }) =>
         apiFetch<OwnerAdminRow>(`/api/owner/admins/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
       deactivate: (id: string) => apiFetch<AdminProfile>(`/api/owner/admins/${id}`, { method: "DELETE" }),
       remove: (id: string, body: { ownerPassword: string }) =>

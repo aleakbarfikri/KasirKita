@@ -3,8 +3,9 @@ import test from "node:test";
 import { deleteAccountData } from "../lib/server/account-deletion";
 import { defaultDb, hashPassword, verifyPassword } from "../lib/server/data-store";
 import { applyPasswordReset } from "../lib/server/password-reset";
+import { applyProfileUpdate } from "../lib/server/profile-update";
 import { projectNormalizedRows } from "../lib/server/normalized-projection";
-import { passwordResetConfirmSchema, registerAdminSchema } from "../lib/server/validators";
+import { adminUpdateSchema, passwordResetConfirmSchema, registerAdminSchema } from "../lib/server/validators";
 
 function fixture() {
   const db = defaultDb();
@@ -28,6 +29,39 @@ test("registration requires explicit legal consent", () => {
   const input = { name: "Admin", username: "admin_baru", email: "admin@baru.com", password: "PasswordBaru123", shopName: "Toko Baru", verificationCode: "123456" };
   assert.equal(registerAdminSchema.safeParse(input).success, false);
   assert.equal(registerAdminSchema.safeParse({ ...input, acceptTerms: true }).success, true);
+});
+
+test("Owner admin editor accepts a valid email and rejects an invalid one", () => {
+  assert.equal(adminUpdateSchema.safeParse({ email: "baru@umkm.com" }).success, true);
+  assert.equal(adminUpdateSchema.safeParse({ email: "bukan-email" }).success, false);
+});
+
+test("admin can update email, address, and phone with current password", () => {
+  const db = fixture();
+  const result = applyProfileUpdate(db, "admin", {
+    email: "kontak@tokobaru.com",
+    shopName: "Toko Baru",
+    shopAddress: "Jl. Merdeka No. 1",
+    shopPhone: "081234567890",
+    currentPassword: "AdminPassword123",
+  });
+  assert.equal(result.user.email, "kontak@tokobaru.com");
+  assert.equal(result.shop?.name, "Toko Baru");
+  assert.equal(result.shop?.address, "Jl. Merdeka No. 1");
+  assert.equal(result.shop?.phone, "081234567890");
+});
+
+test("self-service email update requires password and a unique email", () => {
+  const db = fixture();
+  assert.throws(() => applyProfileUpdate(db, "admin", { email: "owner@example.com", currentPassword: "AdminPassword123" }), /Email sudah digunakan/);
+  assert.throws(() => applyProfileUpdate(db, "admin", { email: "baru@example.com" }), /Password saat ini salah/);
+  assert.equal(db.users.find((row) => row.id === "admin")?.email, "admin@example.com");
+});
+
+test("Owner can add or edit email from profile settings", () => {
+  const db = fixture();
+  const result = applyProfileUpdate(db, "owner", { email: "ownerbaru@example.com", currentPassword: "OwnerPassword123" });
+  assert.equal(result.user.email, "ownerbaru@example.com");
 });
 
 test("password reset validates input, consumes code, and revokes sessions", () => {
