@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 type MfaStatus = { enabled: boolean; recoveryCodesRemaining: number };
 type SetupResult = { secret: string; uri: string; qrImageDataUrl: string };
 
-export function OwnerMfaCard() {
+export function OwnerMfaCard({ roleLabel = "Owner" }: { roleLabel?: "Owner" | "Admin" }) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [setup, setSetup] = useState<SetupResult | null>(null);
   const [password, setPassword] = useState("");
@@ -57,7 +57,7 @@ export function OwnerMfaCard() {
       setSetup(null);
       setCode("");
       setStatus({ enabled: true, recoveryCodesRemaining: result.recoveryCodes.length });
-      setMessage("MFA Owner aktif. Simpan recovery code di tempat aman; kode hanya ditampilkan sekali.");
+      setMessage(`MFA ${roleLabel} aktif. Simpan recovery code di tempat aman; kode hanya ditampilkan sekali.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kode authenticator tidak valid.");
     } finally {
@@ -85,7 +85,7 @@ export function OwnerMfaCard() {
   return (
     <Card className="bg-white">
       <CardHeader className="border-b border-[#e2e8f0]">
-        <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> MFA Owner</CardTitle>
+        <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> MFA {roleLabel}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 p-5">
         {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -94,8 +94,8 @@ export function OwnerMfaCard() {
 
         {status && !status.enabled && !setup ? (
           <>
-            <p className="text-sm text-slate-600">Tambahkan kode authenticator saat login Owner.</p>
-            <Label>Password Owner</Label>
+            <p className="text-sm text-slate-600">Tambahkan kode authenticator setelah password login dinyatakan benar.</p>
+            <Label>Password {roleLabel}</Label>
             <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
             <Button className="w-full" onClick={startSetup} disabled={busy || !password}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Aktifkan MFA</Button>
           </>
@@ -104,7 +104,7 @@ export function OwnerMfaCard() {
         {setup ? (
           <>
             <p className="text-sm text-slate-600">Scan QR berikut dengan Google Authenticator, Microsoft Authenticator, 1Password, atau aplikasi TOTP lain.</p>
-            <Image src={setup.qrImageDataUrl} alt="QR setup MFA Owner" width={240} height={240} unoptimized className="mx-auto rounded-xl border" />
+            <Image src={setup.qrImageDataUrl} alt={`QR setup MFA ${roleLabel}`} width={240} height={240} unoptimized className="mx-auto rounded-xl border" />
             <p className="break-all rounded-xl bg-slate-50 p-3 text-center font-mono text-xs">{setup.secret}</p>
             <Label>Kode 6 digit</Label>
             <Input value={code} onChange={(event) => setCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />
@@ -115,7 +115,7 @@ export function OwnerMfaCard() {
         {status?.enabled && recoveryCodes.length === 0 ? (
           <>
             <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">MFA aktif · {status.recoveryCodesRemaining} recovery code tersisa.</p>
-            <Label>Password Owner untuk menonaktifkan</Label>
+            <Label>Password {roleLabel} untuk menonaktifkan</Label>
             <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
             <Label>Kode MFA / recovery code</Label>
             <Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" />

@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
+import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 
 type SubscriptionPlanChoice = "trial" | "basic" | "starter" | "pro" | "business";
 type PaidSubscriptionPlanChoice = Exclude<SubscriptionPlanChoice, "trial">;
@@ -145,6 +146,7 @@ export function AdminDashboardClient() {
   const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
   const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
+  const [accountRole, setAccountRole] = useState<"admin" | "cashier" | null>(null);
   const [subscriptionInvoices, setSubscriptionInvoices] = useState<SubscriptionInvoiceRecord[]>([]);
   const [invoice, setInvoice] = useState<SubscriptionInvoiceRecord | null>(null);
   const [shopName, setShopName] = useState("UMKM Berkah");
@@ -173,6 +175,7 @@ export function AdminDashboardClient() {
       try {
         const [me, transactionRows, debtRows, withdrawalRows, invoiceRows] = await Promise.all([api.me(), api.transactions.list(), api.debts.list(), api.withdrawals.list(), api.subscription.listInvoices().catch(() => [])]);
         setShopName(me.user.shopName || "UMKM Berkah");
+        setAccountRole(me.user.role === "cashier" ? "cashier" : "admin");
         setAdminProfile(me.adminProfile ?? null);
         setSelectedPlan(isPaidSubscriptionPlanChoice(checkoutPlan) ? checkoutPlan : isSubscriptionPlanChoice(me.adminProfile?.planType) && me.adminProfile?.planType !== "trial" ? me.adminProfile.planType : "pro");
         if (isPaidSubscriptionPlanChoice(checkoutPlan)) setBillingPeriod(checkoutBillingPeriod);
@@ -422,6 +425,7 @@ export function AdminDashboardClient() {
       </Card>
 
       <div className="mt-6 grid w-full min-w-0 max-w-full gap-6">
+        {accountRole === "admin" ? <OwnerMfaCard roleLabel="Admin" /> : null}
         <Modal open={subscriptionModalOpen} title={t("Subscription")} description={t("Kelola paket dan perpanjang masa aktif otomatis via Pakasir.")} onClose={() => setSubscriptionModalOpen(false)}>
         <Card id="subscription" className="w-full min-w-0 max-w-full bg-white">
           <CardHeader>

@@ -3,9 +3,13 @@ import { useEffect, useState } from "react";
 async function parseError(response: Response) {
   try {
     const payload = await response.json();
-    return payload?.error?.message || payload?.message || `Request failed with status ${response.status}`;
+    return {
+      message: payload?.error?.message || payload?.message || `Request failed with status ${response.status}`,
+      details: payload?.error?.details,
+      status: response.status,
+    };
   } catch {
-    return `Request failed with status ${response.status}`;
+    return { message: `Request failed with status ${response.status}`, details: undefined, status: response.status };
   }
 }
 
@@ -18,7 +22,7 @@ export const authClient = {
         credentials: "include",
         body: JSON.stringify({ username, password, mfaCode }),
       });
-      if (!response.ok) return { data: null, error: { message: await parseError(response) } };
+      if (!response.ok) return { data: null, error: await parseError(response) };
       return { data: await response.json(), error: null };
     },
   },

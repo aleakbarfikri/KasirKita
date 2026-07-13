@@ -41,6 +41,15 @@
 }
 
 @layer components {
+  @keyframes kk-enter {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .kk-enter {
+    animation: kk-enter 300ms ease-out both;
+  }
+
   .kk-surface {
     @apply border border-[#bec9c1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)];
   }
