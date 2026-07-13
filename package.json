@@ -22,7 +22,7 @@
     "autoprefixer": "^10.4.19",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "postcss": "^8.5.10",
     "postgres": "^3.4.5",
