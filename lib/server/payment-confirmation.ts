@@ -13,7 +13,7 @@ export function confirmQrisPayment(
     providerStatus: string;
   },
 ) {
-  const transaction = db.transactions.find((row) => row.externalRef === input.reference && row.cashierId === input.cashierId);
+  const transaction = db.transactions.find((row) => row.externalRef === input.reference && row.cashierId === input.cashierId && row.shopId === input.shopId);
   if (!transaction) throw Object.assign(new Error("Payment reference not found"), { status: 404 });
   if (transaction.status === "success") return { applied: false, transaction };
   if (transaction.status !== "pending") return { applied: false, transaction };
@@ -48,7 +48,7 @@ export function confirmSubscriptionPayment(
 ) {
   const invoice = db.subscriptionInvoices.find((row) => row.id === input.invoiceId && row.adminId === input.adminId);
   if (!invoice) throw Object.assign(new Error("Invoice subscription tidak ditemukan."), { status: 404 });
-  const profile = db.adminProfiles.find((row) => row.userId === input.adminId);
+  const profile = db.adminProfiles.find((row) => row.userId === input.adminId && row.shopId === input.shopId);
   if (!profile) throw Object.assign(new Error("Profil admin tidak ditemukan."), { status: 404 });
   if (invoice.status === "paid") return { applied: false, invoice, profile };
   if (invoice.status !== "pending") return { applied: false, invoice, profile };

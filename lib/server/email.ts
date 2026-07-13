@@ -22,7 +22,7 @@ export async function sendVerificationCodeEmail(input: SendVerificationCodeInput
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0b1c30">
       <h2 style="margin:0 0 12px">Kode Verifikasi KasirKita</h2>
-      <p>Gunakan kode berikut untuk menyelesaikan pendaftaran trial KasirKita${shopLabel}.</p>
+      <p>Gunakan kode berikut untuk menyelesaikan pendaftaran paket Free KasirKita${shopLabel}.</p>
       <div style="font-size:32px;font-weight:800;letter-spacing:8px;background:#eff4ff;border:1px solid #bccac0;border-radius:16px;padding:16px 20px;text-align:center">${input.code}</div>
       <p style="font-size:13px;color:#3d4a42">Kode berlaku 10 menit. Abaikan email ini jika kamu tidak meminta pendaftaran.</p>
     </div>

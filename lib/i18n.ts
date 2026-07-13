@@ -492,7 +492,6 @@ const dictionary: Record<string, { id: string; en: string }> = {
     en: "Manage plans and renew automatically via Pakasir.",
   },
   "Paket Aktif": { id: "Paket Aktif", en: "Active Plan" },
-  "Gratis 14 hari": { id: "Gratis 14 hari", en: "Free for 14 days" },
   "Rp100.000 / tahun": { id: "Rp100.000 / tahun", en: "Rp100,000 / year" },
   "Rp19.000 / bulan": { id: "Rp19.000 / bulan", en: "Rp19,000 / month" },
   "Rp49.000 / bulan": { id: "Rp49.000 / bulan", en: "Rp49,000 / month" },
@@ -550,9 +549,9 @@ const dictionary: Record<string, { id: string; en: string }> = {
     id: "Pilih paket sesuai ukuran UMKM.",
     en: "Choose a plan for your store size.",
   },
-  "Mulai dari trial gratis, lalu upgrade saat toko butuh fitur yang lebih lengkap.": {
-    id: "Mulai dari trial gratis, lalu upgrade saat toko butuh fitur yang lebih lengkap.",
-    en: "Start with a free trial, then upgrade when your store needs more complete features.",
+  "Mulai dengan paket Free permanen, lalu upgrade saat toko butuh fitur yang lebih lengkap.": {
+    id: "Mulai dengan paket Free permanen, lalu upgrade saat toko butuh fitur yang lebih lengkap.",
+    en: "Start with the permanent Free plan, then upgrade when your store needs more complete features.",
   },
   "Coba dulu POS dasar sebelum memilih paket.": {
     id: "Coba dulu POS dasar sebelum memilih paket.",
@@ -600,7 +599,6 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Paket dipilih": { id: "Paket dipilih", en: "Selected plan" },
   "Laporan omzet dan laba": { id: "Laporan omzet dan laba", en: "Revenue and profit reports" },
   "Backup otomatis dan prioritas support": { id: "Backup otomatis dan prioritas support", en: "Automatic backup and priority support" },
-  "Mulai Trial": { id: "Mulai Trial", en: "Start Trial" },
   "Daftar Basic": { id: "Daftar Basic", en: "Choose Basic" },
   "Daftar Starter": { id: "Daftar Starter", en: "Choose Starter" },
   "Daftar Pro": { id: "Daftar Pro", en: "Choose Pro" },
@@ -658,7 +656,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   },
   Dipilih: { id: "Dipilih", en: "Selected" },
   "Membuat invoice...": { id: "Membuat invoice...", en: "Creating invoice..." },
-  "Trial tidak perlu pembayaran": { id: "Trial tidak perlu pembayaran", en: "Trial does not require payment" },
+  "Paket Free tidak perlu pembayaran": { id: "Paket Free tidak perlu pembayaran", en: "The Free plan does not require payment" },
   "Bayar Paket": { id: "Bayar Paket", en: "Pay Plan" },
   "Bayar invoice subscription": { id: "Bayar invoice subscription", en: "Pay subscription invoice" },
   "Buka Kasir POS": { id: "Buka Kasir POS", en: "Open Cashier POS" },

@@ -485,7 +485,7 @@ export function AdminDashboardClient() {
                 createSubscriptionInvoice(selectedPlanDetail.id, billingPeriod);
               }}
             >
-              {subscriptionLoading ? t("Membuat invoice...") : selectedPlanDetail.id === "trial" ? t("Trial tidak perlu pembayaran") : `${t("Bayar Paket")} ${selectedPlanDetail.name} ${selectedPlanPrice}`}
+              {subscriptionLoading ? t("Membuat invoice...") : selectedPlanDetail.id === "trial" ? t("Paket Free tidak perlu pembayaran") : `${t("Bayar Paket")} ${selectedPlanDetail.name} ${selectedPlanPrice}`}
             </Button>
             {invoice ? (
               <div className="rounded-2xl border border-[#bccac0] bg-white p-4 text-center">

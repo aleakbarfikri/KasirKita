@@ -51,7 +51,7 @@ function adminEffectiveActive(row?: OwnerAdminRow) {
 }
 
 function planLabel(plan?: string | null) {
-  if (plan === "trial") return "Trial";
+  if (plan === "trial") return "Free";
   if (plan === "basic") return "Basic";
   if (plan === "starter") return "Starter";
   if (plan === "business") return "Business";

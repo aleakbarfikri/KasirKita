@@ -106,7 +106,7 @@ export function PricingPage() {
         <div className="max-w-3xl">
           <p className="text-sm font-black uppercase tracking-[0.18em] text-primary">{t("Paket KasirKita")}</p>
           <h1 className="mt-3 text-4xl font-black tracking-normal sm:text-5xl">{t("Pilih paket sesuai ukuran UMKM.")}</h1>
-          <p className="mt-4 text-lg font-semibold leading-relaxed text-[#3d4a42]">{t("Mulai dari trial gratis, lalu upgrade saat toko butuh fitur yang lebih lengkap.")}</p>
+          <p className="mt-4 text-lg font-semibold leading-relaxed text-[#3d4a42]">{t("Mulai dengan paket Free permanen, lalu upgrade saat toko butuh fitur yang lebih lengkap.")}</p>
         </div>
 
         <div className="mt-8 flex justify-center"><div className="inline-flex rounded-full border border-[#d9e3de] bg-white p-1 shadow-sm"><button type="button" onClick={() => setBillingPeriod("monthly")} className={`rounded-full px-5 py-2 text-sm font-black ${billingPeriod === "monthly" ? "bg-primary text-white" : "text-[#64748b]"}`}>Bulanan</button><button type="button" onClick={() => setBillingPeriod("yearly")} className={`rounded-full px-5 py-2 text-sm font-black ${billingPeriod === "yearly" ? "bg-primary text-white" : "text-[#64748b]"}`}>Tahunan <span className="ml-1 text-xs opacity-80">hemat</span></button></div></div>

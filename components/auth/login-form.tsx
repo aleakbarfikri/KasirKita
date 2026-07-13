@@ -130,7 +130,7 @@ export function LoginForm() {
             {loading ? "Memproses..." : "Login"}
           </Button>
           <div className="text-center text-sm text-slate-500">
-            Belum punya akun UMKM? <Link href="/register" className="font-bold text-primary">Daftar trial gratis</Link>
+            Belum punya akun UMKM? <Link href="/register" className="font-bold text-primary">Daftar paket Free</Link>
           </div>
           <div className="text-center text-sm">
             <Link href="/pricing" className="font-bold text-primary">Lihat paket & harga</Link>

@@ -1,6 +1,7 @@
 import { createOffsiteBackup } from "@/lib/server/offsite-backup";
 import { withDbTransaction } from "@/lib/server/data-store";
 import { protectPaymentConfig } from "@/lib/server/payment-secrets";
+import { reportServerError } from "@/lib/server/monitoring";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -15,7 +16,8 @@ export async function GET(request: Request) {
     });
     const backup = await createOffsiteBackup("scheduled-daily");
     return Response.json({ ok: true, data: backup });
-  } catch {
+  } catch (error) {
+    reportServerError(error, { operation: "scheduled_offsite_backup" });
     return Response.json({ ok: false, error: { message: "Backup gagal dibuat" } }, { status: 503 });
   }
 }
