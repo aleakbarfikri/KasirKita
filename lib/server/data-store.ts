@@ -266,12 +266,22 @@ function resolveDataDir() {
   // Only /tmp is writable at runtime, so the JSON store must live there.
   if (process.env.VERCEL === "1") return path.join("/tmp", "kasirkita-data");
 
-  return path.join(process.cwd(), ".data");
+  return path.join(/* turbopackIgnore: true */ process.cwd(), ".data");
 }
 
 const DATA_DIR = resolveDataDir();
 const DB_FILE = process.env.KASIRKITA_DB_FILE || path.join(DATA_DIR, "kasirkita-db.json");
-const AUTH_SECRET = process.env.KASIRKITA_AUTH_SECRET || process.env.NEXTAUTH_SECRET || "kasirkita-local-dev-secret-change-me";
+const EPHEMERAL_DEV_AUTH_SECRET = crypto.randomBytes(32).toString("hex");
+
+function authSecret() {
+  const configured = String(process.env.KASIRKITA_AUTH_SECRET || process.env.NEXTAUTH_SECRET || "").trim();
+  const isPlaceholder = /change-this|change-me|random-secret|ganti-dengan/i.test(configured);
+  if (configured.length >= 32 && !isPlaceholder) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("KASIRKITA_AUTH_SECRET wajib diisi dengan secret acak minimal 32 karakter di production.");
+  }
+  return EPHEMERAL_DEV_AUTH_SECRET;
+}
 
 export function now() {
   return new Date().toISOString();
@@ -303,12 +313,16 @@ export function createDataId(prefix: string) {
 }
 
 function hmac(payload: string) {
-  return crypto.createHmac("sha256", AUTH_SECRET).update(payload).digest("hex");
+  return crypto.createHmac("sha256", authSecret()).update(payload).digest("hex");
 }
 
-export function createSignedSessionToken(userId: string, expiresAt: string) {
-  const payload = Buffer.from(JSON.stringify({ userId, expiresAt }), "utf8").toString("base64url");
+export function createSignedSessionToken(userId: string, sessionId: string, expiresAt: string) {
+  const payload = Buffer.from(JSON.stringify({ userId, sessionId, expiresAt }), "utf8").toString("base64url");
   return `v1.${payload}.${hmac(payload)}`;
+}
+
+export function sessionTokenHash(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 export function verifySignedSessionToken(token: string) {
@@ -321,10 +335,10 @@ export function verifySignedSessionToken(token: string) {
   if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
 
   try {
-    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; expiresAt?: string };
-    if (!parsed.userId || !parsed.expiresAt) return null;
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; sessionId?: string; expiresAt?: string };
+    if (!parsed.userId || !parsed.sessionId || !parsed.expiresAt) return null;
     if (new Date(parsed.expiresAt).getTime() <= Date.now()) return null;
-    return parsed as { userId: string; expiresAt: string };
+    return parsed as { userId: string; sessionId: string; expiresAt: string };
   } catch {
     return null;
   }
@@ -343,30 +357,45 @@ export function verifyPassword(password: string, storedHash: string) {
 }
 
 export function publicUser(user: AppUser) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, ...safe } = user;
   return safe;
+}
+
+function bootstrapOwner(t: string): AppUser[] {
+  const username = String(process.env.KASIRKITA_BOOTSTRAP_OWNER_USERNAME || "").trim().toLowerCase();
+  const email = String(process.env.KASIRKITA_BOOTSTRAP_OWNER_EMAIL || "").trim().toLowerCase();
+  const password = String(process.env.KASIRKITA_BOOTSTRAP_OWNER_PASSWORD || "");
+  const requested = Boolean(username || email || password);
+  if (!requested) return [];
+  if (!username || !email || !password) {
+    throw new Error("Bootstrap Owner membutuhkan username, email, dan password secara lengkap.");
+  }
+  if (!/^[a-z0-9_]{3,32}$/.test(username)) {
+    throw new Error("Username bootstrap Owner hanya boleh berisi huruf kecil, angka, dan underscore (3-32 karakter).");
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Email bootstrap Owner tidak valid.");
+  if (password.length < 12) throw new Error("Password bootstrap Owner minimal 12 karakter.");
+
+  return [{
+    id: createDataId("user"),
+    name: String(process.env.KASIRKITA_BOOTSTRAP_OWNER_NAME || "Owner KasirKita").trim(),
+    email,
+    emailVerified: true,
+    image: null,
+    username,
+    displayUsername: username,
+    role: "owner",
+    shopName: String(process.env.KASIRKITA_BOOTSTRAP_OWNER_SHOP_NAME || "KasirKita").trim(),
+    passwordHash: hashPassword(password),
+    createdAt: t,
+    updatedAt: t,
+  }];
 }
 
 export function defaultDb(): AppDb {
   const t = now();
   return {
-    users: [
-      {
-        id: "user_owner_kasirkita",
-        name: "Owner KasirKita",
-        email: "owner@kasirkita.local",
-        emailVerified: true,
-        image: null,
-        username: "***REMOVED-FROM-HISTORY***",
-        displayUsername: "***REMOVED-FROM-HISTORY***",
-        role: "owner",
-        shopName: "KasirKita",
-        passwordHash: hashPassword("***REMOVED-FROM-HISTORY***"),
-        createdAt: t,
-        updatedAt: t,
-      },
-    ],
+    users: bootstrapOwner(t),
     sessions: [],
     shops: [],
     adminProfiles: [],
@@ -892,6 +921,22 @@ async function writeCloudValue(key: string, value: string): Promise<boolean> {
   return false;
 }
 
+/** Shared counter for security controls. Returns null when Redis is not configured. */
+export async function incrementSharedCounter(key: string, windowSeconds: number): Promise<number | null> {
+  const config = getRedisConfig();
+  if (config) {
+    const count = await redisCommand<number>(["INCR", key]);
+    await redisCommand(["EXPIRE", key, String(windowSeconds)]);
+    return Number(count ?? 0);
+  }
+  if (process.env.REDIS_URL) {
+    const count = await redisUrlCommand<number>(["INCR", key]);
+    await redisUrlCommand(["EXPIRE", key, String(windowSeconds)]);
+    return Number(count ?? 0);
+  }
+  return null;
+}
+
 function ensureDbFile() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -953,6 +998,10 @@ export async function withDb<T>(mutator: (db: AppDb) => T): Promise<T> {
   const result = mutator(db);
   await writeDb(db);
   return result;
+}
+
+export function revokeUserSessions(db: AppDb, userId: string) {
+  db.sessions = db.sessions.filter((session) => session.userId !== userId);
 }
 
 export function sortDesc<T extends { createdAt?: string; updatedAt?: string }>(rows: T[]) {

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getShopByIdFromDb, getUserByIdFromDb, isAdminProfileActive, publicUser, readDb, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
+import { getShopByIdFromDb, getUserByIdFromDb, isAdminProfileActive, publicUser, readDb, sessionTokenHash, verifySignedSessionToken, type AppSession } from "@/lib/server/data-store";
 import { ensureSubscriptionDefaults } from "@/lib/server/subscription";
 
 type SessionUser = {
@@ -13,19 +13,13 @@ type SessionUser = {
 };
 
 export async function getCurrentSession() {
-  const token = cookies().get("kasirkita_session")?.value;
+  const token = (await cookies()).get("kasirkita_session")?.value;
   if (!token) return null;
 
   const db = await readDb();
   const signed = verifySignedSessionToken(token);
-  if (signed) {
-    const user = getUserByIdFromDb(db, signed.userId);
-    if (!user) return null;
-    const session = { token, userId: signed.userId, expiresAt: signed.expiresAt } as AppSession;
-    return { session, user: publicUser(user) as SessionUser };
-  }
-
-  const session = db.sessions.find((row) => row.token === token) as AppSession | undefined;
+  if (!signed) return null;
+  const session = db.sessions.find((row) => row.id === signed.sessionId && row.userId === signed.userId && row.token === sessionTokenHash(token)) as AppSession | undefined;
   if (!session || new Date(session.expiresAt).getTime() <= Date.now()) return null;
 
   const user = getUserByIdFromDb(db, session.userId);

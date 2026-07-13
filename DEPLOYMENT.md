@@ -14,12 +14,10 @@ npm run build
 npm run start
 ```
 
-Owner login after `db:setup`:
-
-```txt
-username: ***REMOVED-FROM-HISTORY***
-password: ***REMOVED-FROM-HISTORY***
-```
+No default Owner credential is included. Before `db:setup`, fill all required
+`KASIRKITA_BOOTSTRAP_OWNER_*` variables with unique values. The bootstrap
+password must contain at least 12 characters. Remove those variables after the
+first successful Owner login.
 
 ## Vercel setup with production database
 
@@ -32,6 +30,9 @@ The app can run locally with a JSON file. For Vercel production, use Postgres so
 ```txt
 POSTGRES_URL
 KASIRKITA_AUTH_SECRET
+KASIRKITA_BOOTSTRAP_OWNER_USERNAME
+KASIRKITA_BOOTSTRAP_OWNER_EMAIL
+KASIRKITA_BOOTSTRAP_OWNER_PASSWORD
 ```
 
 `KASIRKITA_AUTH_SECRET` should be a random string. Generate locally with:
@@ -40,9 +41,12 @@ KASIRKITA_AUTH_SECRET
 openssl rand -base64 32
 ```
 
-4. Redeploy the project.
+4. Redeploy the project. Confirm that the Owner can log in, remove all three
+   bootstrap variables, and redeploy again.
 
-The first request will seed the owner automatically if the Postgres database is empty.
+The first request seeds the Owner only when the database is empty and the three
+required bootstrap variables are configured. Existing databases are never
+overwritten by bootstrap values.
 
 This version stores the application state in Postgres `jsonb` tables:
 
@@ -84,7 +88,7 @@ npm run backup:create -- manual-before-release
 
 Backups are stored in Postgres when `POSTGRES_URL` is configured. Local development stores backup files under `.data/backups`.
 
-## GitHub public repository push
+## GitHub repository push
 
 ```bash
 cd warung-digital-fullstack
@@ -103,3 +107,5 @@ git push -u origin main
 - Vercel production should use Postgres through `POSTGRES_URL`.
 - `/tmp` storage is not reliable for production because different serverless functions may not share the same files.
 - Redis/KV is still supported as a fallback through `KV_REST_API_URL` + `KV_REST_API_TOKEN` or `REDIS_URL`, but Postgres is preferred for production.
+- Production refuses to create or verify sessions when `KASIRKITA_AUTH_SECRET` is missing, too short, or still a placeholder.
+- Never commit Owner bootstrap values, database credentials, payment keys, or email-provider tokens.

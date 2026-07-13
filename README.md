@@ -63,6 +63,9 @@ Isi atau sesuaikan environment variable lokal:
 ```env
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 KASIRKITA_AUTH_SECRET="ganti-dengan-random-string-yang-panjang"
+KASIRKITA_BOOTSTRAP_OWNER_USERNAME="username_owner_unik"
+KASIRKITA_BOOTSTRAP_OWNER_EMAIL="owner@example.com"
+KASIRKITA_BOOTSTRAP_OWNER_PASSWORD="password-unik-minimal-12-karakter"
 ```
 
 Generate secret yang aman:
@@ -92,11 +95,10 @@ http://localhost:3000/login
 
 ## Akun Owner
 
-Akun Owner awal dibuat otomatis saat database kosong.
-
-Untuk keamanan, credential akun tidak ditulis di README. Jangan pernah menaruh username, password, token, API key, atau secret production di repository publik.
-
-Sebelum deploy production, pastikan credential Owner bawaan sudah diganti dan gunakan secret environment yang kuat.
+Akun Owner hanya dibuat saat database benar-benar kosong dan ketiga variabel
+`KASIRKITA_BOOTSTRAP_OWNER_*` tersedia. Gunakan nilai unik, login satu kali,
+kemudian hapus ketiga variabel bootstrap dan redeploy. Tidak ada username atau
+password bawaan di source code.
 
 ## Ganti Password Owner
 
@@ -180,7 +182,7 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
 ## Flow Penggunaan
 
 1. Owner login ke dashboard.
-2. Owner mengganti password awal.
+2. Owner login menggunakan credential bootstrap satu kali, lalu variabel bootstrap dihapus dari environment production.
 3. Owner membuat Admin UMKM.
 4. Admin login ke dashboard kasir.
 5. Admin menambahkan produk ke inventaris.
@@ -196,6 +198,8 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
 - Jangan publish Redis/KV token.
 - Gunakan `KASIRKITA_AUTH_SECRET` yang panjang dan random.
 - Jika credential pernah terlanjur dipublikasikan, segera ganti password dan redeploy.
+- Hapus seluruh variabel `KASIRKITA_BOOTSTRAP_OWNER_*` setelah bootstrap berhasil.
+- Production akan menolak sesi jika auth secret hilang, terlalu pendek, atau masih berupa placeholder.
 - Untuk production, pastikan data store sudah memakai Redis/KV.
 
 ## Status

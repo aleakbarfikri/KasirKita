@@ -4,9 +4,10 @@ import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
 import { applyPaidSubscription } from "@/lib/server/subscription";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(_request: Request, props: Params) {
+  const params = await props.params;
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);

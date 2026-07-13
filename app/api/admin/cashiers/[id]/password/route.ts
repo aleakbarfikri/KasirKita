@@ -1,10 +1,11 @@
 import { authError, getAdminScope, requireAdmin } from "@/lib/server/auth-guard";
 import { rowWithCashierProfile } from "@/lib/server/cashier-helpers";
-import { hashPassword, now, readDb, writeDb } from "@/lib/server/data-store";
+import { hashPassword, now, readDb, revokeUserSessions, writeDb } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { cashierPasswordSchema } from "@/lib/server/validators";
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await requireAdmin();
     const scope = await getAdminScope(session.user.id);
@@ -17,6 +18,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (!cashier) return fail("Akun kasir tidak ditemukan.", 404);
 
     cashier.passwordHash = hashPassword(body.password);
+    revokeUserSessions(db, cashier.id);
     cashier.updatedAt = now();
     profile.updatedAt = now();
     await writeDb(db);

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { sendVerificationCodeEmail } from "@/lib/server/email";
 import { fail, ok, readJson } from "@/lib/server/http";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
 import { createId } from "@/lib/server/ids";
 import { registerVerificationRequestSchema } from "@/lib/server/validators";
 import { hashPassword, now, readDb, writeDb, type EmailVerification } from "@/lib/server/data-store";
@@ -20,9 +21,13 @@ function getZodMessage(error: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = await enforceRateLimit(request, "register:request-code:ip", { limit: 10, windowMs: 15 * 60 * 1000 });
+    if (!ipLimit.allowed) return fail("Terlalu banyak permintaan kode. Coba lagi beberapa menit lagi.", 429);
     const parsed = registerVerificationRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) return fail(getZodMessage(parsed.error), 422, parsed.error.flatten());
     const body = parsed.data;
+    const emailLimit = await enforceRateLimit(request, "register:request-code:email", { limit: 5, windowMs: 15 * 60 * 1000 }, body.email);
+    if (!emailLimit.allowed) return fail("Terlalu banyak permintaan kode. Coba lagi beberapa menit lagi.", 429);
     const db = await readDb();
 
     if (db.users.some((user) => user.email.toLowerCase() === body.email.toLowerCase())) return fail("Email sudah digunakan.", 409);
