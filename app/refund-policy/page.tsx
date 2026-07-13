@@ -1,0 +1,5 @@
+import { LegalDocument } from "@/components/legal/legal-document";
+
+export default function RefundPolicyPage() {
+  return <LegalDocument title="Kebijakan Pembatalan dan Refund"><section><h2>Paket Free</h2><p>Paket Free tidak memerlukan pembayaran dan dapat dihentikan dengan mengajukan penghapusan akun.</p></section><section><h2>Paket berbayar</h2><p>Permintaan pembatalan atau refund dapat diajukan ke customercare@kasir-kita.com dengan nomor invoice dan alasan. Kelayakan refund bergantung pada status pembayaran, penggunaan layanan, ketentuan penyedia pembayaran, dan hukum yang berlaku.</p></section><section><h2>Pembayaran ganda atau gagal</h2><p>Pembayaran ganda, nominal tidak sesuai, atau status yang belum terkonfirmasi akan diperiksa melalui rekonsiliasi penyedia pembayaran sebelum keputusan refund.</p></section><section><h2>Waktu penanganan</h2><p>Permintaan akan dikonfirmasi melalui email terdaftar. Waktu dana kembali bergantung pada penyedia pembayaran dan bank pengguna.</p></section></LegalDocument>;
+}

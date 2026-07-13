@@ -145,7 +145,7 @@ export function PricingPage() {
           </Link>
         </div>
       </section>
-      <footer className="border-t border-[#d9e3de] bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm font-semibold text-[#64748b] sm:flex-row sm:items-center sm:justify-between lg:px-8"><p>© {new Date().getFullYear()} KasirKita. Kasir digital untuk UMKM.</p><div className="flex gap-5"><Link href="/login" className="hover:text-primary">Login</Link><Link href="/register?plan=trial" className="hover:text-primary">Mulai Gratis</Link></div></div></footer>
+      <footer className="border-t border-[#d9e3de] bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm font-semibold text-[#64748b] sm:flex-row sm:items-center sm:justify-between lg:px-8"><p>© {new Date().getFullYear()} KasirKita. Kasir digital untuk UMKM.</p><div className="flex flex-wrap gap-5"><Link href="/login" className="hover:text-primary">Login</Link><Link href="/register?plan=trial" className="hover:text-primary">Mulai Gratis</Link><Link href="/privacy" className="hover:text-primary">Privasi</Link><Link href="/terms" className="hover:text-primary">Syarat</Link><Link href="/refund-policy" className="hover:text-primary">Refund</Link><Link href="/account-deletion" className="hover:text-primary">Hapus Akun</Link></div></div></footer>
     </main>
   );
 }

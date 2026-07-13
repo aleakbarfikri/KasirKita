@@ -119,6 +119,7 @@ export function LoginForm() {
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+            <div className="text-right"><Link href="/forgot-password" className="text-xs font-bold text-primary">Lupa password?</Link></div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="mfaCode">Kode MFA Owner</Label>

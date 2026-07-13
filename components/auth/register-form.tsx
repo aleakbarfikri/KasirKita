@@ -51,6 +51,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState("");
   const [usernameEditable, setUsernameEditable] = useState(false);
   const [passwordEditable, setPasswordEditable] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
@@ -92,6 +93,7 @@ export function RegisterForm() {
           email,
           verificationCode,
           password,
+          acceptTerms,
         }),
       });
       setMessage(`Akun Free aktif. Username login: ${result.admin.username}`);
@@ -175,10 +177,14 @@ export function RegisterForm() {
             <Label>Alamat Toko</Label>
             <Input name="registration_address" autoComplete="street-address" value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} placeholder="Jl. Melati No. 10" />
           </div>
+          <label className="flex items-start gap-3 text-sm text-slate-600 sm:col-span-2">
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-emerald-700" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} required />
+            <span>Saya menyetujui <Link href="/terms" target="_blank" className="font-bold text-primary">Syarat Layanan</Link> dan telah membaca <Link href="/privacy" target="_blank" className="font-bold text-primary">Kebijakan Privasi</Link>.</span>
+          </label>
           {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{error}</p> : null}
           {message ? <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">{message}</p> : null}
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center">
-            <Button type="submit" className="w-full sm:w-auto" disabled={loading}>{loading ? "Mendaftarkan..." : "Daftar Gratis"}</Button>
+            <Button type="submit" className="w-full sm:w-auto" disabled={loading || !acceptTerms}>{loading ? "Mendaftarkan..." : "Daftar Gratis"}</Button>
             <Link href="/login" className="text-sm font-bold text-primary">Sudah punya akun? Login</Link>
             <Link href="/pricing" className="text-sm font-bold text-primary">Lihat paket</Link>
           </div>

@@ -8,6 +8,7 @@ import { useAppLanguage } from "@/lib/i18n";
 import { authClient } from "@/lib/auth-client";
 import { ApiError, api, type SessionUser } from "@/lib/api-client";
 import { cacheSession, clearCachedSession, readCachedSession } from "@/lib/offline-session";
+import { clearOfflineData, readOfflineCheckouts } from "@/lib/offline-pos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -421,8 +422,13 @@ export function AppShell({
   }
 
   async function signOut() {
+    if (readOfflineCheckouts().length > 0) {
+      window.alert("Masih ada transaksi offline yang belum tersinkron. Sambungkan internet dan sinkronkan terlebih dahulu agar transaksi tidak hilang.");
+      return;
+    }
     await authClient.signOut();
     clearCachedSession();
+    await clearOfflineData();
     router.replace("/login");
     router.refresh();
   }
@@ -852,6 +858,9 @@ export function AppShell({
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            {role === "admin" && user?.role === "admin" ? (
+              <Link href="/account/delete" onClick={() => setProfileModalOpen(false)} className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-bold text-red-700 shadow-sm hover:bg-red-50 sm:mr-auto">Hapus Akun</Link>
+            ) : null}
             <Button type="button" variant="outline" onClick={() => setProfileModalOpen(false)}>
               Tutup
             </Button>
