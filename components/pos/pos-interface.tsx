@@ -735,16 +735,18 @@ export function PosInterface() {
       await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receipt.settings.paperWidth));
       setError("Struk berhasil dikirim ke printer thermal.");
     } catch (err) {
-      const errorName = err instanceof DOMException ? err.name : "";
-      const errorMessage = err instanceof Error ? err.message : "";
+      const bluetoothError = err as { name?: unknown; message?: unknown } | null;
+      const errorName = typeof bluetoothError?.name === "string" ? bluetoothError.name : "";
+      const errorMessage = typeof bluetoothError?.message === "string" ? bluetoothError.message : String(err ?? "");
+      const errorDetails = `${errorName} ${errorMessage} ${String(err ?? "")}`;
       const chooserCancelled = !automatic && (
-        errorName === "NotFoundError"
-        || errorName === "AbortError"
-        || /cancel(?:led|ed)|requestDevice\(\) chooser/i.test(errorMessage)
+        /NotFoundError|AbortError|cancel+ed|chooser/i.test(errorDetails)
       );
-      if (chooserCancelled) return;
-      if (automatic && /Auto print belum dapat mengakses printer/i.test(errorMessage)) return;
-      setError(err instanceof Error ? err.message : "Gagal direct print ke printer thermal.");
+      if (chooserCancelled || (automatic && /Auto print belum dapat mengakses printer/i.test(errorDetails))) {
+        setError(null);
+        return;
+      }
+      setError(errorMessage || "Gagal direct print ke printer thermal.");
     } finally {
       setDirectPrinting(false);
     }
