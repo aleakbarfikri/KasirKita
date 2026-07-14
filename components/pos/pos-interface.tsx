@@ -568,6 +568,7 @@ export function PosInterface() {
 
   function showCheckoutSuccess(method: PaymentMethod, options: { queued?: boolean; receipt?: ReceiptRecord | null } = {}) {
     if (options.receipt) setLastReceipt(options.receipt);
+    if (options.receipt?.settings.autoPrint) window.setTimeout(() => void directPrintThermalReceipt(options.receipt!, true), 150);
     setSuccessSummary({ method, total, totalItems, queued: options.queued });
     setSuccessOpen(true);
     setPaymentMethod(null);
@@ -710,8 +711,9 @@ export function PosInterface() {
     }
   }
 
-  async function directPrintThermalReceipt(receipt: ReceiptRecord) {
-    const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: unknown) => Promise<{ gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } }> } }).bluetooth;
+  async function directPrintThermalReceipt(receipt: ReceiptRecord, automatic = false) {
+    type ThermalDevice = { name?: string; gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } };
+    const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: unknown) => Promise<ThermalDevice>; getDevices?: () => Promise<ThermalDevice[]> } }).bluetooth;
     if (!bluetooth) {
       setError("Direct printer butuh Chrome/Edge dengan Web Bluetooth. Di iPhone/Safari biasanya tidak tersedia.");
       return;
@@ -720,10 +722,12 @@ export function PosInterface() {
     setDirectPrinting(true);
     setError(null);
     try {
-      const device = await bluetooth.requestDevice({
+      const permitted = automatic && bluetooth.getDevices ? await bluetooth.getDevices() : [];
+      const device = permitted[0] ?? (automatic ? null : await bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: thermalBluetoothServices,
-      });
+      }));
+      if (!device) throw new Error("Auto print belum dapat mengakses printer. Pilih Print manual sekali untuk memberi izin Bluetooth.");
       const server = await device.gatt?.connect();
       if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
       const characteristic = await findBluetoothWriteCharacteristic(server);
@@ -1317,10 +1321,7 @@ export function PosInterface() {
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
             {lastReceipt ? (
               <div className="mt-6 grid gap-3">
-                <div className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-3">
-                  <Button onClick={() => directPrintThermalReceipt(lastReceipt)} disabled={directPrinting} className="h-12">
-                    {directPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />} {t("Print")}
-                  </Button>
+                <div className="relative flex justify-end">
                   <button
                     type="button"
                     onClick={() => setReceiptMenuOpen((open) => !open)}
@@ -1331,6 +1332,7 @@ export function PosInterface() {
                   </button>
                   {receiptMenuOpen ? (
                     <div className="absolute right-0 top-14 z-[90] w-52 overflow-hidden rounded-xl border border-[#d7e2dc] bg-white text-left shadow-2xl">
+                      <button type="button" onClick={() => { void directPrintThermalReceipt(lastReceipt); setReceiptMenuOpen(false); }} disabled={directPrinting} className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold hover:bg-[#f8fafc]"><Printer className="h-4 w-4 text-primary" />{directPrinting ? "Printing..." : "Print manual"}</button>
                       <button
                         type="button"
                         onClick={() => {
@@ -1357,9 +1359,6 @@ export function PosInterface() {
                     </div>
                   ) : null}
                 </div>
-                <p className="rounded-xl bg-[#eff4ff] px-3 py-2 text-left text-xs font-semibold text-[#3d4a42]">
-                  {t("Print memakai direct printer Bluetooth thermal di Chrome/Edge.")}
-                </p>
                 <Button onClick={startNewTransaction}>Transaksi Baru</Button>
               </div>
             ) : (

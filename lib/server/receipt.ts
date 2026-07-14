@@ -23,7 +23,7 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
   const adminProfile = db.adminProfiles.find((row) => row.shopId === transaction.shopId);
   const planType = adminProfile?.planType || "basic";
   const showWatermark = planType !== "pro" && planType !== "business";
-  const settings = db.receiptSettings.find((row) => row.shopId === transaction.shopId) ?? { paperWidth: "58mm" as const, logoDataUrl: null, printCopies: 1 as const, showQueueNumber: false };
+  const settings = db.receiptSettings.find((row) => row.shopId === transaction.shopId) ?? { paperWidth: "58mm" as const, logoDataUrl: null, printCopies: 1 as const, showQueueNumber: false, autoPrint: false };
   const queueNumber = settings.showQueueNumber ? db.transactions.filter((row) => row.shopId === transaction.shopId && row.createdAt.slice(0, 10) === transaction.createdAt.slice(0, 10) && row.createdAt <= transaction.createdAt).length : null;
   const items = db.transactionItems
     .filter((item) => item.transactionId === transaction.id)
