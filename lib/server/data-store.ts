@@ -235,7 +235,8 @@ export type EmailVerification = {
   id: string;
   email: string;
   codeHash: string;
-  purpose: "register" | "password_reset";
+  purpose: "register" | "password_reset" | "email_change";
+  userId?: string | null;
   attempts: number;
   expiresAt: string;
   consumedAt?: string | null;
@@ -357,16 +358,35 @@ export function verifySignedSessionToken(token: string) {
   }
 }
 
+const PASSWORD_HASH_VERSION = "pbkdf2-sha512";
+const PASSWORD_HASH_ITERATIONS = 220_000;
+const LEGACY_PASSWORD_HASH_ITERATIONS = 100_000;
+
+function derivePassword(password: string, salt: string, iterations: number) {
+  return crypto.pbkdf2Sync(password, salt, iterations, 64, "sha512");
+}
+
 export function hashPassword(password: string, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
-  return `${salt}:${hash}`;
+  const hash = derivePassword(password, salt, PASSWORD_HASH_ITERATIONS).toString("hex");
+  return `${PASSWORD_HASH_VERSION}$${PASSWORD_HASH_ITERATIONS}$${salt}$${hash}`;
 }
 
 export function verifyPassword(password: string, storedHash: string) {
-  const [salt, expected] = storedHash.split(":");
-  if (!salt || !expected) return false;
-  const actual = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex"));
+  const versioned = storedHash.split("$");
+  const legacy = storedHash.split(":");
+  const isVersioned = versioned.length === 4 && versioned[0] === PASSWORD_HASH_VERSION;
+  const iterations = isVersioned ? Number(versioned[1]) : LEGACY_PASSWORD_HASH_ITERATIONS;
+  const salt = isVersioned ? versioned[2] : legacy[0];
+  const expected = isVersioned ? versioned[3] : legacy[1];
+  if (!salt || !expected || !Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 2_000_000 || !/^[a-f0-9]+$/i.test(expected)) return false;
+  const actualBuffer = derivePassword(password, salt, iterations);
+  const expectedBuffer = Buffer.from(expected, "hex");
+  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+export function passwordHashNeedsUpgrade(storedHash: string) {
+  const [version, iterations] = storedHash.split("$");
+  return version !== PASSWORD_HASH_VERSION || Number(iterations) < PASSWORD_HASH_ITERATIONS;
 }
 
 export function publicUser(user: AppUser) {
@@ -387,7 +407,7 @@ function bootstrapOwner(t: string): AppUser[] {
     throw new Error("Username bootstrap Owner hanya boleh berisi huruf kecil, angka, dan underscore (3-32 karakter).");
   }
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Email bootstrap Owner tidak valid.");
-  if (password.length < 12) throw new Error("Password bootstrap Owner minimal 12 karakter.");
+  if (password.length < 12 || password.length > 128) throw new Error("Password bootstrap Owner harus 12-128 karakter.");
 
   return [{
     id: createDataId("user"),

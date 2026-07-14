@@ -312,8 +312,18 @@ export type SubscriptionInvoiceRecord = {
 };
 
 export type ReceiptRecord = {
-  transaction: TransactionRecord;
-  items: CheckoutItem[];
+  transaction: {
+    invoiceNumber: string;
+    createdAt: string;
+    paymentMethod: PaymentMethod;
+    subtotal: number;
+    discountAmount: number;
+    total: number;
+    paidAmount?: number | null;
+    changeAmount?: number | null;
+    status: TransactionRecord["status"];
+  };
+  items: Array<Pick<CheckoutItem, "name" | "originalPrice" | "price" | "discountAmount" | "quantity">>;
   shop: {
     name: string;
     address?: string | null;
@@ -392,6 +402,10 @@ export const api = {
   profile: {
     update: (body: { name?: string; email?: string; shopName?: string; shopAddress?: string; shopPhone?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
       apiFetch<ProfileUpdateResponse>("/api/profile", { method: "PATCH", body: JSON.stringify(body) }),
+    requestEmailCode: (body: { email: string; currentPassword: string }) =>
+      apiFetch<{ sent: boolean }>("/api/profile/email/request-code", { method: "POST", body: JSON.stringify(body) }),
+    confirmEmail: (body: { email: string; code: string; currentPassword: string }) =>
+      apiFetch<{ user: SessionUser }>("/api/profile/email/confirm", { method: "POST", body: JSON.stringify(body) }),
   },
 
   products: {

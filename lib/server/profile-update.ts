@@ -35,8 +35,9 @@ export function applyProfileUpdate(db: AppDb, userId: string, input: ProfileUpda
   if ((changesEmail || changesPassword) && (!currentPassword || !verifyPassword(currentPassword, user.passwordHash))) {
     throw Object.assign(new Error("Password saat ini salah."), { status: 401 });
   }
+  if (changesEmail) throw Object.assign(new Error("Verifikasi email baru terlebih dahulu dengan kode yang dikirim ke alamat tersebut."), { status: 422 });
   if (changesPassword) {
-    if (newPassword.length < 12) throw Object.assign(new Error("Password baru minimal 12 karakter."), { status: 422 });
+    if (newPassword.length < 12 || newPassword.length > 128) throw Object.assign(new Error("Password baru harus 12-128 karakter."), { status: 422 });
     if (newPassword !== confirmPassword) throw Object.assign(new Error("Konfirmasi password baru tidak sama."), { status: 422 });
     if (newPassword === currentPassword) throw Object.assign(new Error("Password baru tidak boleh sama dengan password lama."), { status: 422 });
     user.passwordHash = hashPassword(newPassword);

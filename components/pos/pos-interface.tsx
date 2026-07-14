@@ -116,7 +116,7 @@ function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidt
     receipt.shop.address ? center(receipt.shop.address) : "",
     receipt.shop.phone ? center(`Telp: ${receipt.shop.phone}`) : "",
     line,
-    thermalColumns("Invoice", shortInvoiceId(trx.id), width),
+    thermalColumns("Invoice", trx.invoiceNumber, width),
     thermalColumns("Tanggal", new Date(trx.createdAt).toLocaleString("id-ID"), width),
     thermalColumns("Kasir", receipt.cashier.name, width),
     thermalColumns("Metode", methodLabel[trx.paymentMethod], width),
@@ -593,7 +593,7 @@ export function PosInterface() {
       receipt.shop.address || "",
       receipt.shop.phone ? `Telp: ${receipt.shop.phone}` : "",
       "",
-      `Invoice: ${shortInvoiceId(trx.id)}`,
+      `Invoice: ${trx.invoiceNumber}`,
       `Tanggal: ${new Date(trx.createdAt).toLocaleString("id-ID")}`,
       `Kasir: ${receipt.cashier.name}`,
       `Metode: ${methodLabel[trx.paymentMethod]}`,
@@ -627,7 +627,7 @@ export function PosInterface() {
       </div>
     `).join("");
     const html = `<!doctype html>
-      <html><head><title>Struk ${escapeHtml(trx.id)}</title>
+      <html><head><title>Struk ${escapeHtml(trx.invoiceNumber)}</title>
       <style>
         @page { size: ${paperWidth} auto; margin: 0; }
         * { box-sizing: border-box; }
@@ -656,7 +656,7 @@ export function PosInterface() {
             <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
           </div>
           <div class="line"></div>
-          <div class="row"><span>Invoice</span><span>${escapeHtml(shortInvoiceId(trx.id))}</span></div>
+          <div class="row"><span>Invoice</span><span>${escapeHtml(trx.invoiceNumber)}</span></div>
           <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
           <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
           <div class="row"><span>Metode</span><span>${escapeHtml(methodLabel[trx.paymentMethod])}</span></div>

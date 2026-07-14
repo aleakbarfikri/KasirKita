@@ -140,6 +140,9 @@ export function AppShell({
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileEmailCode, setProfileEmailCode] = useState("");
+  const [profileEmailCodeSent, setProfileEmailCodeSent] = useState(false);
+  const [profileEmailSending, setProfileEmailSending] = useState(false);
   const [profileShopName, setProfileShopName] = useState("");
   const [profileShopAddress, setProfileShopAddress] = useState("");
   const [profileShopPhone, setProfileShopPhone] = useState("");
@@ -365,6 +368,8 @@ export function AppShell({
   function openProfileModal() {
     setProfileName(user?.name || "");
     setProfileEmail(user?.email || "");
+    setProfileEmailCode("");
+    setProfileEmailCodeSent(false);
     setProfileShopName(user?.shopName || "");
     setProfileShopAddress(profileShopAddress || "");
     setProfileShopPhone(profileShopPhone || "");
@@ -377,6 +382,22 @@ export function AppShell({
     setProfileModalOpen(true);
   }
 
+  async function requestProfileEmailCode() {
+    setProfileError(null);
+    setProfileSuccess(null);
+    if (!currentPassword) return setProfileError("Masukkan password saat ini terlebih dahulu.");
+    setProfileEmailSending(true);
+    try {
+      await api.profile.requestEmailCode({ email: profileEmail.trim(), currentPassword });
+      setProfileEmailCodeSent(true);
+      setProfileSuccess("Kode verifikasi dikirim ke email baru dan berlaku 10 menit.");
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Gagal mengirim kode verifikasi.");
+    } finally {
+      setProfileEmailSending(false);
+    }
+  }
+
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setProfileError(null);
@@ -386,8 +407,9 @@ export function AppShell({
       setProfileError("Format email tidak valid.");
       return;
     }
-    if (profileEmail.trim().toLowerCase() !== user?.email?.toLowerCase() && !currentPassword) {
-      setProfileError("Masukkan password saat ini untuk mengubah email.");
+    const changesEmail = profileEmail.trim().toLowerCase() !== user?.email?.toLowerCase();
+    if (changesEmail && (!currentPassword || !profileEmailCodeSent || !/^\d{6}$/.test(profileEmailCode))) {
+      setProfileError("Kirim lalu masukkan kode verifikasi 6 angka dari email baru.");
       return;
     }
 
@@ -406,9 +428,13 @@ export function AppShell({
     setProfileSaving(true);
 
     try {
+      if (changesEmail) {
+        const confirmed = await api.profile.confirmEmail({ email: profileEmail.trim(), code: profileEmailCode, currentPassword });
+        setUser((current) => current ? { ...current, ...confirmed.user } : confirmed.user);
+      }
       const result = await api.profile.update({
         name: profileName,
-        email: profileEmail,
+        email: changesEmail ? undefined : profileEmail,
         shopName: profileShopName,
         shopAddress: profileShopAddress,
         shopPhone: profileShopPhone,
@@ -424,6 +450,8 @@ export function AppShell({
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setProfileEmailCode("");
+      setProfileEmailCodeSent(false);
       setProfileSuccess("Profil berhasil diperbarui.");
       router.refresh();
     } catch (err) {
@@ -796,10 +824,19 @@ export function AppShell({
                 id="profileEmail"
                 type="email"
                 value={profileEmail}
-                onChange={(event) => setProfileEmail(event.target.value)}
+                onChange={(event) => { setProfileEmail(event.target.value); setProfileEmailCodeSent(false); setProfileEmailCode(""); }}
                 autoComplete="email"
                 required
               />
+              {profileEmail.trim().toLowerCase() !== user?.email?.toLowerCase() ? (
+                <div className="space-y-2">
+                  <Button type="button" variant="outline" onClick={requestProfileEmailCode} disabled={profileEmailSending}>
+                    {profileEmailSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Kirim kode ke email baru
+                  </Button>
+                  {profileEmailCodeSent ? <Input aria-label="Kode verifikasi email baru" inputMode="numeric" maxLength={6} value={profileEmailCode} onChange={(event) => setProfileEmailCode(event.target.value.replace(/\D/g, ""))} placeholder="6 angka" required /> : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2 sm:col-span-2">

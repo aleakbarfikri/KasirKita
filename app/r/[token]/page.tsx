@@ -1,18 +1,15 @@
 import QRCode from "qrcode";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { readDb } from "@/lib/server/data-store";
-import { buildReceipt, receiptPublicUrl } from "@/lib/server/receipt";
+import { buildReceipt, isReceiptToken, receiptPublicUrl } from "@/lib/server/receipt";
 import { formatCurrency } from "@/lib/utils";
 
-function shortInvoiceId(id?: string | null) {
-  if (!id) return "-";
-  const cleanId = id.replace(/^trx_/i, "");
-  const shortId = cleanId.slice(0, 8).toUpperCase();
-  return shortId ? `TRX-${shortId}` : "-";
-}
+export const metadata: Metadata = { robots: { index: false, follow: false, nocache: true } };
 
 export default async function DigitalReceiptPage(props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
+  if (!isReceiptToken(params.token)) notFound();
   const db = await readDb();
   const transaction = db.transactions.find((row) => row.receiptToken === params.token);
   if (!transaction) notFound();
@@ -33,16 +30,16 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
         <div className="space-y-1 text-sm">
-          <div className="flex justify-between"><span>No Invoice</span><span className="font-bold">{shortInvoiceId(transaction.id)}</span></div>
-          <div className="flex justify-between"><span>Tanggal</span><span>{new Date(transaction.createdAt).toLocaleString("id-ID")}</span></div>
+          <div className="flex justify-between"><span>No Invoice</span><span className="font-bold">{receipt.transaction.invoiceNumber}</span></div>
+          <div className="flex justify-between"><span>Tanggal</span><span>{new Date(receipt.transaction.createdAt).toLocaleString("id-ID")}</span></div>
           <div className="flex justify-between"><span>Kasir</span><span>{receipt.cashier.name}</span></div>
-          <div className="flex justify-between"><span>Metode</span><span>{transaction.paymentMethod}</span></div>
+          <div className="flex justify-between"><span>Metode</span><span>{receipt.transaction.paymentMethod}</span></div>
         </div>
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
         <div className="space-y-3">
-          {receipt.items.map((item) => (
-            <div key={`${item.sku}-${item.name}`} className="text-sm">
+          {receipt.items.map((item, index) => (
+            <div key={`${item.name}-${index}`} className="text-sm">
               <div className="flex justify-between gap-3">
                 <span className="font-semibold">{item.name}</span>
                 <span>{formatCurrency(item.price * item.quantity)}</span>
@@ -57,11 +54,11 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
         <div className="space-y-1 text-sm">
-          {transaction.subtotal !== undefined ? <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(transaction.subtotal)}</span></div> : null}
-          {transaction.discountAmount ? <div className="flex justify-between"><span>Diskon Transaksi</span><span>-{formatCurrency(transaction.discountAmount)}</span></div> : null}
-          <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatCurrency(transaction.total)}</span></div>
-          {transaction.paidAmount !== null && transaction.paidAmount !== undefined ? <div className="flex justify-between"><span>Dibayar</span><span>{formatCurrency(transaction.paidAmount)}</span></div> : null}
-          {transaction.changeAmount !== null && transaction.changeAmount !== undefined ? <div className="flex justify-between"><span>Kembalian</span><span>{formatCurrency(transaction.changeAmount)}</span></div> : null}
+          <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(receipt.transaction.subtotal ?? receipt.transaction.total)}</span></div>
+          {receipt.transaction.discountAmount ? <div className="flex justify-between"><span>Diskon Transaksi</span><span>-{formatCurrency(receipt.transaction.discountAmount)}</span></div> : null}
+          <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatCurrency(receipt.transaction.total)}</span></div>
+          {receipt.transaction.paidAmount !== null && receipt.transaction.paidAmount !== undefined ? <div className="flex justify-between"><span>Dibayar</span><span>{formatCurrency(receipt.transaction.paidAmount)}</span></div> : null}
+          {receipt.transaction.changeAmount !== null && receipt.transaction.changeAmount !== undefined ? <div className="flex justify-between"><span>Kembalian</span><span>{formatCurrency(receipt.transaction.changeAmount)}</span></div> : null}
         </div>
 
         {qr ? (

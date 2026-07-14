@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createId } from "@/lib/server/ids";
-import { createSignedSessionToken, isAdminProfileActive, now, publicUser, readDb, sessionTokenHash, verifyPassword, verifySignedSessionToken, withDbTransaction } from "@/lib/server/data-store";
+import { createSignedSessionToken, hashPassword, isAdminProfileActive, now, passwordHashNeedsUpgrade, publicUser, readDb, sessionTokenHash, verifyPassword, verifySignedSessionToken, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
 import { findEnabledMfaConfig, verifyOwnerMfaCode } from "@/lib/server/mfa";
@@ -35,6 +35,7 @@ export async function POST(request: Request, props: Params) {
     const username = String(body.username || "").trim().toLowerCase();
     const password = String(body.password || "");
     if (!username || !password) return fail("Username dan password wajib diisi.", 422);
+    if (password.length > 128) return fail("Username atau password salah.", 401);
     const accountLimit = await enforceRateLimit(request, "auth:sign-in:account", { limit: 8, windowMs: 15 * 60 * 1000 }, username);
     if (!accountLimit.allowed) return fail("Terlalu banyak percobaan login. Coba lagi beberapa menit lagi.", 429);
 
@@ -78,6 +79,7 @@ export async function POST(request: Request, props: Params) {
       if (currentMfa && !verifyOwnerMfaCode(currentMfa, String(body.mfaCode || "")).valid) {
         return { ok: false as const, role: currentUser.role };
       }
+      if (passwordHashNeedsUpgrade(currentUser.passwordHash)) currentUser.passwordHash = hashPassword(password);
       currentDb.sessions = currentDb.sessions.filter((row) => new Date(row.expiresAt).getTime() > Date.now());
       currentDb.sessions.push({ id: sessionId, token: sessionTokenHash(token), userId: currentUser.id, expiresAt, createdAt: t, updatedAt: t });
       return { ok: true as const, user: publicUser(currentUser) };

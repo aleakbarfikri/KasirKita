@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import test from "node:test";
 import { deleteAccountData } from "../lib/server/account-deletion";
-import { defaultDb, hashPassword, verifyPassword } from "../lib/server/data-store";
+import { defaultDb, hashPassword, passwordHashNeedsUpgrade, verifyPassword } from "../lib/server/data-store";
+import { confirmEmailChange } from "../lib/server/email-change";
 import { applyPasswordReset } from "../lib/server/password-reset";
 import { applyProfileUpdate } from "../lib/server/profile-update";
 import { projectNormalizedRows } from "../lib/server/normalized-projection";
@@ -36,16 +38,15 @@ test("Owner admin editor accepts a valid email and rejects an invalid one", () =
   assert.equal(adminUpdateSchema.safeParse({ email: "bukan-email" }).success, false);
 });
 
-test("admin can update email, address, and phone with current password", () => {
+test("admin can update shop identity without changing verified email", () => {
   const db = fixture();
   const result = applyProfileUpdate(db, "admin", {
-    email: "kontak@tokobaru.com",
     shopName: "Toko Baru",
     shopAddress: "Jl. Merdeka No. 1",
     shopPhone: "081234567890",
     currentPassword: "AdminPassword123",
   });
-  assert.equal(result.user.email, "kontak@tokobaru.com");
+  assert.equal(result.user.email, "admin@example.com");
   assert.equal(result.shop?.name, "Toko Baru");
   assert.equal(result.shop?.address, "Jl. Merdeka No. 1");
   assert.equal(result.shop?.phone, "081234567890");
@@ -58,10 +59,25 @@ test("self-service email update requires password and a unique email", () => {
   assert.equal(db.users.find((row) => row.id === "admin")?.email, "admin@example.com");
 });
 
-test("Owner can add or edit email from profile settings", () => {
+test("Owner and Admin email changes require a valid code bound to that account", () => {
   const db = fixture();
-  const result = applyProfileUpdate(db, "owner", { email: "ownerbaru@example.com", currentPassword: "OwnerPassword123" });
-  assert.equal(result.user.email, "ownerbaru@example.com");
+  assert.throws(() => applyProfileUpdate(db, "owner", { email: "ownerbaru@example.com", currentPassword: "OwnerPassword123" }), /Verifikasi email baru/);
+  db.emailVerifications.push({ id: "email-change", userId: "owner", email: "ownerbaru@example.com", codeHash: hashPassword("123456"), purpose: "email_change", attempts: 0, expiresAt: new Date(Date.now() + 60_000).toISOString(), createdAt: new Date().toISOString() });
+  const wrongAccount = confirmEmailChange(db, "admin", { email: "ownerbaru@example.com", code: "123456", currentPassword: "AdminPassword123" });
+  assert.equal(wrongAccount.ok, false);
+  const result = confirmEmailChange(db, "owner", { email: "ownerbaru@example.com", code: "123456", currentPassword: "OwnerPassword123" });
+  assert.equal(result.ok, true);
+  assert.equal(db.users.find((row) => row.id === "owner")?.email, "ownerbaru@example.com");
+});
+
+test("password hashing accepts legacy hashes and marks them for automatic upgrade", () => {
+  const salt = "00112233445566778899aabbccddeeff";
+  const legacy = `${salt}:${crypto.pbkdf2Sync("LegacyPassword123", salt, 100_000, 64, "sha512").toString("hex")}`;
+  assert.equal(verifyPassword("LegacyPassword123", legacy), true);
+  assert.equal(passwordHashNeedsUpgrade(legacy), true);
+  const current = hashPassword("CurrentPassword123");
+  assert.equal(verifyPassword("CurrentPassword123", current), true);
+  assert.equal(passwordHashNeedsUpgrade(current), false);
 });
 
 test("password reset validates input, consumes code, and revokes sessions", () => {

@@ -77,7 +77,7 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
     </div>
   `).join("");
   const html = `<!doctype html>
-    <html><head><title>Reprint ${escapeHtml(trx.id)}</title>
+    <html><head><title>Reprint ${escapeHtml(trx.invoiceNumber)}</title>
     <style>
       @page { size: ${paperWidth} auto; margin: 0; }
       * { box-sizing: border-box; }
@@ -105,7 +105,7 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
           <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
         </div>
         <div class="line"></div>
-        <div class="row"><span>Invoice</span><span>${escapeHtml(shortOrderId(trx.id))}</span></div>
+        <div class="row"><span>Invoice</span><span>${escapeHtml(trx.invoiceNumber)}</span></div>
         <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
         <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
         <div class="row"><span>Metode</span><span>${escapeHtml(paymentMethodLabel(trx.paymentMethod))}</span></div>
