@@ -5,6 +5,7 @@ import { addAuditLog, now, readDb, writeDb, type SubscriptionInvoice } from "@/l
 import { fail, ok, readJson } from "@/lib/server/http";
 import { PLAN_CONFIG, type BillingPeriod, type PaidSubscriptionPlan } from "@/lib/server/subscription";
 import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
+import { maintainSubscriptionInvoices, paymentDeadline } from "@/lib/server/subscription-invoice-retention";
 
 function isPaidPlan(value: unknown): value is PaidSubscriptionPlan {
   return value === "basic" || value === "starter" || value === "pro" || value === "business";
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     if (!amount) return fail("Paket ini hanya tersedia pembayaran tahunan.", 422);
 
     const db = await readDb();
+    maintainSubscriptionInvoices(db);
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
     if (config) protectPaymentConfig(config);
     const credentials = paymentCredentials(config);
@@ -68,11 +70,12 @@ export async function POST(request: Request) {
       qrImageDataUrl: pakasir.qrImageDataUrl,
       totalPayment: pakasir.totalPayment,
       fee: pakasir.fee,
-      expiredAt: pakasir.expiredAt ?? null,
+      expiredAt: null,
       paidAt: null,
       createdAt: t,
       updatedAt: t,
     };
+    invoice.expiredAt = paymentDeadline({ createdAt: invoice.createdAt, expiredAt: pakasir.expiredAt ?? null });
     db.subscriptionInvoices.push(invoice);
     addAuditLog(db, {
       actorId: session.user.id,
