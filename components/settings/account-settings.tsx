@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { KeyRound, Loader2, MailCheck, Save, ShieldCheck, UserRound } from "lucide-react";
+import { Bluetooth, KeyRound, Loader2, MailCheck, Printer, Save, ShieldCheck, UserRound } from "lucide-react";
 import { api, type MeResponse } from "@/lib/api-client";
 import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Tab = "profile" | "email" | "password" | "security";
+type Tab = "profile" | "email" | "password" | "security" | "receipt";
 
 export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   const [tab, setTab] = useState<Tab>("profile");
@@ -29,6 +29,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState({ paperWidth: "58mm" as "58mm"|"80mm", logoDataUrl: "" as string|null, printCopies: 1 as 1|2, showQueueNumber: false });
 
   useEffect(() => {
     api.me().then((result) => {
@@ -40,6 +41,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
       setNewEmail(result.user.email || "");
     }).catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat pengaturan."));
   }, []);
+  useEffect(() => { if (role === "admin") api.receiptSettings.get().then((r) => setReceipt({ ...r, logoDataUrl: r.logoDataUrl || "" })).catch(()=>{}); }, [role]);
 
   function resetMessage() { setError(null); setSuccess(null); }
 
@@ -89,12 +91,15 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
     } catch (err) { setError(err instanceof Error ? err.message : "Gagal mengubah password."); }
     finally { setBusy(false); }
   }
+  async function saveReceipt() { resetMessage(); setBusy(true); try { await api.receiptSettings.update(receipt); setSuccess("Pengaturan struk berhasil disimpan."); } catch(e){ setError(e instanceof Error?e.message:"Gagal menyimpan struk."); } finally { setBusy(false); } }
+  async function testBluetooth() { try { const bt=(navigator as Navigator & {bluetooth?:{requestDevice:(o:unknown)=>Promise<{name?:string}>}}).bluetooth; if(!bt) throw new Error("Bluetooth printer membutuhkan Chrome/Edge desktop atau Android."); const device=await bt.requestDevice({acceptAllDevices:true,optionalServices:["generic_access"]}); setSuccess(`Printer ${device.name || "Bluetooth"} dipilih. Browser akan meminta koneksi lagi saat print.`); } catch(e){ setError(e instanceof Error?e.message:"Printer tidak terhubung."); } }
 
   const tabs = [
     { id: "profile" as const, label: "Edit Profil", icon: UserRound },
     { id: "email" as const, label: "Email & OTP", icon: MailCheck },
     { id: "password" as const, label: "Ubah Password", icon: KeyRound },
     { id: "security" as const, label: "Keamanan MFA", icon: ShieldCheck },
+    ...(role === "admin" ? [{ id: "receipt" as const, label: "Pengaturan Struk", icon: Printer }] : []),
   ];
 
   return <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
@@ -111,6 +116,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
       {me && tab === "password" ? <Card className="bg-white"><CardHeader><CardTitle>Ubah Password</CardTitle></CardHeader><CardContent><form onSubmit={changePassword} className="space-y-5"><div className="space-y-2"><Label>Password saat ini</Label><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Password baru</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={12} maxLength={128} autoComplete="new-password" /></div><div className="space-y-2"><Label>Konfirmasi password</Label><Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} maxLength={128} autoComplete="new-password" /></div></div><p className="text-xs font-semibold text-slate-500">Gunakan minimal 12 karakter. Sesi login lain akan dicabut setelah password diganti.</p><Button className="w-full" disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Ubah Password</Button></form></CardContent></Card> : null}
 
       {me && tab === "security" ? <div className="space-y-4"><OwnerMfaCard roleLabel={role === "owner" ? "Owner" : "Admin"} />{role === "admin" ? <Link href="/account/delete" className="inline-flex rounded-xl border border-red-200 px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50">Penghapusan akun dan data</Link> : null}</div> : null}
+      {me && tab === "receipt" ? <Card className="bg-white"><CardHeader><CardTitle>Pengaturan Struk / Receipt Settings</CardTitle></CardHeader><CardContent className="space-y-5"><div className="space-y-2"><Label>Ukuran thermal / Paper width</Label><select className="h-11 w-full rounded-xl border px-3" value={receipt.paperWidth} onChange={(e)=>setReceipt({...receipt,paperWidth:e.target.value as "58mm"|"80mm"})}><option value="58mm">58mm</option><option value="80mm">80mm</option></select></div><div className="space-y-2"><Label>Logo usaha / Business logo</Label><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e)=>{const f=e.target.files?.[0];if(!f)return;const reader=new FileReader();reader.onload=()=>setReceipt({...receipt,logoDataUrl:String(reader.result)});reader.readAsDataURL(f);}} />{receipt.logoDataUrl?<img src={receipt.logoDataUrl} alt="Logo preview" className="h-20 w-20 rounded-xl border object-contain"/>:null}</div><label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>Print 2 rangkap / Customer + Kitchen</span><input type="checkbox" checked={receipt.printCopies===2} onChange={(e)=>setReceipt({...receipt,printCopies:e.target.checked?2:1})}/></label><label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>Nomor antrean / Queue number</span><input type="checkbox" checked={receipt.showQueueNumber} onChange={(e)=>setReceipt({...receipt,showQueueNumber:e.target.checked})}/></label><Button type="button" variant="outline" className="w-full" onClick={testBluetooth}><Bluetooth className="mr-2 h-4 w-4"/>Hubungkan/Test Printer Bluetooth</Button><p className="text-xs text-slate-500">Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.</p><Button className="w-full" onClick={saveReceipt} disabled={busy}><Save className="mr-2 h-4 w-4"/>Simpan Pengaturan Struk</Button></CardContent></Card>:null}
     </div>
   </div>;
 }

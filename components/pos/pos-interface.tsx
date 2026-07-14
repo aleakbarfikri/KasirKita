@@ -117,6 +117,7 @@ function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidt
     receipt.shop.phone ? center(`Telp: ${receipt.shop.phone}`) : "",
     line,
     thermalColumns("Invoice", trx.invoiceNumber, width),
+    receipt.queueNumber ? thermalColumns("Antrean / Queue", String(receipt.queueNumber), width) : "",
     thermalColumns("Tanggal", new Date(trx.createdAt).toLocaleString("id-ID"), width),
     thermalColumns("Kasir", receipt.cashier.name, width),
     thermalColumns("Metode", methodLabel[trx.paymentMethod], width),
@@ -150,7 +151,8 @@ function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidt
   payload.set(init, 0);
   payload.set(content, init.length);
   payload.set(cut, init.length + content.length);
-  return payload;
+  if (receipt.settings.printCopies === 1) return payload;
+  const doubled = new Uint8Array(payload.length * 2); doubled.set(payload); doubled.set(payload, payload.length); return doubled;
 }
 
 export function PosInterface() {
@@ -171,7 +173,6 @@ export function PosInterface() {
   const [receiptMenuOpen, setReceiptMenuOpen] = useState(false);
   const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
   const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
-  const [receiptPaperWidth, setReceiptPaperWidth] = useState<ReceiptPaperWidth>("58mm");
   const [paymentMethod, setPaymentMethod] = useState<ModalMethod>(null);
   const [cashReceived, setCashReceived] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
@@ -615,7 +616,7 @@ export function PosInterface() {
   async function printThermalReceipt(receipt: ReceiptRecord) {
     const trx = receipt.transaction;
     const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
-    const paperWidth = receiptPaperWidth;
+    const paperWidth = receipt.settings.paperWidth;
     const contentPadding = paperWidth === "80mm" ? "10px" : "7px";
     const qrSize = paperWidth === "80mm" ? 160 : 132;
     const qrDataUrl = receipt.publicUrl ? await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: qrSize }) : "";
@@ -651,12 +652,14 @@ export function PosInterface() {
         <div class="receipt">
           <div class="center">
             ${receipt.showWatermark ? `<div class="watermark">${escapeHtml(receipt.watermarkText || "www.kasir-kita.com")}</div>` : ""}
+            ${receipt.settings.logoDataUrl ? `<img src="${escapeHtml(receipt.settings.logoDataUrl)}" alt="Logo" style="max-width:28mm;max-height:20mm;object-fit:contain" />` : ""}
             <div class="shop">${escapeHtml(receipt.shop.name)}</div>
             ${receipt.shop.address ? `<div>${escapeHtml(receipt.shop.address)}</div>` : ""}
             <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
           </div>
           <div class="line"></div>
           <div class="row"><span>Invoice</span><span>${escapeHtml(trx.invoiceNumber)}</span></div>
+          ${receipt.queueNumber ? `<div class="row"><span>Antrean / Queue</span><span>${receipt.queueNumber}</span></div>` : ""}
           <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
           <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
           <div class="row"><span>Metode</span><span>${escapeHtml(methodLabel[trx.paymentMethod])}</span></div>
@@ -672,7 +675,7 @@ export function PosInterface() {
           <div class="line"></div>
           <div class="center">Terima kasih</div>
         </div>
-        <script>window.print();</script>
+        <script>${receipt.settings.printCopies === 2 ? `const copy=document.querySelector('.receipt').cloneNode(true);copy.style.pageBreakBefore='always';const label=document.createElement('div');label.className='center';label.style.fontWeight='900';label.textContent='KITCHEN COPY';copy.prepend(label);document.body.appendChild(copy);` : ""}window.print();</script>
       </body></html>`;
     const win = window.open("", "_blank", "width=360,height=720");
     if (!win) {
@@ -725,7 +728,7 @@ export function PosInterface() {
       if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
       const characteristic = await findBluetoothWriteCharacteristic(server);
       if (!characteristic) throw new Error("Printer tidak menyediakan channel tulis ESC/POS. Coba mode Print biasa atau printer thermal Bluetooth lain.");
-      await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receiptPaperWidth));
+      await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receipt.settings.paperWidth));
       setError("Struk berhasil dikirim ke printer thermal.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal direct print ke printer thermal.");
@@ -1314,13 +1317,6 @@ export function PosInterface() {
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
             {lastReceipt ? (
               <div className="mt-6 grid gap-3">
-                <div className="rounded-2xl bg-[#eff4ff] p-3 text-left">
-                  <Label className="text-xs font-bold uppercase tracking-[0.16em] text-[#3d4a42]">{t("Ukuran Struk")}</Label>
-                  <select value={receiptPaperWidth} onChange={(event) => setReceiptPaperWidth(event.target.value as ReceiptPaperWidth)} className="mt-2 h-10 w-full rounded-xl border border-[#bccac0] bg-white px-3 text-sm font-bold">
-                    <option value="58mm">58mm ({t("thermal kecil")})</option>
-                    <option value="80mm">80mm ({t("thermal besar")})</option>
-                  </select>
-                </div>
                 <div className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-3">
                   <Button onClick={() => directPrintThermalReceipt(lastReceipt)} disabled={directPrinting} className="h-12">
                     {directPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />} {t("Print")}

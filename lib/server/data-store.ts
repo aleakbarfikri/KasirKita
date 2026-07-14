@@ -43,6 +43,7 @@ export type Shop = {
   createdAt: string;
   updatedAt: string;
 };
+export type ReceiptSettings = { shopId: string; paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; updatedAt: string };
 
 export type AdminProfile = {
   userId: string;
@@ -271,6 +272,7 @@ export type AppDb = {
   subscriptionInvoices: SubscriptionInvoice[];
   emailVerifications: EmailVerification[];
   ownerMfaConfigs: OwnerMfaConfig[];
+  receiptSettings: ReceiptSettings[];
 };
 
 function resolveDataDir() {
@@ -446,6 +448,7 @@ export function defaultDb(): AppDb {
     subscriptionInvoices: [],
     emailVerifications: [],
     ownerMfaConfigs: [],
+    receiptSettings: [],
   };
 }
 
@@ -470,6 +473,7 @@ function normalizeDb(db: AppDb): AppDb {
     subscriptionInvoices: db.subscriptionInvoices ?? [],
     emailVerifications: db.emailVerifications ?? [],
     ownerMfaConfigs: db.ownerMfaConfigs ?? [],
+    receiptSettings: db.receiptSettings ?? [],
   };
 }
 
