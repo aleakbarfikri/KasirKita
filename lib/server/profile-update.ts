@@ -6,6 +6,8 @@ export type ProfileUpdateInput = {
   shopName?: string;
   shopAddress?: string;
   shopPhone?: string;
+  onlineStoreSlug?: string;
+  onlineStoreOpen?: boolean;
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
@@ -20,6 +22,8 @@ export function applyProfileUpdate(db: AppDb, userId: string, input: ProfileUpda
   const shopName = input.shopName === undefined ? undefined : String(input.shopName).trim();
   const shopAddress = input.shopAddress === undefined ? undefined : String(input.shopAddress).trim();
   const shopPhone = input.shopPhone === undefined ? undefined : String(input.shopPhone).trim();
+  const onlineStoreSlug = input.onlineStoreSlug === undefined ? undefined : String(input.onlineStoreSlug).trim().toLowerCase();
+  const onlineStoreOpen = input.onlineStoreOpen === undefined ? undefined : Boolean(input.onlineStoreOpen);
   const currentPassword = String(input.currentPassword || "");
   const newPassword = String(input.newPassword || "");
   const confirmPassword = String(input.confirmPassword || "");
@@ -29,6 +33,8 @@ export function applyProfileUpdate(db: AppDb, userId: string, input: ProfileUpda
   if (name !== undefined && name.length < 2) throw Object.assign(new Error("Nama akun minimal 2 karakter."), { status: 422 });
   if (email !== undefined && !/^\S+@\S+\.\S+$/.test(email)) throw Object.assign(new Error("Email tidak valid."), { status: 422 });
   if (shopName !== undefined && shopName.length < 2) throw Object.assign(new Error("Nama UMKM minimal 2 karakter."), { status: 422 });
+  if (onlineStoreSlug !== undefined && !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$/.test(onlineStoreSlug)) throw Object.assign(new Error("Link toko harus 3-50 karakter, hanya huruf kecil, angka, dan tanda hubung."), { status: 422 });
+  if (onlineStoreSlug !== undefined && db.shops.some((row) => row.onlineStoreSlug === onlineStoreSlug && !db.adminProfiles.some((profile) => profile.userId === user.id && profile.shopId === row.id))) throw Object.assign(new Error("Link toko sudah digunakan toko lain."), { status: 409 });
   if (changesEmail && db.users.some((row) => row.id !== user.id && row.email.toLowerCase() === email)) {
     throw Object.assign(new Error("Email sudah digunakan akun lain."), { status: 409 });
   }
@@ -56,6 +62,8 @@ export function applyProfileUpdate(db: AppDb, userId: string, input: ProfileUpda
       if (shopName !== undefined) shop.name = shopName;
       if (shopAddress !== undefined) shop.address = shopAddress || null;
       if (shopPhone !== undefined) shop.phone = shopPhone || null;
+      if (onlineStoreSlug !== undefined) shop.onlineStoreSlug = onlineStoreSlug;
+      if (onlineStoreOpen !== undefined) shop.onlineStoreOpen = onlineStoreOpen;
       shop.updatedAt = now();
     }
   }

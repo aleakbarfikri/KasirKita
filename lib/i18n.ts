@@ -737,6 +737,21 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.": { id: "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.", en: "The KasirKita watermark is automatically removed for Pro and Business plans." },
   "Simpan Pengaturan Struk": { id: "Simpan Pengaturan Struk", en: "Save Receipt Settings" },
   "Pesanan Online": { id: "Pesanan Online", en: "Online Orders" },
+  "Pengaturan Toko Online": { id: "Pengaturan Toko Online", en: "Online Store Settings" },
+  "Status toko online": { id: "Status toko online", en: "Online store status" },
+  "Toko Buka": { id: "Toko Buka", en: "Store Open" },
+  "Toko Tutup": { id: "Toko Tutup", en: "Store Closed" },
+  "Customer dapat melihat produk dan membuat pesanan.": { id: "Customer dapat melihat produk dan membuat pesanan.", en: "Customers can browse products and place orders." },
+  "Customer tidak dapat membuka toko atau checkout.": { id: "Customer tidak dapat membuka toko atau checkout.", en: "Customers cannot open the store or check out." },
+  "Link custom toko": { id: "Link custom toko", en: "Custom store link" },
+  "Gunakan 3-50 karakter: huruf kecil, angka, dan tanda hubung.": { id: "Gunakan 3-50 karakter: huruf kecil, angka, dan tanda hubung.", en: "Use 3-50 characters: lowercase letters, numbers, and hyphens." },
+  "Alamat toko": { id: "Alamat toko", en: "Store address" },
+  "Salin Link Toko": { id: "Salin Link Toko", en: "Copy Store Link" },
+  "Buka Toko Online": { id: "Buka Toko Online", en: "Open Online Store" },
+  "Simpan Pengaturan Toko": { id: "Simpan Pengaturan Toko", en: "Save Store Settings" },
+  "Pengaturan toko online berhasil disimpan.": { id: "Pengaturan toko online berhasil disimpan.", en: "Online store settings saved successfully." },
+  "Gagal menyimpan pengaturan toko online.": { id: "Gagal menyimpan pengaturan toko online.", en: "Failed to save online store settings." },
+  "Link toko berhasil disalin.": { id: "Link toko berhasil disalin.", en: "Store link copied." },
 };
 
 function readLanguage(): AppLanguage {

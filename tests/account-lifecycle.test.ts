@@ -52,6 +52,17 @@ test("admin can update shop identity without changing verified email", () => {
   assert.equal(result.shop?.phone, "081234567890");
 });
 
+test("admin can configure a safe custom online-store link and open state", () => {
+  const db = fixture();
+  const result = applyProfileUpdate(db, "admin", { onlineStoreSlug: "toko-baru", onlineStoreOpen: false });
+  assert.equal(result.shop?.onlineStoreSlug, "toko-baru");
+  assert.equal(result.shop?.onlineStoreOpen, false);
+  assert.throws(() => applyProfileUpdate(db, "admin", { onlineStoreSlug: "Tidak Valid!" }), /Link toko harus/);
+  const t = new Date().toISOString();
+  db.shops.push({ id: "shop_lain", ownerId: "owner", name: "Toko Lain", onlineStoreSlug: "sudah-dipakai", createdAt: t, updatedAt: t });
+  assert.throws(() => applyProfileUpdate(db, "admin", { onlineStoreSlug: "sudah-dipakai" }), /sudah digunakan/);
+});
+
 test("self-service email update requires password and a unique email", () => {
   const db = fixture();
   assert.throws(() => applyProfileUpdate(db, "admin", { email: "owner@example.com", currentPassword: "AdminPassword123" }), /Email sudah digunakan/);

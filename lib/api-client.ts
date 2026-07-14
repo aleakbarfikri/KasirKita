@@ -195,6 +195,8 @@ export type ShopRecord = {
   name: string;
   address?: string | null;
   phone?: string | null;
+  onlineStoreSlug?: string | null;
+  onlineStoreOpen?: boolean;
   qrisStaticImageUrl?: string | null;
 };
 
@@ -424,7 +426,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 export const api = {
   me: () => apiFetch<MeResponse>("/api/me"),
   profile: {
-    update: (body: { name?: string; email?: string; shopName?: string; shopAddress?: string; shopPhone?: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
+    update: (body: { name?: string; email?: string; shopName?: string; shopAddress?: string; shopPhone?: string; onlineStoreSlug?: string; onlineStoreOpen?: boolean; currentPassword?: string; newPassword?: string; confirmPassword?: string }) =>
       apiFetch<ProfileUpdateResponse>("/api/profile", { method: "PATCH", body: JSON.stringify(body) }),
     requestEmailCode: (body: { email: string; currentPassword: string }) =>
       apiFetch<{ sent: boolean }>("/api/profile/email/request-code", { method: "POST", body: JSON.stringify(body) }),

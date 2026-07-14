@@ -39,6 +39,8 @@ export type Shop = {
   name: string;
   address?: string | null;
   phone?: string | null;
+  onlineStoreSlug?: string | null;
+  onlineStoreOpen?: boolean;
   qrisStaticImageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
