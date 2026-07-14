@@ -136,11 +136,14 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
               </label>
               {receipt.logoDataUrl ? <img src={receipt.logoDataUrl} alt={t("Pratinjau logo")} className="h-20 w-20 rounded-xl border object-contain" /> : null}
             </div>
-            <label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Cetak 2 rangkap untuk pelanggan dan dapur")}</span><input type="checkbox" checked={receipt.printCopies === 2} onChange={(e) => setReceipt({ ...receipt, printCopies: e.target.checked ? 2 : 1 })} /></label>
-            <label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Nomor antrean")}</span><input type="checkbox" checked={receipt.showQueueNumber} onChange={(e) => setReceipt({ ...receipt, showQueueNumber: e.target.checked })} /></label>
-            <label className="rounded-xl border p-4">
-              <span className="flex items-center justify-between gap-4 font-bold"><span>{t("Cetak otomatis setelah transaksi")}</span><input type="checkbox" checked={receipt.autoPrint} onChange={(e) => setReceipt({ ...receipt, autoPrint: e.target.checked })} /></span>
-              <span className="mt-2 block text-xs font-normal text-slate-500">{t("Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.")}</span>
+            <label className="flex min-h-20 items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Cetak 2 rangkap untuk pelanggan dan dapur")}</span><input type="checkbox" checked={receipt.printCopies === 2} onChange={(e) => setReceipt({ ...receipt, printCopies: e.target.checked ? 2 : 1 })} /></label>
+            <label className="flex min-h-20 items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Nomor antrean")}</span><input type="checkbox" checked={receipt.showQueueNumber} onChange={(e) => setReceipt({ ...receipt, showQueueNumber: e.target.checked })} /></label>
+            <label className="flex min-h-20 items-center justify-between gap-4 rounded-xl border p-4">
+              <span className="min-w-0">
+                <span className="block font-bold">{t("Cetak otomatis setelah transaksi")}</span>
+                <span className="mt-1 block text-xs font-normal leading-relaxed text-slate-500">{t("Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.")}</span>
+              </span>
+              <input className="shrink-0" type="checkbox" checked={receipt.autoPrint} onChange={(e) => setReceipt({ ...receipt, autoPrint: e.target.checked })} />
             </label>
             <Button type="button" variant="outline" className="w-full" onClick={testBluetooth}><Bluetooth className="mr-2 h-4 w-4" />{t("Hubungkan dan tes printer Bluetooth")}</Button>
             <p className="text-xs text-slate-500">{t("Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.")}</p>
