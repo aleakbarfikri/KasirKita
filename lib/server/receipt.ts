@@ -1,5 +1,16 @@
 import type { AppDb, Transaction } from "@/lib/server/data-store";
 
+export const RECEIPT_TOKEN_PATTERN = /^rcpt_[a-f0-9]{32}$/;
+
+export function isReceiptToken(value: string) {
+  return RECEIPT_TOKEN_PATTERN.test(value);
+}
+
+function invoiceNumber(id: string) {
+  const shortId = id.replace(/^trx_/i, "").slice(0, 8).toUpperCase();
+  return shortId ? `TRX-${shortId}` : "-";
+}
+
 export function receiptPublicUrl(token: string | null | undefined, origin?: string | null) {
   if (!token) return undefined;
   const base = origin || process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
@@ -15,8 +26,6 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
   const items = db.transactionItems
     .filter((item) => item.transactionId === transaction.id)
     .map((item) => ({
-      productId: item.productId ?? undefined,
-      sku: item.sku,
       name: item.name,
       originalPrice: item.originalPrice ?? item.price,
       price: item.price,
@@ -25,7 +34,17 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
     }));
 
   return {
-    transaction,
+    transaction: {
+      invoiceNumber: invoiceNumber(transaction.id),
+      createdAt: transaction.createdAt,
+      paymentMethod: transaction.paymentMethod,
+      subtotal: transaction.subtotal,
+      discountAmount: transaction.discountAmount,
+      total: transaction.total,
+      paidAmount: transaction.paidAmount,
+      changeAmount: transaction.changeAmount,
+      status: transaction.status,
+    },
     items,
     shop: {
       name: shop?.name || "KasirKita",

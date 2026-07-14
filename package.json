@@ -12,7 +12,8 @@
     "db:reset": "tsx scripts/seed-json-db.ts",
     "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
     "db:migrate:normalized": "tsx scripts/migrate-normalized-postgres.ts",
-    "backup:create": "tsx scripts/create-backup.ts"
+    "backup:create": "tsx scripts/create-backup.ts",
+    "security:secrets": "tsx scripts/scan-secrets.ts"
   },
   "dependencies": {
     "@types/node": "^20.14.10",
