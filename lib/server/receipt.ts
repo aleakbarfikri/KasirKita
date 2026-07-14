@@ -24,6 +24,7 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
   const planType = adminProfile?.planType || "basic";
   const showWatermark = planType !== "pro" && planType !== "business";
   const settings = db.receiptSettings.find((row) => row.shopId === transaction.shopId) ?? { paperWidth: "58mm" as const, logoDataUrl: null, printCopies: 1 as const, showQueueNumber: false, autoPrint: false };
+  const onlineOrder = db.onlineOrders.find((row) => row.transactionId === transaction.id);
   const queueNumber = settings.showQueueNumber ? db.transactions.filter((row) => row.shopId === transaction.shopId && row.createdAt.slice(0, 10) === transaction.createdAt.slice(0, 10) && row.createdAt <= transaction.createdAt).length : null;
   const items = db.transactionItems
     .filter((item) => item.transactionId === transaction.id)
@@ -61,5 +62,12 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
     watermarkText: "www.kasir-kita.com",
     settings,
     queueNumber,
+    onlineOrder: onlineOrder ? {
+      id: onlineOrder.id,
+      label: "Pesanan Online",
+      customerName: onlineOrder.customerName,
+      customerPhone: onlineOrder.customerPhone,
+      status: onlineOrder.status,
+    } : null,
   };
 }

@@ -46,6 +46,20 @@ export const checkoutSchema = z.object({
   items: z.array(cartItemSchema).min(1),
 });
 
+export const onlineOrderCheckoutSchema = z.object({
+  customerName: z.string().trim().min(2, "Nama pemesan minimal 2 karakter").max(80),
+  customerEmail: z.string().trim().toLowerCase().email("Email tidak valid").max(254),
+  customerPhone: z.string().trim().regex(/^\+?[0-9][0-9\s-]{7,18}$/, "Nomor WhatsApp tidak valid"),
+  items: z.array(z.object({
+    productId: z.string().trim().min(1),
+    quantity: z.coerce.number().int().min(1).max(100),
+  })).min(1).max(50),
+});
+
+export const onlineOrderStatusSchema = z.object({
+  status: z.enum(["processing", "ready", "completed", "cancelled"]),
+});
+
 export const adminCreateSchema = z.object({
   name: z.string().trim().min(2, "Nama admin minimal 2 karakter"),
   username: z.preprocess(normalizeUsername, z.string().min(3, "Username minimal 3 karakter").regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore")),

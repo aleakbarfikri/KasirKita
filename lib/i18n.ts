@@ -736,6 +736,7 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Hubungkan dan tes printer Bluetooth": { id: "Hubungkan dan tes printer Bluetooth", en: "Connect and test Bluetooth printer" },
   "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.": { id: "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.", en: "The KasirKita watermark is automatically removed for Pro and Business plans." },
   "Simpan Pengaturan Struk": { id: "Simpan Pengaturan Struk", en: "Save Receipt Settings" },
+  "Pesanan Online": { id: "Pesanan Online", en: "Online Orders" },
 };
 
 function readLanguage(): AppLanguage {

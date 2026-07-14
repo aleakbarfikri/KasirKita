@@ -33,6 +33,7 @@ import {
   Package,
   RefreshCw,
   Settings,
+  ShoppingBag,
   Store,
   UserRound,
   Users,
@@ -53,6 +54,7 @@ const ownerNav = [
 const adminNav = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/pos", label: "POS Kasir", icon: Store },
+  { href: "/admin/online-orders", label: "Pesanan Online", icon: ShoppingBag },
   { href: "/admin/inventory", label: "Inventaris", icon: Package },
   { href: "/admin/transactions", label: "Transaction History", icon: History },
   { href: "/admin/shifts", label: "Shift Kasir", icon: Clock },
@@ -280,14 +282,19 @@ export function AppShell({
           items.push({ id: `owner-trx-${transaction.id}`, title: `Transaksi ${transaction.status === "success" ? "sukses" : transaction.status}`, description: `${transaction.shopName || "UMKM"} • ${formatCurrency(transaction.total)} • ${itemSummary(transaction.items)}`, href: "/owner", tone: transaction.status === "success" ? "success" : transaction.status === "pending" ? "warning" : "info" });
         });
       } else {
-        const [me, withdrawalRows, debtRows, transactionRows, productRows, cashierRows] = await Promise.all([
+        const [me, withdrawalRows, debtRows, transactionRows, productRows, cashierRows, onlineOrderRows] = await Promise.all([
           api.me(),
           user.role === "cashier" ? Promise.resolve([]) : api.withdrawals.list(),
           user.role === "cashier" ? Promise.resolve([]) : api.debts.list(),
           api.transactions.list().catch(() => []),
           api.products.list().catch(() => []),
           user.role === "cashier" ? Promise.resolve([]) : api.cashiers.list().catch(() => []),
+          user.role === "cashier" ? Promise.resolve([]) : api.onlineOrders.list().catch(() => []),
         ]);
+
+        onlineOrderRows.filter((order) => order.status === "paid" || order.status === "processing" || order.status === "ready").slice(0, 4).forEach((order) => {
+          items.push({ id: `admin-online-order-${order.id}-${order.status}`, title: order.status === "paid" ? "Pesanan online baru terbayar" : `Pesanan online ${order.status === "ready" ? "siap diambil" : "diproses"}`, description: `${order.customerName} • ${formatCurrency(order.transaction.total)} • ${itemSummary(order.items)}`, href: "/admin/online-orders", tone: order.status === "paid" ? "success" : "info" });
+        });
 
         const activeDebts = debtRows.filter((debt) => debt.status !== "paid");
         if (activeDebts.length > 0) items.push({ id: "admin-active-debts", title: `${activeDebts.length} catatan hutang aktif`, description: "Masih ada pelanggan yang belum melunasi pembayaran.", href: "/admin/debts", tone: "warning" });
@@ -349,7 +356,10 @@ export function AppShell({
   }, [role, user]);
 
   useEffect(() => {
-    if (user) loadNotifications();
+    if (!user) return;
+    void loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30_000);
+    return () => window.clearInterval(timer);
   }, [user, loadNotifications]);
 
   const initials = useMemo(() => {

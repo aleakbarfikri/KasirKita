@@ -40,6 +40,8 @@ export function deleteAccountData(db: AppDb, userId: string): AccountDeletionRes
   db.auditLogs = db.auditLogs.filter((row) => row.shopId !== shopId && !userIds.has(row.actorId));
   db.cashShifts = db.cashShifts.filter((row) => row.shopId !== shopId && !userIds.has(row.cashierId));
   db.subscriptionInvoices = db.subscriptionInvoices.filter((row) => row.adminId !== userId);
+  db.receiptSettings = db.receiptSettings.filter((row) => row.shopId !== shopId);
+  db.onlineOrders = db.onlineOrders.filter((row) => row.shopId !== shopId && row.adminId !== userId);
   db.emailVerifications = db.emailVerifications.filter((row) => !emails.has(row.email.toLowerCase()));
 
   return { role: user.role, deletedUsers: userIds.size, deletedShop: Boolean(shopId) };
