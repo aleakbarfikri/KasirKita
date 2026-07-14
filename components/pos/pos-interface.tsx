@@ -735,6 +735,15 @@ export function PosInterface() {
       await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receipt.settings.paperWidth));
       setError("Struk berhasil dikirim ke printer thermal.");
     } catch (err) {
+      const errorName = err instanceof DOMException ? err.name : "";
+      const errorMessage = err instanceof Error ? err.message : "";
+      const chooserCancelled = !automatic && (
+        errorName === "NotFoundError"
+        || errorName === "AbortError"
+        || /cancel(?:led|ed)|requestDevice\(\) chooser/i.test(errorMessage)
+      );
+      if (chooserCancelled) return;
+      if (automatic && /Auto print belum dapat mengakses printer/i.test(errorMessage)) return;
       setError(err instanceof Error ? err.message : "Gagal direct print ke printer thermal.");
     } finally {
       setDirectPrinting(false);
