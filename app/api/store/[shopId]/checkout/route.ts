@@ -8,23 +8,25 @@ import { onlineOrderCheckoutSchema } from "@/lib/server/validators";
 import { addAuditLog, isAdminProfileActive, now, withDbTransaction, type OnlineOrder, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { onlineOrderProductPrice } from "@/lib/server/online-orders";
+import { findOnlineStore } from "@/lib/server/online-store";
 
 type Params = { params: Promise<{ shopId: string }> };
 
 export async function POST(request: Request, props: Params) {
-  const { shopId } = await props.params;
+  const { shopId: storeIdentifier } = await props.params;
   try {
     const body = onlineOrderCheckoutSchema.parse(await readJson(request));
-    const limited = await enforceRateLimit(request, "online-order-checkout", { limit: 8, windowMs: 15 * 60_000 }, `${shopId}:${body.customerEmail}`);
+    const limited = await enforceRateLimit(request, "online-order-checkout", { limit: 8, windowMs: 15 * 60_000 }, `${storeIdentifier}:${body.customerEmail}`);
     if (!limited.allowed) return fail("Terlalu banyak percobaan checkout. Coba lagi beberapa menit.", 429);
     const transactionId = createId("trx");
     const orderId = createId("ord");
     const publicToken = createId("ordpub");
     const receiptToken = createId("rcpt");
     const created = await withDbTransaction((db) => {
-      const shop = db.shops.find((row) => row.id === shopId);
-      const profile = db.adminProfiles.find((row) => row.shopId === shopId);
-      if (!shop || !profile || !isAdminProfileActive(profile)) throw Object.assign(new Error("Toko online tidak tersedia."), { status: 404 });
+      const shop = findOnlineStore(db, storeIdentifier);
+      const profile = shop ? db.adminProfiles.find((row) => row.shopId === shop.id) : null;
+      if (!shop || shop.onlineStoreOpen === false || !profile || !isAdminProfileActive(profile)) throw Object.assign(new Error("Toko online sedang tutup atau tidak tersedia."), { status: 404 });
+      const shopId = shop.id;
       assertFeatureAllowed(profile, "qrisPakasir");
       assertMonthlyTransactionLimit(db, profile);
       const config = db.paymentConfigs.find((row) => row.ownerId === profile.ownerId);

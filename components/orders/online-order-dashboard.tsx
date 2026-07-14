@@ -61,7 +61,7 @@ export function OnlineOrderDashboard() {
         await Promise.allSettled(pending.map((order) => apiFetch(`/api/store/orders/${order.publicToken}`)));
         rows = await api.onlineOrders.list();
       }
-      setOrders(rows); setShopId(me.shop?.id ?? null); setError(null);
+      setOrders(rows); setShopId(me.shop?.onlineStoreSlug || me.shop?.id || null); setError(null);
       for (const order of rows) {
         if (!order.printedAt && order.status === "paid" && order.receipt?.settings.autoPrint && !attempted.current.has(order.id)) {
           attempted.current.add(order.id);

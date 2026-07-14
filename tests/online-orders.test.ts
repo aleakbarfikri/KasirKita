@@ -3,6 +3,7 @@ import test from "node:test";
 import { defaultDb } from "../lib/server/data-store";
 import { canTransitionOnlineOrder, onlineOrderProductPrice } from "../lib/server/online-orders";
 import { buildReceipt } from "../lib/server/receipt";
+import { findOnlineStore } from "../lib/server/online-store";
 
 test("online order prices are derived from trusted product data", () => {
   assert.equal(onlineOrderProductPrice({ price: 20_000, discountType: "percent", discountValue: 10 }), 18_000);
@@ -16,6 +17,15 @@ test("online order status follows paid, processing, ready, completed sequence", 
   assert.equal(canTransitionOnlineOrder("ready", "completed"), true);
   assert.equal(canTransitionOnlineOrder("paid", "completed"), false);
   assert.equal(canTransitionOnlineOrder("pending_payment", "processing"), false);
+});
+
+test("online store resolves a unique custom link while preserving the legacy shop id", () => {
+  const db = defaultDb();
+  const createdAt = new Date().toISOString();
+  db.shops.push({ id: "shop_legacy", ownerId: "owner_1", name: "Kopi Kita", onlineStoreSlug: "kopi-kita", onlineStoreOpen: true, createdAt, updatedAt: createdAt });
+  assert.equal(findOnlineStore(db, "kopi-kita")?.id, "shop_legacy");
+  assert.equal(findOnlineStore(db, "shop_legacy")?.id, "shop_legacy");
+  assert.equal(findOnlineStore(db, "toko-lain"), undefined);
 });
 
 test("online order receipt includes pickup identity but not customer email", () => {

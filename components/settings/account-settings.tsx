@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { Bluetooth, KeyRound, Loader2, MailCheck, Printer, Save, ShieldCheck, UserRound } from "lucide-react";
+import { Bluetooth, Copy, ExternalLink, KeyRound, Loader2, MailCheck, Printer, Save, ShieldCheck, Store, UserRound } from "lucide-react";
 import { api, type MeResponse } from "@/lib/api-client";
 import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAppLanguage } from "@/lib/i18n";
 
-type Tab = "profile" | "email" | "password" | "security" | "receipt";
+type Tab = "profile" | "email" | "password" | "security" | "receipt" | "online-store";
+
+function storeSlug(value: string) {
+  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
+}
 
 export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   const { t } = useAppLanguage();
@@ -21,6 +25,8 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
   const [shopPhone, setShopPhone] = useState("");
+  const [onlineStoreSlug, setOnlineStoreSlug] = useState("");
+  const [onlineStoreOpen, setOnlineStoreOpen] = useState(true);
   const [newEmail, setNewEmail] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
   const [emailCode, setEmailCode] = useState("");
@@ -40,6 +46,8 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
       setShopName(result.shop?.name || result.user.shopName || "");
       setShopAddress(result.shop?.address || "");
       setShopPhone(result.shop?.phone || "");
+      setOnlineStoreSlug(result.shop?.onlineStoreSlug || storeSlug(result.shop?.name || result.user.shopName || "toko-online"));
+      setOnlineStoreOpen(result.shop?.onlineStoreOpen !== false);
       setNewEmail(result.user.email || "");
     }).catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat pengaturan."));
   }, []);
@@ -94,6 +102,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
     finally { setBusy(false); }
   }
   async function saveReceipt() { resetMessage(); setBusy(true); try { await api.receiptSettings.update(receipt); setSuccess("Pengaturan struk berhasil disimpan."); } catch(e){ setError(e instanceof Error?e.message:"Gagal menyimpan struk."); } finally { setBusy(false); } }
+  async function saveOnlineStore() { resetMessage(); setBusy(true); try { const result = await api.profile.update({ onlineStoreSlug, onlineStoreOpen }); setMe((current) => current ? { ...current, shop: result.shop ?? current.shop } : current); setSuccess(t("Pengaturan toko online berhasil disimpan.")); } catch(e){ setError(e instanceof Error?e.message:t("Gagal menyimpan pengaturan toko online.")); } finally { setBusy(false); } }
   async function testBluetooth() { try { const bt=(navigator as Navigator & {bluetooth?:{requestDevice:(o:unknown)=>Promise<{name?:string}>}}).bluetooth; if(!bt) throw new Error("Bluetooth printer membutuhkan Chrome/Edge desktop atau Android."); const device=await bt.requestDevice({acceptAllDevices:true,optionalServices:["generic_access"]}); setSuccess(`Printer ${device.name || "Bluetooth"} dipilih. Browser akan meminta koneksi lagi saat print.`); } catch(e){ setError(e instanceof Error?e.message:"Printer tidak terhubung."); } }
 
   const tabs = [
@@ -102,6 +111,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
     { id: "password" as const, label: "Ubah Password", icon: KeyRound },
     { id: "security" as const, label: "Keamanan MFA", icon: ShieldCheck },
     ...(role === "admin" ? [{ id: "receipt" as const, label: "Pengaturan Struk", icon: Printer }] : []),
+    ...(role === "admin" ? [{ id: "online-store" as const, label: "Pengaturan Toko Online", icon: Store }] : []),
   ];
 
   return <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
@@ -148,6 +158,28 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
             <Button type="button" variant="outline" className="w-full" onClick={testBluetooth}><Bluetooth className="mr-2 h-4 w-4" />{t("Hubungkan dan tes printer Bluetooth")}</Button>
             <p className="text-xs text-slate-500">{t("Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.")}</p>
             <Button className="w-full" onClick={saveReceipt} disabled={busy}><Save className="mr-2 h-4 w-4" />{t("Simpan Pengaturan Struk")}</Button>
+          </CardContent>
+        </Card>
+      ) : null}
+      {me && tab === "online-store" ? (
+        <Card className="bg-white">
+          <CardHeader><CardTitle>{t("Pengaturan Toko Online")}</CardTitle></CardHeader>
+          <CardContent className="space-y-5">
+            <label className="flex min-h-20 items-center justify-between gap-4 rounded-xl border p-4">
+              <span><span className="block font-bold">{t("Status toko online")}</span><span className="mt-1 block text-xs text-slate-500">{onlineStoreOpen ? t("Customer dapat melihat produk dan membuat pesanan.") : t("Customer tidak dapat membuka toko atau checkout.")}</span></span>
+              <button type="button" role="switch" aria-checked={onlineStoreOpen} onClick={() => setOnlineStoreOpen((value) => !value)} className={`rounded-full px-5 py-2 text-sm font-black ${onlineStoreOpen ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{onlineStoreOpen ? t("Toko Buka") : t("Toko Tutup")}</button>
+            </label>
+            <div className="space-y-2">
+              <Label>{t("Link custom toko")}</Label>
+              <div className="flex overflow-hidden rounded-xl border bg-white focus-within:ring-2 focus-within:ring-primary/20"><span className="flex items-center border-r bg-slate-50 px-3 text-sm text-slate-500">/store/</span><input className="h-11 min-w-0 flex-1 px-3 outline-none" value={onlineStoreSlug} onChange={(event) => setOnlineStoreSlug(storeSlug(event.target.value))} minLength={3} maxLength={50} placeholder="nama-toko" /></div>
+              <p className="text-xs text-slate-500">{t("Gunakan 3-50 karakter: huruf kecil, angka, dan tanda hubung.")}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("Alamat toko")}</p><p className="mt-1 break-all font-bold">{typeof window !== "undefined" ? `${window.location.origin}/store/${onlineStoreSlug}` : `/store/${onlineStoreSlug}`}</p></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button type="button" variant="outline" disabled={onlineStoreSlug.length < 3} onClick={async () => { await navigator.clipboard.writeText(`${window.location.origin}/store/${onlineStoreSlug}`); setSuccess(t("Link toko berhasil disalin.")); }}><Copy className="mr-2 h-4 w-4" />{t("Salin Link Toko")}</Button>
+              <Button type="button" variant="outline" disabled={onlineStoreSlug.length < 3} onClick={() => window.open(`/store/${onlineStoreSlug}`, "_blank", "noopener,noreferrer")}><ExternalLink className="mr-2 h-4 w-4" />{t("Buka Toko Online")}</Button>
+            </div>
+            <Button className="w-full" onClick={saveOnlineStore} disabled={busy || onlineStoreSlug.length < 3}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{t("Simpan Pengaturan Toko")}</Button>
           </CardContent>
         </Card>
       ) : null}
