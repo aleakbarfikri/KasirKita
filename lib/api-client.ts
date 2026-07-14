@@ -337,6 +337,28 @@ export type ReceiptRecord = {
   watermarkText?: string;
   settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean };
   queueNumber?: number | null;
+  onlineOrder?: { id: string; label: string; customerName: string; customerPhone: string; status: OnlineOrderStatus } | null;
+};
+
+export type OnlineOrderStatus = "pending_payment" | "paid" | "processing" | "ready" | "completed" | "cancelled" | "payment_failed";
+export type OnlineOrderRecord = {
+  id: string;
+  publicToken: string;
+  shopId: string;
+  adminId: string;
+  transactionId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  status: OnlineOrderStatus;
+  paidAt?: string | null;
+  invoiceEmailSentAt?: string | null;
+  printedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  transaction: { id: string; total: number; status: TransactionStatus; createdAt: string };
+  items: Array<{ id: string; name: string; quantity: number; price: number; subtotal: number }>;
+  receipt?: ReceiptRecord | null;
 };
 
 type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error?: { message?: string; details?: unknown } };
@@ -445,6 +467,11 @@ export const api = {
   },
   receipts: {
     get: (token: string) => apiFetch<ReceiptRecord>(`/api/receipts/${token}`),
+  },
+  onlineOrders: {
+    list: () => apiFetch<OnlineOrderRecord[]>("/api/online-orders"),
+    updateStatus: (id: string, status: "processing" | "ready" | "completed" | "cancelled") => apiFetch<OnlineOrderRecord>(`/api/online-orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    markPrinted: (id: string) => apiFetch<OnlineOrderRecord>(`/api/online-orders/${id}/printed`, { method: "POST" }),
   },
 
   auditLogs: {

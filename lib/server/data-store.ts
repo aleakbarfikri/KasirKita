@@ -45,6 +45,29 @@ export type Shop = {
 };
 export type ReceiptSettings = { shopId: string; paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean; updatedAt: string };
 
+export type OnlineOrderStatus = "pending_payment" | "paid" | "processing" | "ready" | "completed" | "cancelled" | "payment_failed";
+export type OnlineOrder = {
+  id: string;
+  publicToken: string;
+  shopId: string;
+  adminId: string;
+  transactionId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  status: OnlineOrderStatus;
+  paymentUrl?: string | null;
+  qrImageDataUrl?: string | null;
+  totalPayment?: number | null;
+  fee?: number | null;
+  expiredAt?: string | null;
+  paidAt?: string | null;
+  invoiceEmailSentAt?: string | null;
+  printedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminProfile = {
   userId: string;
   ownerId: string;
@@ -273,6 +296,7 @@ export type AppDb = {
   emailVerifications: EmailVerification[];
   ownerMfaConfigs: OwnerMfaConfig[];
   receiptSettings: ReceiptSettings[];
+  onlineOrders: OnlineOrder[];
 };
 
 function resolveDataDir() {
@@ -449,6 +473,7 @@ export function defaultDb(): AppDb {
     emailVerifications: [],
     ownerMfaConfigs: [],
     receiptSettings: [],
+    onlineOrders: [],
   };
 }
 
@@ -474,6 +499,7 @@ function normalizeDb(db: AppDb): AppDb {
     emailVerifications: db.emailVerifications ?? [],
     ownerMfaConfigs: db.ownerMfaConfigs ?? [],
     receiptSettings: db.receiptSettings ?? [],
+    onlineOrders: db.onlineOrders ?? [],
   };
 }
 

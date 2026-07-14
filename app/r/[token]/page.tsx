@@ -30,6 +30,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
         </div>
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
+        {receipt.onlineOrder ? <div className="mb-5 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-black uppercase tracking-wider">Pesanan Online</p><p className="mt-1"><b>Pemesan:</b> {receipt.onlineOrder.customerName}</p><p><b>WhatsApp:</b> {receipt.onlineOrder.customerPhone}</p><p className="mt-1 text-xs">Ambil di toko</p></div> : null}
         <div className="space-y-1 text-sm">
           <div className="flex justify-between"><span>No Invoice</span><span className="font-bold">{receipt.transaction.invoiceNumber}</span></div>
           {receipt.queueNumber ? <div className="flex justify-between"><span>No. Antrean / Queue</span><span className="font-black">{receipt.queueNumber}</span></div> : null}
