@@ -32,6 +32,7 @@ import {
   NotebookTabs,
   Package,
   RefreshCw,
+  Settings,
   Store,
   UserRound,
   Users,
@@ -46,6 +47,7 @@ const ownerNav = [
   { href: "/owner/withdrawals", label: "Withdraw", icon: Wallet },
   { href: "/owner/debts", label: "Piutang Cabang", icon: NotebookTabs },
   { href: "/owner/activity", label: "Log Aktivitas", icon: Activity },
+  { href: "/owner/settings", label: "Pengaturan", icon: Settings },
 ];
 
 const adminNav = [
@@ -58,6 +60,7 @@ const adminNav = [
   { href: "/admin/debts", label: "Catatan Hutang", icon: NotebookTabs },
   { href: "/admin/withdraw", label: "Withdraw", icon: Wallet },
   { href: "/admin/activity", label: "Log Aktivitas", icon: Activity },
+  { href: "/admin/settings", label: "Pengaturan", icon: Settings },
 ];
 
 const cashierAllowedPaths = ["/admin/pos", "/admin/transactions", "/admin/shifts"];
@@ -746,13 +749,14 @@ export function AppShell({
                 </div>
 
                 <div className="space-y-2 p-3">
-                  <button
-                    onClick={openProfileModal}
+                  <Link
+                    href={role === "owner" ? "/owner/settings" : "/admin/settings"}
+                    onClick={() => setProfileOpen(false)}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold text-[#0f172a] transition hover:bg-[#f1f5f9]"
                   >
-                    <UserRound className="h-4 w-4 text-primary" />
-                    {t("Profil & Password")}
-                  </button>
+                    <Settings className="h-4 w-4 text-primary" />
+                    Pengaturan Akun
+                  </Link>
                   {role === "admin" ? (
                     <Link
                       href="/admin?subscription=1"
