@@ -727,7 +727,7 @@ export function PosInterface() {
         acceptAllDevices: true,
         optionalServices: thermalBluetoothServices,
       }));
-      if (!device) throw new Error("Auto print belum dapat mengakses printer. Pilih Print manual sekali untuk memberi izin Bluetooth.");
+      if (!device) throw new Error("Auto print belum dapat mengakses printer. Pilih Print sekali untuk memberi izin Bluetooth.");
       const server = await device.gatt?.connect();
       if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
       const characteristic = await findBluetoothWriteCharacteristic(server);
@@ -1321,12 +1321,12 @@ export function PosInterface() {
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
             {lastReceipt ? (
               <div className="mt-6 flex items-stretch gap-3">
-                <Button className="min-w-0 flex-1" onClick={startNewTransaction}>Transaksi Baru</Button>
+                <Button className="h-12 min-w-0 flex-1" onClick={startNewTransaction}>Transaksi Baru</Button>
                 <div className="flex shrink-0">
                   <button
                     type="button"
                     onClick={() => setReceiptMenuOpen((open) => !open)}
-                    className="flex h-full min-h-12 w-12 items-center justify-center rounded-xl border border-primary bg-white text-primary transition hover:bg-primary/5"
+                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary bg-white text-primary transition hover:bg-primary/5"
                     aria-label="Menu struk"
                   >
                     <MoreVertical className="h-5 w-5" />
@@ -1346,7 +1346,7 @@ export function PosInterface() {
                           </button>
                         </div>
                         <div className="max-h-[60vh] overflow-y-auto">
-                          <button type="button" onClick={() => { void directPrintThermalReceipt(lastReceipt); setReceiptMenuOpen(false); }} disabled={directPrinting} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold hover:bg-[#f8fafc]"><Printer className="h-4 w-4 text-primary" />{directPrinting ? t("Mencetak...") : t("Print manual")}</button>
+                          <button type="button" onClick={() => { void directPrintThermalReceipt(lastReceipt); setReceiptMenuOpen(false); }} disabled={directPrinting} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold hover:bg-[#f8fafc]"><Printer className="h-4 w-4 text-primary" />{directPrinting ? t("Mencetak...") : "Print"}</button>
                           <button
                             type="button"
                             onClick={() => {
