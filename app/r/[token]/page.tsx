@@ -23,6 +23,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
       <section className="mx-auto max-w-md rounded-3xl border border-[#bccac0] bg-white p-6 shadow-xl">
         <div className="text-center">
           {receipt.showWatermark ? <p className="mb-2 text-xs font-black tracking-[0.16em] text-primary">{receipt.watermarkText || "www.kasir-kita.com"}</p> : null}
+          {receipt.settings.logoDataUrl ? <img src={receipt.settings.logoDataUrl} alt="Logo usaha" className="mx-auto mb-2 h-20 w-20 object-contain" /> : null}
           <h1 className="text-2xl font-black text-primary">{receipt.shop.name}</h1>
           {receipt.shop.address ? <p className="mt-1 text-sm text-[#3d4a42]">{receipt.shop.address}</p> : null}
           {receipt.shop.phone ? <p className="text-sm text-[#3d4a42]">{receipt.shop.phone}</p> : null}
@@ -31,6 +32,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
         <div className="space-y-1 text-sm">
           <div className="flex justify-between"><span>No Invoice</span><span className="font-bold">{receipt.transaction.invoiceNumber}</span></div>
+          {receipt.queueNumber ? <div className="flex justify-between"><span>No. Antrean / Queue</span><span className="font-black">{receipt.queueNumber}</span></div> : null}
           <div className="flex justify-between"><span>Tanggal</span><span>{new Date(receipt.transaction.createdAt).toLocaleString("id-ID")}</span></div>
           <div className="flex justify-between"><span>Kasir</span><span>{receipt.cashier.name}</span></div>
           <div className="flex justify-between"><span>Metode</span><span>{receipt.transaction.paymentMethod}</span></div>

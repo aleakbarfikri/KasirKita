@@ -335,6 +335,8 @@ export type ReceiptRecord = {
   publicUrl?: string;
   showWatermark?: boolean;
   watermarkText?: string;
+  settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean };
+  queueNumber?: number | null;
 };
 
 type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error?: { message?: string; details?: unknown } };
@@ -406,6 +408,10 @@ export const api = {
       apiFetch<{ sent: boolean }>("/api/profile/email/request-code", { method: "POST", body: JSON.stringify(body) }),
     confirmEmail: (body: { email: string; code: string; currentPassword: string }) =>
       apiFetch<{ user: SessionUser }>("/api/profile/email/confirm", { method: "POST", body: JSON.stringify(body) }),
+  },
+  receiptSettings: {
+    get: () => apiFetch<{ paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean }>("/api/settings/receipt"),
+    update: (body: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean }) => apiFetch("/api/settings/receipt", { method: "PUT", body: JSON.stringify(body) }),
   },
 
   products: {
