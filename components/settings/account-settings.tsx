@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAppLanguage } from "@/lib/i18n";
 
 type Tab = "profile" | "email" | "password" | "security" | "receipt";
 
 export function AccountSettings({ role }: { role: "owner" | "admin" }) {
+  const { t } = useAppLanguage();
   const [tab, setTab] = useState<Tab>("profile");
   const [me, setMe] = useState<MeResponse | null>(null);
   const [name, setName] = useState("");
@@ -103,7 +105,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   ];
 
   return <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-    <Card className="h-fit bg-white"><CardContent className="space-y-2 p-3">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => { setTab(id); resetMessage(); }} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-extrabold transition ${tab === id ? "bg-primary text-white shadow" : "text-slate-700 hover:bg-slate-50"}`}><Icon className="h-5 w-5" />{label}</button>)}</CardContent></Card>
+    <Card className="h-fit bg-white"><CardContent className="space-y-2 p-3">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => { setTab(id); resetMessage(); }} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-extrabold transition ${tab === id ? "bg-primary text-white shadow" : "text-slate-700 hover:bg-slate-50"}`}><Icon className="h-5 w-5" />{t(label)}</button>)}</CardContent></Card>
     <div className="min-w-0 space-y-4">
       {error ? <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p> : null}
       {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{success}</p> : null}
@@ -116,8 +118,36 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
       {me && tab === "password" ? <Card className="bg-white"><CardHeader><CardTitle>Ubah Password</CardTitle></CardHeader><CardContent><form onSubmit={changePassword} className="space-y-5"><div className="space-y-2"><Label>Password saat ini</Label><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Password baru</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={12} maxLength={128} autoComplete="new-password" /></div><div className="space-y-2"><Label>Konfirmasi password</Label><Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} maxLength={128} autoComplete="new-password" /></div></div><p className="text-xs font-semibold text-slate-500">Gunakan minimal 12 karakter. Sesi login lain akan dicabut setelah password diganti.</p><Button className="w-full" disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Ubah Password</Button></form></CardContent></Card> : null}
 
       {me && tab === "security" ? <div className="space-y-4"><OwnerMfaCard roleLabel={role === "owner" ? "Owner" : "Admin"} />{role === "admin" ? <Link href="/account/delete" className="inline-flex rounded-xl border border-red-200 px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50">Penghapusan akun dan data</Link> : null}</div> : null}
-      {me && tab === "receipt" ? <Card className="bg-white"><CardHeader><CardTitle>Pengaturan Struk / Receipt Settings</CardTitle></CardHeader><CardContent className="space-y-5"><div className="space-y-2"><Label>Ukuran thermal / Paper width</Label><select className="h-11 w-full rounded-xl border px-3" value={receipt.paperWidth} onChange={(e)=>setReceipt({...receipt,paperWidth:e.target.value as "58mm"|"80mm"})}><option value="58mm">58mm</option><option value="80mm">80mm</option></select></div><div className="space-y-2"><Label>Logo usaha / Business logo</Label><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e)=>{const f=e.target.files?.[0];if(!f)return;const reader=new FileReader();reader.onload=()=>setReceipt({...receipt,logoDataUrl:String(reader.result)});reader.readAsDataURL(f);}} />{receipt.logoDataUrl?<img src={receipt.logoDataUrl} alt="Logo preview" className="h-20 w-20 rounded-xl border object-contain"/>:null}</div><label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>Print 2 rangkap / Customer + Kitchen</span><input type="checkbox" checked={receipt.printCopies===2} onChange={(e)=>setReceipt({...receipt,printCopies:e.target.checked?2:1})}/></label><label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>Nomor antrean / Queue number</span><input type="checkbox" checked={receipt.showQueueNumber} onChange={(e)=>setReceipt({...receipt,showQueueNumber:e.target.checked})}/></label><Button type="button" variant="outline" className="w-full" onClick={testBluetooth}><Bluetooth className="mr-2 h-4 w-4"/>Hubungkan/Test Printer Bluetooth</Button><p className="text-xs text-slate-500">Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.</p><Button className="w-full" onClick={saveReceipt} disabled={busy}><Save className="mr-2 h-4 w-4"/>Simpan Pengaturan Struk</Button></CardContent></Card>:null}
-      {me && tab === "receipt" ? <Card className="bg-white"><CardContent className="p-5"><label className="flex items-center justify-between gap-4 font-bold"><span>Auto print setelah transaksi / Auto print after checkout</span><input type="checkbox" checked={receipt.autoPrint} onChange={(e)=>setReceipt({...receipt,autoPrint:e.target.checked})}/></label><p className="mt-2 text-xs text-slate-500">Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.</p></CardContent></Card> : null}
+      {me && tab === "receipt" ? (
+        <Card className="bg-white">
+          <CardHeader><CardTitle>{t("Pengaturan Struk")}</CardTitle></CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label>{t("Ukuran kertas thermal")}</Label>
+              <select className="h-11 w-full rounded-xl border px-3" value={receipt.paperWidth} onChange={(e) => setReceipt({ ...receipt, paperWidth: e.target.value as "58mm" | "80mm" })}>
+                <option value="58mm">58mm</option><option value="80mm">80mm</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Logo usaha")}</Label>
+              <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border px-4 text-sm font-bold text-primary hover:bg-primary/5">
+                {t("Pilih file logo")}
+                <input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const reader = new FileReader(); reader.onload = () => setReceipt({ ...receipt, logoDataUrl: String(reader.result) }); reader.readAsDataURL(f); }} />
+              </label>
+              {receipt.logoDataUrl ? <img src={receipt.logoDataUrl} alt={t("Pratinjau logo")} className="h-20 w-20 rounded-xl border object-contain" /> : null}
+            </div>
+            <label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Cetak 2 rangkap untuk pelanggan dan dapur")}</span><input type="checkbox" checked={receipt.printCopies === 2} onChange={(e) => setReceipt({ ...receipt, printCopies: e.target.checked ? 2 : 1 })} /></label>
+            <label className="flex items-center justify-between rounded-xl border p-4 font-bold"><span>{t("Nomor antrean")}</span><input type="checkbox" checked={receipt.showQueueNumber} onChange={(e) => setReceipt({ ...receipt, showQueueNumber: e.target.checked })} /></label>
+            <label className="rounded-xl border p-4">
+              <span className="flex items-center justify-between gap-4 font-bold"><span>{t("Cetak otomatis setelah transaksi")}</span><input type="checkbox" checked={receipt.autoPrint} onChange={(e) => setReceipt({ ...receipt, autoPrint: e.target.checked })} /></span>
+              <span className="mt-2 block text-xs font-normal text-slate-500">{t("Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.")}</span>
+            </label>
+            <Button type="button" variant="outline" className="w-full" onClick={testBluetooth}><Bluetooth className="mr-2 h-4 w-4" />{t("Hubungkan dan tes printer Bluetooth")}</Button>
+            <p className="text-xs text-slate-500">{t("Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.")}</p>
+            <Button className="w-full" onClick={saveReceipt} disabled={busy}><Save className="mr-2 h-4 w-4" />{t("Simpan Pengaturan Struk")}</Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   </div>;
 }
