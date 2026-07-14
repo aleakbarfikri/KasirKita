@@ -507,7 +507,7 @@ export function AdminDashboardClient() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-black text-[#0b1c30]">{t("Histori Invoice Subscription")}</p>
-                  <p className="text-xs font-semibold text-[#3d4a42]">{t("Cek status pembayaran paket terbaru.")}</p>
+                  <p className="text-xs font-semibold text-[#3d4a42]">Invoice menunggu berlaku 1 jam dan riwayat yang tidak dibayar terhapus otomatis setelah 24 jam. Invoice lunas tetap disimpan.</p>
                 </div>
                 <Badge variant="secondary">{subscriptionInvoices.length}</Badge>
               </div>
@@ -517,8 +517,9 @@ export function AdminDashboardClient() {
                     <div>
                       <p className="font-extrabold capitalize text-[#0b1c30]">{row.planType} • {row.billingPeriod === "yearly" ? t("Tahunan") : t("Bulanan")}</p>
                       <p className="text-xs font-semibold text-[#3d4a42]">{new Date(row.createdAt).toLocaleString("id-ID")} • {formatCurrency(row.totalPayment || row.amount)}</p>
+                      {row.status === "pending" && row.expiredAt ? <p className="mt-1 text-[11px] font-bold text-amber-700">Bayar sebelum {new Date(row.expiredAt).toLocaleString("id-ID")}</p> : null}
                     </div>
-                    <Badge variant={row.status === "paid" ? "success" : row.status === "pending" ? "warning" : "secondary"}>{t(row.status === "paid" ? "Lunas" : row.status === "pending" ? "Menunggu" : row.status)}</Badge>
+                    <Badge variant={row.status === "paid" ? "success" : row.status === "pending" ? "warning" : "secondary"}>{row.status === "paid" ? "Lunas" : row.status === "pending" ? "Menunggu" : row.status === "expired" ? "Kedaluwarsa" : row.status}</Badge>
                   </div>
                 ))}
                 {subscriptionInvoices.length === 0 ? <p className="rounded-xl bg-white p-3 text-sm font-semibold text-[#3d4a42]">{t("Belum ada invoice subscription.")}</p> : null}

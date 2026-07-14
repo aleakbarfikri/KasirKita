@@ -62,11 +62,12 @@ export function GlobalSubscriptionModal() {
         {invoice.status === "paid" ? <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" /> : <QrCode className="mx-auto h-10 w-10 text-primary" />}
         <p className="mt-3 text-xl font-black capitalize">Paket {invoice.planType}</p>
         <p className="mt-1 font-bold text-primary">{formatCurrency(invoice.totalPayment || invoice.amount)}</p>
-        <p className="mt-1 text-xs font-semibold text-slate-500">Status: {invoice.status === "paid" ? "Lunas" : "Menunggu pembayaran"}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">Status: {invoice.status === "paid" ? "Lunas" : invoice.status === "expired" ? "Kedaluwarsa" : "Menunggu pembayaran"}</p>
+        {invoice.status === "pending" && invoice.expiredAt ? <p className="mt-2 text-xs font-bold text-amber-700">Selesaikan sebelum {new Date(invoice.expiredAt).toLocaleString("id-ID")}. Maksimal pembayaran 1 jam.</p> : null}
         {invoice.qrImageDataUrl && invoice.status !== "paid" ? <img src={invoice.qrImageDataUrl} alt="QRIS pembayaran subscription" className="mx-auto mt-4 h-56 w-56 rounded-2xl border object-contain" /> : null}
         <div className="mt-4 grid gap-2">
           {invoice.paymentUrl && invoice.status !== "paid" ? <a href={invoice.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl border border-primary px-4 py-3 text-sm font-bold text-primary"><ExternalLink className="mr-2 h-4 w-4" />Buka Pembayaran Pakasir</a> : null}
-          {invoice.status !== "paid" ? <Button onClick={checkPayment} disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Cek Pembayaran</Button> : null}
+          {invoice.status === "pending" ? <Button onClick={checkPayment} disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Cek Pembayaran</Button> : null}
           <Button variant="outline" onClick={() => { setInvoice(null); setSelectedPlan(null); setMessage(null); }}>Pilih Paket Lain</Button>
         </div>
       </div>}

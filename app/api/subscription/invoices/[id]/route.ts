@@ -4,6 +4,7 @@ import { confirmSubscriptionPayment } from "@/lib/server/payment-confirmation";
 import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
 import { paymentCredentials } from "@/lib/server/payment-secrets";
+import { isSubscriptionInvoiceExpired, maintainSubscriptionInvoices } from "@/lib/server/subscription-invoice-retention";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,6 +17,14 @@ export async function GET(_request: Request, props: Params) {
     const invoice = db.subscriptionInvoices.find((row) => row.id === params.id && row.adminId === scope.adminId);
     if (!invoice) return fail("Invoice subscription tidak ditemukan.", 404);
     if (invoice.status === "paid") return ok({ invoice, status: "paid" });
+    if (isSubscriptionInvoiceExpired(invoice)) {
+      const expiredInvoice = await withDbTransaction((currentDb) => {
+        maintainSubscriptionInvoices(currentDb);
+        return currentDb.subscriptionInvoices.find((row) => row.id === params.id && row.adminId === scope.adminId) ?? null;
+      });
+      if (!expiredInvoice) return fail("Riwayat invoice ini sudah melewati 24 jam dan telah dihapus.", 404);
+      return ok({ invoice: expiredInvoice, status: "expired" });
+    }
 
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
     const credentials = paymentCredentials(config);
