@@ -724,6 +724,18 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Shift berhasil ditutup.": { id: "Shift berhasil ditutup.", en: "Shift closed successfully." },
   "Gagal memuat shift": { id: "Gagal memuat shift", en: "Failed to load shifts" },
   "Gagal menutup shift": { id: "Gagal menutup shift", en: "Failed to close shift" },
+  "Pengaturan Struk": { id: "Pengaturan Struk", en: "Receipt Settings" },
+  "Ukuran kertas thermal": { id: "Ukuran kertas thermal", en: "Thermal paper width" },
+  "Logo usaha": { id: "Logo usaha", en: "Business logo" },
+  "Pilih file logo": { id: "Pilih file logo", en: "Choose logo file" },
+  "Pratinjau logo": { id: "Pratinjau logo", en: "Logo preview" },
+  "Cetak 2 rangkap untuk pelanggan dan dapur": { id: "Cetak 2 rangkap untuk pelanggan dan dapur", en: "Print 2 copies for customer and kitchen" },
+  "Nomor antrean": { id: "Nomor antrean", en: "Queue number" },
+  "Cetak otomatis setelah transaksi": { id: "Cetak otomatis setelah transaksi", en: "Auto print after checkout" },
+  "Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.": { id: "Printer harus pernah diizinkan melalui tombol koneksi Bluetooth.", en: "The printer must first be authorized using the Bluetooth connection button." },
+  "Hubungkan dan tes printer Bluetooth": { id: "Hubungkan dan tes printer Bluetooth", en: "Connect and test Bluetooth printer" },
+  "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.": { id: "Watermark KasirKita otomatis tidak dicetak untuk paket Pro dan Business.", en: "The KasirKita watermark is automatically removed for Pro and Business plans." },
+  "Simpan Pengaturan Struk": { id: "Simpan Pengaturan Struk", en: "Save Receipt Settings" },
 };
 
 function readLanguage(): AppLanguage {
