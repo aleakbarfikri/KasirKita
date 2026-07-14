@@ -43,7 +43,7 @@ export type Shop = {
   createdAt: string;
   updatedAt: string;
 };
-export type ReceiptSettings = { shopId: string; paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; updatedAt: string };
+export type ReceiptSettings = { shopId: string; paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean; updatedAt: string };
 
 export type AdminProfile = {
   userId: string;

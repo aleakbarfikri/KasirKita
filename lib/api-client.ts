@@ -335,7 +335,7 @@ export type ReceiptRecord = {
   publicUrl?: string;
   showWatermark?: boolean;
   watermarkText?: string;
-  settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean };
+  settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean };
   queueNumber?: number | null;
 };
 
@@ -410,8 +410,8 @@ export const api = {
       apiFetch<{ user: SessionUser }>("/api/profile/email/confirm", { method: "POST", body: JSON.stringify(body) }),
   },
   receiptSettings: {
-    get: () => apiFetch<{ paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean }>("/api/settings/receipt"),
-    update: (body: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean }) => apiFetch("/api/settings/receipt", { method: "PUT", body: JSON.stringify(body) }),
+    get: () => apiFetch<{ paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean }>("/api/settings/receipt"),
+    update: (body: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean }) => apiFetch("/api/settings/receipt", { method: "PUT", body: JSON.stringify(body) }),
   },
 
   products: {
