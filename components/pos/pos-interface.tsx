@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
 import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
@@ -1320,46 +1320,61 @@ export function PosInterface() {
             {successSummary.queued ? <p className="mt-2 text-sm font-semibold text-amber-700">Akan dikirim otomatis saat internet kembali.</p> : null}
             <p className="mt-4 text-4xl font-black text-primary">{formatCurrency(successSummary.total)}</p>
             {lastReceipt ? (
-              <div className="mt-6 grid gap-3">
-                <div className="relative flex justify-end">
+              <div className="mt-6 flex items-stretch gap-3">
+                <Button className="min-w-0 flex-1" onClick={startNewTransaction}>Transaksi Baru</Button>
+                <div className="flex shrink-0">
                   <button
                     type="button"
                     onClick={() => setReceiptMenuOpen((open) => !open)}
-                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary bg-white text-primary transition hover:bg-primary/5"
+                    className="flex h-full min-h-12 w-12 items-center justify-center rounded-xl border border-primary bg-white text-primary transition hover:bg-primary/5"
                     aria-label="Menu struk"
                   >
                     <MoreVertical className="h-5 w-5" />
                   </button>
                   {receiptMenuOpen ? (
-                    <div className="absolute right-0 top-14 z-[90] w-52 overflow-hidden rounded-xl border border-[#d7e2dc] bg-white text-left shadow-2xl">
-                      <button type="button" onClick={() => { void directPrintThermalReceipt(lastReceipt); setReceiptMenuOpen(false); }} disabled={directPrinting} className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold hover:bg-[#f8fafc]"><Printer className="h-4 w-4 text-primary" />{directPrinting ? "Printing..." : "Print manual"}</button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          shareWhatsAppReceipt(lastReceipt);
-                          setReceiptMenuOpen(false);
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc]"
-                      >
-                        <Send className="h-4 w-4 text-primary" />
-                        WhatsApp
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          copyReceiptLink(lastReceipt);
-                          setReceiptMenuOpen(false);
-                        }}
-                        disabled={!lastReceipt.publicUrl}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <Copy className="h-4 w-4 text-primary" />
-                        {t("Salin Link")}
-                      </button>
+                    <div
+                      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0b1c30]/35 px-4 backdrop-blur-[2px]"
+                      onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) setReceiptMenuOpen(false);
+                      }}
+                    >
+                      <div className="w-full max-w-xs overflow-hidden rounded-2xl border border-[#d7e2dc] bg-white p-2 text-left shadow-2xl">
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <p className="font-extrabold text-[#0b1c30]">{t("Bagikan & Cetak Struk")}</p>
+                          <button type="button" onClick={() => setReceiptMenuOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748b] hover:bg-[#f1f5f9]" aria-label={t("Tutup")}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto">
+                          <button type="button" onClick={() => { void directPrintThermalReceipt(lastReceipt); setReceiptMenuOpen(false); }} disabled={directPrinting} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold hover:bg-[#f8fafc]"><Printer className="h-4 w-4 text-primary" />{directPrinting ? t("Mencetak...") : t("Print manual")}</button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              shareWhatsAppReceipt(lastReceipt);
+                              setReceiptMenuOpen(false);
+                            }}
+                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc]"
+                          >
+                            <Send className="h-4 w-4 text-primary" />
+                            WhatsApp
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              copyReceiptLink(lastReceipt);
+                              setReceiptMenuOpen(false);
+                            }}
+                            disabled={!lastReceipt.publicUrl}
+                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Copy className="h-4 w-4 text-primary" />
+                            {t("Salin Link")}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
-                <Button onClick={startNewTransaction}>Transaksi Baru</Button>
               </div>
             ) : (
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-[#eff4ff]">
