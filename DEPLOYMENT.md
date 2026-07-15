@@ -141,4 +141,6 @@ git push -u origin main
 - `/tmp` storage is not reliable for production because different serverless functions may not share the same files.
 - Redis/KV is still supported as a fallback through `KV_REST_API_URL` + `KV_REST_API_TOKEN` or `REDIS_URL`, but Postgres is preferred for production.
 - Production refuses to create or verify sessions when `KASIRKITA_AUTH_SECRET` is missing, too short, or still a placeholder.
+- Public online-store checkout refuses traffic when Redis/KV, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, or `TURNSTILE_SECRET_KEY` is unavailable. Configure all three before publishing the store link.
+- The reconciliation cron also expires pending online orders and removes unpaid failed/cancelled orders plus their transaction items after 24 hours. Paid transaction history is retained.
 - Never commit Owner bootstrap values, database credentials, payment keys, or email-provider tokens.

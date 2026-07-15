@@ -145,6 +145,18 @@ REDIS_URL="..."
 
 Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime sementara, tetapi penyimpanan seperti ini tidak disarankan untuk production karena data bisa tidak konsisten atau hilang.
 
+Untuk endpoint checkout toko online, Redis/KV bersifat wajib di production. Checkout akan mengembalikan status `503` jika penghitung bersama tidak tersedia agar proteksi spam tidak dapat dilewati antar-instance serverless.
+
+Tambahkan juga Cloudflare Turnstile untuk checkout publik:
+
+```env
+NEXT_PUBLIC_TURNSTILE_SITE_KEY="site-key"
+TURNSTILE_SECRET_KEY="secret-key"
+TURNSTILE_ALLOWED_HOSTNAMES="kasir-kita.com,www.kasir-kita.com"
+```
+
+Token Turnstile divalidasi server-side dengan action `store_checkout`, hostname yang diizinkan, masa berlaku, dan sifat single-use dari Siteverify.
+
 ## Deploy ke Vercel
 
 1. Push project ke GitHub.
@@ -153,6 +165,9 @@ Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime 
    - `KASIRKITA_AUTH_SECRET`
    - `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau
    - `REDIS_URL`
+   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+   - `TURNSTILE_SECRET_KEY`
+   - `TURNSTILE_ALLOWED_HOSTNAMES`
 4. Redeploy project.
 5. Login sebagai Owner.
 6. Ganti password Owner dari Dashboard Owner.

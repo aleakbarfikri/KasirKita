@@ -11,8 +11,13 @@ type Params = { params: Promise<{ token: string }> };
 export async function GET(request: Request, props: Params) {
   const { token } = await props.params;
   if (!/^ordpub_[a-f0-9]{32}$/.test(token)) return fail("Pesanan tidak ditemukan.", 404);
-  const limited = await enforceRateLimit(request, "online-order-status", { limit: 40, windowMs: 60_000 }, token);
-  if (!limited.allowed) return fail("Terlalu banyak permintaan status. Coba lagi sebentar.", 429);
+  const requireShared = process.env.NODE_ENV === "production";
+  const [tokenLimit, ipLimit] = await Promise.all([
+    enforceRateLimit(request, "online-order-status-token", { limit: 40, windowMs: 60_000, requireShared }, token),
+    enforceRateLimit(request, "online-order-status-ip", { limit: 120, windowMs: 60_000, requireShared }),
+  ]);
+  if (("unavailable" in tokenLimit && tokenLimit.unavailable) || ("unavailable" in ipLimit && ipLimit.unavailable)) return fail("Pemeriksaan pembayaran sementara tidak tersedia.", 503);
+  if (!tokenLimit.allowed || !ipLimit.allowed) return fail("Terlalu banyak permintaan status. Coba lagi sebentar.", 429);
   const origin = new URL(request.url).origin;
   let db = await readDb();
   const initialOrder = db.onlineOrders.find((row) => row.publicToken === token);

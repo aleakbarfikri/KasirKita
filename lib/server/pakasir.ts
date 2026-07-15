@@ -1,5 +1,7 @@
 import QRCode from "qrcode";
 
+const PAKASIR_TIMEOUT_MS = 8_000;
+
 export type PakasirCreateInput = {
   slug: string;
   apiKey: string;
@@ -39,6 +41,21 @@ export class PakasirIntegrityError extends Error {
 
 function cleanCredential(value: string) {
   return value.trim();
+}
+
+async function pakasirRequest(url: string, init: RequestInit) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PAKASIR_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const text = await response.text();
+    return { response, text };
+  } catch (error) {
+    if ((error as { name?: string })?.name === "AbortError") throw new Error("Pakasir tidak merespons dalam batas waktu yang aman.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function getPakasirMessage(payload: unknown) {
@@ -111,7 +128,7 @@ export async function createPakasirQris(input: PakasirCreateInput): Promise<Paka
     throw new Error("Slug dan API Key Pakasir wajib diisi di menu Owner > API Config.");
   }
 
-  const response = await fetch("https://app.pakasir.com/api/transactioncreate/qris", {
+  const { response, text } = await pakasirRequest("https://app.pakasir.com/api/transactioncreate/qris", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
@@ -123,7 +140,6 @@ export async function createPakasirQris(input: PakasirCreateInput): Promise<Paka
     cache: "no-store",
   });
 
-  const text = await response.text();
   let payload: unknown = null;
   try {
     payload = text ? JSON.parse(text) : null;
@@ -173,13 +189,12 @@ export async function getPakasirTransactionStatus(input: PakasirCreateInput): Pr
     api_key: apiKey,
   });
 
-  const response = await fetch(`https://app.pakasir.com/api/transactiondetail?${params.toString()}`, {
+  const { response, text } = await pakasirRequest(`https://app.pakasir.com/api/transactiondetail?${params.toString()}`, {
     method: "GET",
     headers: { Accept: "application/json" },
     cache: "no-store",
   });
 
-  const text = await response.text();
   let payload: unknown = null;
   try {
     payload = text ? JSON.parse(text) : null;
