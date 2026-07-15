@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { readDb } from "@/lib/server/data-store";
 import { buildReceipt, isReceiptToken, receiptPublicUrl } from "@/lib/server/receipt";
 import { formatCurrency } from "@/lib/utils";
+import { OnlineOrderReceiptStatus } from "@/components/receipts/online-order-receipt-status";
 
 export const metadata: Metadata = { robots: { index: false, follow: false, nocache: true } };
 
@@ -30,7 +31,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
         </div>
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />
-        {receipt.onlineOrder ? <div className="mb-5 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-black uppercase tracking-wider">Pesanan Online</p><p className="mt-1"><b>Pemesan:</b> {receipt.onlineOrder.customerName}</p><p><b>WhatsApp:</b> {receipt.onlineOrder.customerPhone}</p><p className="mt-1 text-xs">Ambil di toko</p></div> : null}
+        {receipt.onlineOrder ? <OnlineOrderReceiptStatus token={params.token} initialReceipt={receipt} /> : null}
         <div className="space-y-1 text-sm">
           <div className="flex justify-between"><span>No Invoice</span><span className="font-bold">{receipt.transaction.invoiceNumber}</span></div>
           {receipt.queueNumber ? <div className="flex justify-between"><span>No. Antrean / Queue</span><span className="font-black">{receipt.queueNumber}</span></div> : null}

@@ -318,8 +318,8 @@ export type ReceiptRecord = {
     invoiceNumber: string;
     createdAt: string;
     paymentMethod: PaymentMethod;
-    subtotal: number;
-    discountAmount: number;
+    subtotal?: number;
+    discountAmount?: number;
     total: number;
     paidAmount?: number | null;
     changeAmount?: number | null;

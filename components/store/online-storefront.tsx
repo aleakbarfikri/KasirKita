@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, MapPin, Minus, Plus, ShoppingBag, Store, WalletCards } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, MessageCircle, Minus, Plus, ShoppingBag, Store, WalletCards } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,11 @@ function sellingPrice(product: StoreData["products"][number]) {
   if (product.discountType === "percent") return Math.max(0, Math.round(product.price * (1 - Math.min(product.discountValue, 100) / 100)));
   if (product.discountType === "amount") return Math.max(0, product.price - product.discountValue);
   return product.price;
+}
+
+function whatsapp(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
 }
 
 export function OnlineStorefront({ shopId }: { shopId: string }) {
@@ -55,7 +60,7 @@ export function OnlineStorefront({ shopId }: { shopId: string }) {
   if (!data) return <main className="mx-auto flex min-h-screen max-w-xl items-center p-6"><div className="w-full rounded-3xl border bg-white p-8 text-center"><Store className="mx-auto h-12 w-12 text-primary" /><h1 className="mt-4 text-2xl font-black">Toko tidak tersedia</h1><p className="mt-2 text-red-600">{error}</p></div></main>;
 
   const paid = status && ["paid", "processing", "ready", "completed"].includes(status.order.status);
-  if (paid) return <main className="mx-auto flex min-h-screen max-w-xl items-center p-6"><div className="w-full rounded-3xl border bg-white p-8 text-center shadow-xl"><CheckCircle2 className="mx-auto h-20 w-20 text-primary" /><h1 className="mt-5 text-3xl font-black">Pembayaran berhasil</h1><p className="mt-3 text-slate-600">Pesanan Anda sudah masuk ke {data.shop.name} dan akan diproses untuk diambil di toko.</p><p className="mt-4 text-3xl font-black text-primary">{formatCurrency(status.transaction.total)}</p><div className="mt-6 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800">Invoice/struk dikirim ke <b>{email}</b>. Periksa folder Spam jika belum terlihat.</div>{status.transaction.receiptUrl ? <a className="mt-5 inline-flex rounded-xl border border-primary px-5 py-3 font-bold text-primary" href={status.transaction.receiptUrl}>Lihat struk digital</a> : null}<p className="mt-6 text-sm text-slate-500"><MapPin className="mr-1 inline h-4 w-4" />Ambil di toko: {data.shop.address || data.shop.name}</p></div></main>;
+  if (paid) return <main className="mx-auto flex min-h-screen max-w-xl items-center p-6"><div className="w-full rounded-3xl border bg-white p-8 text-center shadow-xl"><CheckCircle2 className="mx-auto h-20 w-20 text-primary" /><h1 className="mt-5 text-3xl font-black">Pembayaran berhasil</h1><p className="mt-3 text-slate-600">Pesanan Anda sudah masuk ke {data.shop.name} dan akan diproses untuk diambil di toko.</p><p className="mt-4 text-3xl font-black text-primary">{formatCurrency(status.transaction.total)}</p><div className="mt-6 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800">Invoice/struk dikirim ke <b>{email}</b>. Periksa folder Spam jika belum terlihat.</div><div className="mt-5 flex flex-wrap justify-center gap-3">{status.transaction.receiptUrl ? <a className="inline-flex rounded-xl border border-primary px-5 py-3 font-bold text-primary" href={status.transaction.receiptUrl}>Lihat struk digital</a> : null}{data.shop.phone ? <a className="inline-flex items-center rounded-xl bg-primary px-5 py-3 font-bold text-white" href={`https://wa.me/${whatsapp(data.shop.phone)}?text=${encodeURIComponent(`Halo ${data.shop.name}, saya sudah membayar pesanan online atas nama ${name} senilai ${formatCurrency(status.transaction.total)}. Mohon dicek, terima kasih.`)}`} target="_blank" rel="noreferrer"><MessageCircle className="mr-2 h-4 w-4" />Hubungi Toko</a> : null}</div><p className="mt-6 text-sm text-slate-500"><MapPin className="mr-1 inline h-4 w-4" />Ambil di toko: {data.shop.address || data.shop.name}</p></div></main>;
 
   if (status && ["payment_failed", "cancelled"].includes(status.order.status)) return <main className="mx-auto flex min-h-screen max-w-xl items-center p-6"><div className="w-full rounded-3xl border bg-white p-8 text-center shadow-xl"><h1 className="text-3xl font-black">Pembayaran tidak selesai</h1><p className="mt-3 text-slate-600">Invoice QRIS sudah kedaluwarsa atau dibatalkan. Silakan buat pesanan baru.</p><Button className="mt-6" onClick={() => window.location.reload()}>Kembali ke toko</Button></div></main>;
 

@@ -39,4 +39,6 @@ test("online order receipt includes pickup identity but not customer email", () 
   assert.equal(receipt.onlineOrder?.customerName, "Ayu");
   assert.equal(receipt.onlineOrder?.customerPhone, "08123456789");
   assert.equal(JSON.stringify(receipt).includes("ayu@example.com"), false);
+  db.onlineOrders[0].status = "processing";
+  assert.equal(buildReceipt(db, db.transactions[0], "https://example.test").onlineOrder?.status, "processing");
 });
