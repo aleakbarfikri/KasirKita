@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/backup",
       "schedule": "15 18 * * *"
+    },
+    {
+      "path": "/api/internal/reconcile-online-payments",
+      "schedule": "30 18 * * *"
     }
   ]
 }

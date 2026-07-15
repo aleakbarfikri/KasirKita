@@ -16,14 +16,26 @@ export type PakasirCreateResult = {
   qrImageDataUrl: string;
   paymentUrl: string;
   expiredAt?: string | null;
-  raw: unknown;
 };
 
 export type PakasirStatusResult = {
   status: string;
   isPaid: boolean;
-  raw: unknown;
 };
+
+type PakasirValidatedPayment = {
+  totalPayment: number;
+  fee: number;
+  qrString: string;
+  expiredAt: string | null;
+};
+
+export class PakasirIntegrityError extends Error {
+  constructor() {
+    super("Respons pembayaran Pakasir tidak cocok dengan transaksi KasirKita.");
+    this.name = "PakasirIntegrityError";
+  }
+}
 
 function cleanCredential(value: string) {
   return value.trim();
@@ -36,6 +48,59 @@ function getPakasirMessage(payload: unknown) {
   if (typeof message === "string") return message;
   if (Array.isArray(message)) return message.join(", ");
   return null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function asFiniteInteger(value: unknown) {
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+  return Number.isSafeInteger(number) ? number : null;
+}
+
+function normalizedString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function assertProviderIdentity(record: Record<string, unknown>, input: PakasirCreateInput) {
+  const orderId = normalizedString(record.order_id);
+  const project = normalizedString(record.project);
+  const paymentMethod = normalizedString(record.payment_method).toLowerCase();
+  const amount = asFiniteInteger(record.amount);
+
+  if (orderId !== input.orderId || project !== cleanCredential(input.slug) || amount !== input.amount || paymentMethod !== "qris") {
+    throw new PakasirIntegrityError();
+  }
+}
+
+/** Validates every provider-controlled field before it is used by checkout. */
+export function validatePakasirCreatePayload(input: PakasirCreateInput, payload: unknown): PakasirValidatedPayment {
+  const payment = asRecord(asRecord(payload)?.payment);
+  if (!payment) throw new PakasirIntegrityError();
+  assertProviderIdentity(payment, input);
+
+  const qrString = normalizedString(payment.payment_number);
+  const totalPayment = asFiniteInteger(payment.total_payment);
+  const fee = asFiniteInteger(payment.fee);
+  const expiredAt = payment.expired_at === null || payment.expired_at === undefined ? null : normalizedString(payment.expired_at);
+  const expiredAtMs = expiredAt ? new Date(expiredAt).getTime() : null;
+
+  if (!qrString || totalPayment === null || fee === null || fee < 0 || totalPayment !== input.amount + fee || (expiredAt && !Number.isFinite(expiredAtMs))) {
+    throw new PakasirIntegrityError();
+  }
+  return { totalPayment, fee, qrString, expiredAt };
+}
+
+/** Transaction Detail is authoritative only after its identity matches the local transaction. */
+export function validatePakasirStatusPayload(input: PakasirCreateInput, payload: unknown): PakasirStatusResult {
+  const transaction = asRecord(asRecord(payload)?.transaction);
+  if (!transaction) throw new PakasirIntegrityError();
+  assertProviderIdentity(transaction, input);
+
+  const status = normalizedString(transaction.status).toLowerCase();
+  if (!status) throw new PakasirIntegrityError();
+  return { status, isPaid: status === "completed" };
 }
 
 export async function createPakasirQris(input: PakasirCreateInput): Promise<PakasirCreateResult> {
@@ -70,16 +135,7 @@ export async function createPakasirQris(input: PakasirCreateInput): Promise<Paka
     throw new Error(getPakasirMessage(payload) || `Pakasir menolak request dengan status ${response.status}. Cek slug dan API key.`);
   }
 
-  const payment = (payload as { payment?: Record<string, unknown> } | null)?.payment;
-  const qrString = typeof payment?.payment_number === "string" ? payment.payment_number : "";
-
-  if (!payment || !qrString) {
-    throw new Error("Response Pakasir tidak berisi QR string. Cek mode project, slug, API key, dan metode qris.");
-  }
-
-  const totalPayment = Number(payment.total_payment ?? payment.amount ?? input.amount);
-  const fee = Number(payment.fee ?? Math.max(0, totalPayment - input.amount));
-  const expiredAt = typeof payment.expired_at === "string" ? payment.expired_at : null;
+  const { totalPayment, fee, qrString, expiredAt } = validatePakasirCreatePayload({ ...input, slug }, payload);
   const qrImageDataUrl = await QRCode.toDataURL(qrString, {
     errorCorrectionLevel: "M",
     margin: 2,
@@ -93,13 +149,12 @@ export async function createPakasirQris(input: PakasirCreateInput): Promise<Paka
   return {
     orderId: input.orderId,
     amount: input.amount,
-    totalPayment: Number.isFinite(totalPayment) ? totalPayment : input.amount,
-    fee: Number.isFinite(fee) ? fee : 0,
+    totalPayment,
+    fee,
     qrString,
     qrImageDataUrl,
     paymentUrl: `https://app.pakasir.com/pay/${encodeURIComponent(slug)}/${input.amount}?order_id=${encodeURIComponent(input.orderId)}&qris_only=1`,
     expiredAt,
-    raw: payload,
   };
 }
 
@@ -136,9 +191,5 @@ export async function getPakasirTransactionStatus(input: PakasirCreateInput): Pr
     throw new Error(getPakasirMessage(payload) || `Gagal cek status Pakasir (${response.status}).`);
   }
 
-  const transaction = (payload as { transaction?: Record<string, unknown> } | null)?.transaction;
-  const status = typeof transaction?.status === "string" ? transaction.status.toLowerCase() : "pending";
-  const isPaid = ["completed", "success", "paid", "settlement"].includes(status);
-
-  return { status, isPaid, raw: payload };
+  return validatePakasirStatusPayload({ ...input, slug }, payload);
 }

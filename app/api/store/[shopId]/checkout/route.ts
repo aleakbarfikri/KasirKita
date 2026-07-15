@@ -9,6 +9,7 @@ import { addAuditLog, isAdminProfileActive, now, withDbTransaction, type OnlineO
 import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { onlineOrderNumber, onlineOrderProductPrice } from "@/lib/server/online-orders";
 import { findOnlineStore } from "@/lib/server/online-store";
+import { paymentDeadline } from "@/lib/server/subscription-invoice-retention";
 
 type Params = { params: Promise<{ shopId: string }> };
 
@@ -62,10 +63,28 @@ export async function POST(request: Request, props: Params) {
         order.qrImageDataUrl = payment.qrImageDataUrl;
         order.totalPayment = payment.totalPayment;
         order.fee = payment.fee;
-        order.expiredAt = payment.expiredAt ?? null;
+        order.expiredAt = paymentDeadline({ createdAt: order.createdAt, expiredAt: payment.expiredAt ?? null });
         order.updatedAt = now();
       });
-      return ok({ orderToken: publicToken, orderId, status: "pending_payment", total: created.transaction.total, shop: created.shop, payment: { ...payment, provider: "pakasir", pollEveryMs: 3000 } }, { status: 201 });
+      return ok({
+        orderToken: publicToken,
+        orderId,
+        status: "pending_payment",
+        total: created.transaction.total,
+        shop: { name: created.shop.name, address: created.shop.address ?? null, phone: created.shop.phone ?? null },
+        payment: {
+          provider: "pakasir",
+          orderId: payment.orderId,
+          amount: payment.amount,
+          totalPayment: payment.totalPayment,
+          fee: payment.fee,
+          qrString: payment.qrString,
+          qrImageDataUrl: payment.qrImageDataUrl,
+          paymentUrl: payment.paymentUrl,
+          expiredAt: paymentDeadline({ createdAt: created.order.createdAt, expiredAt: payment.expiredAt ?? null }),
+          pollEveryMs: 3000,
+        },
+      }, { status: 201 });
     } catch (error) {
       await withDbTransaction((db) => {
         const transaction = db.transactions.find((row) => row.id === transactionId);
@@ -73,7 +92,7 @@ export async function POST(request: Request, props: Params) {
         if (transaction) { transaction.status = "failed"; transaction.updatedAt = now(); }
         if (order) { order.status = "payment_failed"; order.updatedAt = now(); }
       });
-      return fail(error instanceof Error ? error.message : "Gagal membuat pembayaran QRIS.", 502);
+      return fail("Pembayaran QRIS belum dapat dibuat. Silakan coba kembali.", 502);
     }
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 422;
