@@ -757,6 +757,21 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Gagal mengubah status toko online.": { id: "Gagal mengubah status toko online.", en: "Failed to change online store status." },
   "Link menampilkan status toko tutup dan pembayaran dinonaktifkan.": { id: "Link menampilkan status toko tutup dan pembayaran dinonaktifkan.", en: "The link shows that the store is closed and payments are disabled." },
   "Toko Sedang Tutup": { id: "Toko Sedang Tutup", en: "Store Is Closed" },
+  "Log Aktivitas": { id: "Log Aktivitas", en: "Activity Log" },
+  "Catatan transaksi, void, hutang, shift, QRIS, backup, dan restore.": { id: "Catatan transaksi, void, hutang, shift, QRIS, backup, dan restore.", en: "Transaction, void, debt, shift, QRIS, backup, and restore records." },
+  "Cari aktivitas, nama, toko, atau transaksi...": { id: "Cari aktivitas, nama, toko, atau transaksi...", en: "Search activity, name, store, or transaction..." },
+  "Cari log aktivitas": { id: "Cari log aktivitas", en: "Search activity logs" },
+  "Hapus pencarian": { id: "Hapus pencarian", en: "Clear search" },
+  "Filter berdasarkan admin": { id: "Filter berdasarkan admin", en: "Filter by admin" },
+  "Semua Admin": { id: "Semua Admin", en: "All Admins" },
+  "Tidak ada aktivitas yang cocok dengan filter.": { id: "Tidak ada aktivitas yang cocok dengan filter.", en: "No activity matches the current filters." },
+  "Belum ada aktivitas tercatat.": { id: "Belum ada aktivitas tercatat.", en: "No activity has been recorded yet." },
+  "Pelaku / Role": { id: "Pelaku / Role", en: "Actor / Role" },
+  Waktu: { id: "Waktu", en: "Time" },
+  Aktivitas: { id: "Aktivitas", en: "Activity" },
+  Entity: { id: "Entitas", en: "Entity" },
+  "Memuat log...": { id: "Memuat log...", en: "Loading logs..." },
+  "Gagal memuat log aktivitas": { id: "Gagal memuat log aktivitas", en: "Failed to load activity logs" },
 };
 
 function readLanguage(): AppLanguage {
