@@ -117,6 +117,7 @@ function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidt
     receipt.shop.phone ? center(`Telp: ${receipt.shop.phone}`) : "",
     line,
     receipt.onlineOrder ? center("PESANAN ONLINE") : "",
+    receipt.onlineOrder ? thermalColumns("Order ID", receipt.onlineOrder.orderNumber, width) : "",
     receipt.onlineOrder ? thermalColumns("Pemesan", receipt.onlineOrder.customerName, width) : "",
     receipt.onlineOrder ? thermalColumns("WhatsApp", receipt.onlineOrder.customerPhone, width) : "",
     receipt.onlineOrder ? line : "",
