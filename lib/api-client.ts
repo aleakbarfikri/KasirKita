@@ -90,6 +90,11 @@ export type AuditLogRecord = {
   entityId?: string | null;
   message: string;
   metadata?: Record<string, unknown> | null;
+  actorName: string;
+  actorUsername?: string | null;
+  adminId?: string | null;
+  adminName?: string | null;
+  shopName?: string | null;
   createdAt: string;
 };
 
