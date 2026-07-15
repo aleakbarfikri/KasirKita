@@ -752,6 +752,11 @@ const dictionary: Record<string, { id: string; en: string }> = {
   "Pengaturan toko online berhasil disimpan.": { id: "Pengaturan toko online berhasil disimpan.", en: "Online store settings saved successfully." },
   "Gagal menyimpan pengaturan toko online.": { id: "Gagal menyimpan pengaturan toko online.", en: "Failed to save online store settings." },
   "Link toko berhasil disalin.": { id: "Link toko berhasil disalin.", en: "Store link copied." },
+  "Toko online berhasil dibuka.": { id: "Toko online berhasil dibuka.", en: "Online store opened successfully." },
+  "Toko online berhasil ditutup. Customer tidak dapat melakukan pembayaran.": { id: "Toko online berhasil ditutup. Customer tidak dapat melakukan pembayaran.", en: "Online store closed successfully. Customers cannot make payments." },
+  "Gagal mengubah status toko online.": { id: "Gagal mengubah status toko online.", en: "Failed to change online store status." },
+  "Link menampilkan status toko tutup dan pembayaran dinonaktifkan.": { id: "Link menampilkan status toko tutup dan pembayaran dinonaktifkan.", en: "The link shows that the store is closed and payments are disabled." },
+  "Toko Sedang Tutup": { id: "Toko Sedang Tutup", en: "Store Is Closed" },
 };
 
 function readLanguage(): AppLanguage {
