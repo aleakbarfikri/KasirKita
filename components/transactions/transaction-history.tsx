@@ -33,11 +33,20 @@ function shortOrderId(id?: string | null) {
 }
 
 function displayOrderId(transaction: TransactionRecord) {
-  return transaction.onlineOrderNumber || shortOrderId(transaction.id);
+  if (!transaction.onlineOrderNumber) return shortOrderId(transaction.id);
+  const suffix = transaction.onlineOrderNumber.split("-").at(-1)?.slice(-8).toUpperCase();
+  return suffix ? `ONL-${suffix}` : transaction.onlineOrderNumber;
 }
 
 function itemSummary(transaction: TransactionRecord) {
   return transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-";
+}
+
+function compactItemSummary(transaction: TransactionRecord) {
+  const items = transaction.items || [];
+  if (!items.length) return "-";
+  const first = `${items[0].name} ×${items[0].quantity}`;
+  return items.length > 1 ? `${first} +${items.length - 1} item` : first;
 }
 
 function methodLabel(method: TransactionRecord["paymentMethod"], language: AppLanguage) {
@@ -338,7 +347,7 @@ export function TransactionHistory() {
                     </div>
                     <Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{statusLabel(transaction.status, language)}</Badge>
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-[#0f172a]">{itemSummary(transaction)}</p>
+                  <p className="mt-3 truncate text-sm font-semibold text-[#0f172a]" title={itemSummary(transaction)}>{compactItemSummary(transaction)}</p>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div><p className="text-xs font-medium text-[#64748b]">{t("Metode")}</p><p className="font-bold">{methodLabel(transaction.paymentMethod, language)}</p></div>
                     <div><p className="text-xs font-medium text-[#64748b]">{t("Total")}</p><p className="font-bold">{formatCurrency(transaction.total)}</p></div>
@@ -361,8 +370,8 @@ export function TransactionHistory() {
                   {filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id} onClick={() => openTransactionDetail(transaction)} className="cursor-pointer border-[#e5ebe7] hover:bg-[#006948]/5">
                       <TableCell>{shortDate(transaction.createdAt)}</TableCell>
-                      <TableCell className="max-w-[12rem] whitespace-nowrap font-bold" title={transaction.onlineOrderNumber || transaction.id}><span>{displayOrderId(transaction)}</span>{transaction.onlineOrderNumber ? <span className="mt-1 block text-[10px] font-black uppercase tracking-wider text-primary">Pesanan Online</span> : null}</TableCell>
-                      <TableCell className="max-w-[16rem] truncate" title={itemSummary(transaction)}>{itemSummary(transaction)}</TableCell>
+                      <TableCell className="w-[10rem] max-w-[10rem] whitespace-nowrap font-bold" title={transaction.onlineOrderNumber || transaction.id}><span className="block font-black tracking-tight">{displayOrderId(transaction)}</span>{transaction.onlineOrderNumber ? <span className="mt-1 block text-[9px] font-black uppercase tracking-[0.12em] text-primary">Pesanan Online</span> : null}</TableCell>
+                      <TableCell className="w-[12rem] max-w-[12rem] truncate font-semibold" title={itemSummary(transaction)}>{compactItemSummary(transaction)}</TableCell>
                       <TableCell>{methodLabel(transaction.paymentMethod, language)}</TableCell>
                       <TableCell>{formatCurrency(transaction.total)}</TableCell>
                       <TableCell>{formatCurrency(transaction.grossProfit ?? 0)}</TableCell>
