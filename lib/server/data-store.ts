@@ -65,6 +65,7 @@ export type OnlineOrder = {
   fee?: number | null;
   expiredAt?: string | null;
   paidAt?: string | null;
+  invoiceEmailClaimedAt?: string | null;
   invoiceEmailSentAt?: string | null;
   printedAt?: string | null;
   createdAt: string;
