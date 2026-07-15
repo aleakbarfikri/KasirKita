@@ -339,12 +339,13 @@ export type ReceiptRecord = {
   watermarkText?: string;
   settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean };
   queueNumber?: number | null;
-  onlineOrder?: { id: string; label: string; customerName: string; customerPhone: string; status: OnlineOrderStatus } | null;
+  onlineOrder?: { id: string; orderNumber: string; label: string; customerName: string; customerPhone: string; status: OnlineOrderStatus } | null;
 };
 
 export type OnlineOrderStatus = "pending_payment" | "paid" | "processing" | "ready" | "completed" | "cancelled" | "payment_failed";
 export type OnlineOrderRecord = {
   id: string;
+  orderNumber: string;
   publicToken: string;
   shopId: string;
   adminId: string;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defaultDb } from "../lib/server/data-store";
-import { canTransitionOnlineOrder, onlineOrderProductPrice } from "../lib/server/online-orders";
+import { canTransitionOnlineOrder, isOnlineOrderVisible, onlineOrderNumber, onlineOrderProductPrice } from "../lib/server/online-orders";
 import { buildReceipt } from "../lib/server/receipt";
 import { findOnlineStore } from "../lib/server/online-store";
 
@@ -28,6 +28,17 @@ test("online store resolves a unique custom link while preserving the legacy sho
   assert.equal(findOnlineStore(db, "toko-lain"), undefined);
 });
 
+test("finished online orders leave the dashboard after 24 hours while active orders stay visible", () => {
+  const now = Date.parse("2026-07-15T07:00:00.000Z");
+  assert.equal(isOnlineOrderVisible("completed", "2026-07-14T06:59:59.000Z", now), false);
+  assert.equal(isOnlineOrderVisible("completed", "2026-07-15T06:00:00.000Z", now), true);
+  assert.equal(isOnlineOrderVisible("processing", "2026-07-01T00:00:00.000Z", now), true);
+});
+
+test("online orders receive a readable stable reference", () => {
+  assert.equal(onlineOrderNumber("ord_1234567890abcdef", "2026-07-15T01:00:00.000Z"), "ONL-20260715-90ABCDEF");
+});
+
 test("online order receipt includes pickup identity but not customer email", () => {
   const db = defaultDb();
   const createdAt = new Date().toISOString();
@@ -38,6 +49,7 @@ test("online order receipt includes pickup identity but not customer email", () 
   assert.equal(receipt.onlineOrder?.label, "Pesanan Online");
   assert.equal(receipt.onlineOrder?.customerName, "Ayu");
   assert.equal(receipt.onlineOrder?.customerPhone, "08123456789");
+  assert.match(receipt.onlineOrder?.orderNumber || "", /^ONL-\d{8}-[A-Z0-9]{8}$/);
   assert.equal(JSON.stringify(receipt).includes("ayu@example.com"), false);
   db.onlineOrders[0].status = "processing";
   assert.equal(buildReceipt(db, db.transactions[0], "https://example.test").onlineOrder?.status, "processing");

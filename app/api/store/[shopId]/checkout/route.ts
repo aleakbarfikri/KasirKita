@@ -7,7 +7,7 @@ import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/serve
 import { onlineOrderCheckoutSchema } from "@/lib/server/validators";
 import { addAuditLog, isAdminProfileActive, now, withDbTransaction, type OnlineOrder, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
-import { onlineOrderProductPrice } from "@/lib/server/online-orders";
+import { onlineOrderNumber, onlineOrderProductPrice } from "@/lib/server/online-orders";
 import { findOnlineStore } from "@/lib/server/online-store";
 
 type Params = { params: Promise<{ shopId: string }> };
@@ -46,7 +46,7 @@ export async function POST(request: Request, props: Params) {
       if (total <= 0) throw Object.assign(new Error("Total pesanan tidak valid."), { status: 422 });
       const t = now();
       const transaction: Transaction = { id: transactionId, shopId, cashierId: profile.userId, paymentMethod: "qris_pakasir", subtotal: total, discountType: "none", discountValue: 0, discountAmount: 0, total, paidAmount: null, changeAmount: null, status: "pending", externalRef: transactionId, receiptToken, note: `Pesanan Online • ${body.customerName} • ${body.customerPhone}`, createdAt: t, updatedAt: t };
-      const order: OnlineOrder = { id: orderId, publicToken, shopId, adminId: profile.userId, transactionId, customerName: body.customerName, customerEmail: body.customerEmail, customerPhone: body.customerPhone, status: "pending_payment", createdAt: t, updatedAt: t };
+      const order: OnlineOrder = { id: orderId, orderNumber: onlineOrderNumber(orderId, t), publicToken, shopId, adminId: profile.userId, transactionId, customerName: body.customerName, customerEmail: body.customerEmail, customerPhone: body.customerPhone, status: "pending_payment", createdAt: t, updatedAt: t };
       db.transactions.push(transaction);
       db.transactionItems.push(...items);
       db.onlineOrders.push(order);

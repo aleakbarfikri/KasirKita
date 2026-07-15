@@ -1,4 +1,5 @@
 import type { AppDb, Transaction } from "@/lib/server/data-store";
+import { onlineOrderNumber } from "@/lib/server/online-orders";
 
 export const RECEIPT_TOKEN_PATTERN = /^rcpt_[a-f0-9]{32}$/;
 
@@ -64,6 +65,7 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
     queueNumber,
     onlineOrder: onlineOrder ? {
       id: onlineOrder.id,
+      orderNumber: onlineOrder.orderNumber || onlineOrderNumber(onlineOrder.id, onlineOrder.createdAt),
       label: "Pesanan Online",
       customerName: onlineOrder.customerName,
       customerPhone: onlineOrder.customerPhone,

@@ -50,6 +50,7 @@ export type ReceiptSettings = { shopId: string; paperWidth: "58mm" | "80mm"; log
 export type OnlineOrderStatus = "pending_payment" | "paid" | "processing" | "ready" | "completed" | "cancelled" | "payment_failed";
 export type OnlineOrder = {
   id: string;
+  orderNumber?: string;
   publicToken: string;
   shopId: string;
   adminId: string;
