@@ -45,6 +45,7 @@ export type PaymentMethod = "cash" | "qris_static" | "qris_pakasir" | "debt";
 
 export type TransactionRecord = {
   id: string;
+  onlineOrderNumber?: string;
   shopId?: string;
   cashierId?: string;
   paymentMethod: PaymentMethod;

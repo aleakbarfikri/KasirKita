@@ -1,6 +1,7 @@
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { readDb, sortDesc, type Transaction } from "@/lib/server/data-store";
 import { itemCostPrice, transactionProfit } from "@/lib/server/profit";
+import { onlineOrderNumber } from "@/lib/server/online-orders";
 
 const delimiter = ";";
 const utf8Bom = "\uFEFF";
@@ -53,6 +54,8 @@ export async function GET() {
     lines.push(csvRow(["Tanggal", "Order ID", "UMKM", "Kasir", "Metode", "Status", "Total", "Modal", "Laba Kotor", "Dibayar", "Kembalian", "Ref", "Catatan", "Item"]));
 
     sortDesc(rows).forEach((trx) => {
+      const onlineOrder = db.onlineOrders.find((order) => order.transactionId === trx.id);
+      const displayOrderId = onlineOrder ? onlineOrder.orderNumber || onlineOrderNumber(onlineOrder.id, onlineOrder.createdAt) : trx.id;
       const items = db.transactionItems
         .filter((item) => item.transactionId === trx.id)
         .map((item) => `${item.name} x${item.quantity} @ ${item.price} modal ${itemCostPrice(db, item)}`)
@@ -61,10 +64,10 @@ export async function GET() {
 
       lines.push(csvRow([
         trx.createdAt,
-        trx.id,
+        displayOrderId,
         trx.shopName,
         trx.cashierName,
-        trx.paymentMethod,
+        trx.paymentMethod === "qris_pakasir" ? "qris_kasirkita" : trx.paymentMethod,
         trx.status,
         trx.total,
         profit.costTotal,
