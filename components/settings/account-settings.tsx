@@ -103,6 +103,19 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   }
   async function saveReceipt() { resetMessage(); setBusy(true); try { await api.receiptSettings.update(receipt); setSuccess("Pengaturan struk berhasil disimpan."); } catch(e){ setError(e instanceof Error?e.message:"Gagal menyimpan struk."); } finally { setBusy(false); } }
   async function saveOnlineStore() { resetMessage(); setBusy(true); try { const result = await api.profile.update({ onlineStoreSlug, onlineStoreOpen }); setMe((current) => current ? { ...current, shop: result.shop ?? current.shop } : current); setSuccess(t("Pengaturan toko online berhasil disimpan.")); } catch(e){ setError(e instanceof Error?e.message:t("Gagal menyimpan pengaturan toko online.")); } finally { setBusy(false); } }
+  async function toggleOnlineStore() {
+    resetMessage();
+    const nextOpen = !onlineStoreOpen;
+    setBusy(true);
+    try {
+      const result = await api.profile.update({ onlineStoreSlug, onlineStoreOpen: nextOpen });
+      setOnlineStoreOpen(nextOpen);
+      setMe((current) => current ? { ...current, shop: result.shop ?? current.shop } : current);
+      setSuccess(t(nextOpen ? "Toko online berhasil dibuka." : "Toko online berhasil ditutup. Customer tidak dapat melakukan pembayaran."));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("Gagal mengubah status toko online."));
+    } finally { setBusy(false); }
+  }
   async function testBluetooth() { try { const bt=(navigator as Navigator & {bluetooth?:{requestDevice:(o:unknown)=>Promise<{name?:string}>}}).bluetooth; if(!bt) throw new Error("Bluetooth printer membutuhkan Chrome/Edge desktop atau Android."); const device=await bt.requestDevice({acceptAllDevices:true,optionalServices:["generic_access"]}); setSuccess(`Printer ${device.name || "Bluetooth"} dipilih. Browser akan meminta koneksi lagi saat print.`); } catch(e){ setError(e instanceof Error?e.message:"Printer tidak terhubung."); } }
 
   const tabs = [
@@ -115,11 +128,11 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
   ];
 
   return <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-    <Card className="h-fit bg-white"><CardContent className="space-y-2 p-3">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => { setTab(id); resetMessage(); }} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-extrabold transition ${tab === id ? "bg-primary text-white shadow" : "text-slate-700 hover:bg-slate-50"}`}><Icon className="h-5 w-5" />{t(label)}</button>)}</CardContent></Card>
+    <Card className="h-fit bg-white"><CardContent className="space-y-2 p-3 pt-3 sm:pt-3">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => { setTab(id); resetMessage(); }} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-extrabold transition ${tab === id ? "bg-primary text-white shadow" : "text-slate-700 hover:bg-slate-50"}`}><Icon className="h-5 w-5" />{t(label)}</button>)}</CardContent></Card>
     <div className="min-w-0 space-y-4">
       {error ? <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p> : null}
       {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{success}</p> : null}
-      {!me ? <Card><CardContent className="flex items-center gap-2 p-6"><Loader2 className="h-5 w-5 animate-spin" /> Memuat pengaturan...</CardContent></Card> : null}
+      {!me ? <Card><CardContent className="flex min-h-20 items-center gap-2 p-6 pt-6 sm:pt-6"><Loader2 className="h-5 w-5 animate-spin" /> Memuat pengaturan...</CardContent></Card> : null}
 
       {me && tab === "profile" ? <Card className="bg-white"><CardHeader><CardTitle>Edit Profil dan Toko</CardTitle></CardHeader><CardContent><form onSubmit={saveProfile} className="grid gap-5 sm:grid-cols-2"><div className="space-y-2"><Label>Nama {role === "owner" ? "Owner" : "Admin"}</Label><Input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} /></div><div className="space-y-2"><Label>Nama UMKM/Platform</Label><Input value={shopName} onChange={(e) => setShopName(e.target.value)} required minLength={2} /></div>{role === "admin" ? <><div className="space-y-2"><Label>Alamat Toko/UMKM</Label><Input value={shopAddress} onChange={(e) => setShopAddress(e.target.value)} /></div><div className="space-y-2"><Label>Nomor Telepon</Label><Input type="tel" value={shopPhone} onChange={(e) => setShopPhone(e.target.value)} /></div></> : null}<Button className="sm:col-span-2" disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Simpan Profil</Button></form></CardContent></Card> : null}
 
@@ -167,17 +180,17 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
           <CardContent className="space-y-5">
             <label className="flex min-h-20 items-center justify-between gap-4 rounded-xl border p-4">
               <span><span className="block font-bold">{t("Status toko online")}</span><span className="mt-1 block text-xs text-slate-500">{onlineStoreOpen ? t("Customer dapat melihat produk dan membuat pesanan.") : t("Customer tidak dapat membuka toko atau checkout.")}</span></span>
-              <button type="button" role="switch" aria-checked={onlineStoreOpen} onClick={() => setOnlineStoreOpen((value) => !value)} className={`rounded-full px-5 py-2 text-sm font-black ${onlineStoreOpen ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{onlineStoreOpen ? t("Toko Buka") : t("Toko Tutup")}</button>
+              <button type="button" role="switch" aria-checked={onlineStoreOpen} disabled={busy || onlineStoreSlug.length < 3} onClick={toggleOnlineStore} className={`rounded-full px-5 py-2 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60 ${onlineStoreOpen ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : onlineStoreOpen ? t("Toko Buka") : t("Toko Tutup")}</button>
             </label>
             <div className="space-y-2">
               <Label>{t("Link custom toko")}</Label>
               <div className="flex overflow-hidden rounded-xl border bg-white focus-within:ring-2 focus-within:ring-primary/20"><span className="flex items-center border-r bg-slate-50 px-3 text-sm text-slate-500">/store/</span><input className="h-11 min-w-0 flex-1 px-3 outline-none" value={onlineStoreSlug} onChange={(event) => setOnlineStoreSlug(storeSlug(event.target.value))} minLength={3} maxLength={50} placeholder="nama-toko" /></div>
               <p className="text-xs text-slate-500">{t("Gunakan 3-50 karakter: huruf kecil, angka, dan tanda hubung.")}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("Alamat toko")}</p><p className="mt-1 break-all font-bold">{typeof window !== "undefined" ? `${window.location.origin}/store/${onlineStoreSlug}` : `/store/${onlineStoreSlug}`}</p></div>
+            <div className={`rounded-xl p-4 ${onlineStoreOpen ? "bg-slate-50" : "border border-slate-200 bg-slate-100 opacity-75"}`}><div className="flex items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("Alamat toko")}</p><span className={`rounded-full px-3 py-1 text-xs font-black ${onlineStoreOpen ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{t(onlineStoreOpen ? "Toko Buka" : "Toko Tutup")}</span></div><p className="mt-1 break-all font-bold">{typeof window !== "undefined" ? `${window.location.origin}/store/${onlineStoreSlug}` : `/store/${onlineStoreSlug}`}</p>{!onlineStoreOpen ? <p className="mt-2 text-xs font-semibold text-slate-600">{t("Link menampilkan status toko tutup dan pembayaran dinonaktifkan.")}</p> : null}</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Button type="button" variant="outline" disabled={onlineStoreSlug.length < 3} onClick={async () => { await navigator.clipboard.writeText(`${window.location.origin}/store/${onlineStoreSlug}`); setSuccess(t("Link toko berhasil disalin.")); }}><Copy className="mr-2 h-4 w-4" />{t("Salin Link Toko")}</Button>
-              <Button type="button" variant="outline" disabled={onlineStoreSlug.length < 3} onClick={() => window.open(`/store/${onlineStoreSlug}`, "_blank", "noopener,noreferrer")}><ExternalLink className="mr-2 h-4 w-4" />{t("Buka Toko Online")}</Button>
+              <Button type="button" variant="outline" disabled={!onlineStoreOpen || onlineStoreSlug.length < 3} onClick={() => window.open(`/store/${onlineStoreSlug}`, "_blank", "noopener,noreferrer")}><ExternalLink className="mr-2 h-4 w-4" />{t(onlineStoreOpen ? "Buka Toko Online" : "Toko Sedang Tutup")}</Button>
             </div>
             <Button className="w-full" onClick={saveOnlineStore} disabled={busy || onlineStoreSlug.length < 3}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{t("Simpan Pengaturan Toko")}</Button>
           </CardContent>

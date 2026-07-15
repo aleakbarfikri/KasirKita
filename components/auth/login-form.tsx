@@ -120,7 +120,7 @@ export function LoginForm() {
   if (checking) {
     return (
       <Card className="mx-auto w-full max-w-md rounded-[2rem] border-slate-200 shadow-2xl">
-        <CardContent className="p-8 text-center">
+        <CardContent className="flex min-h-32 flex-col items-center justify-center p-8 pt-8 text-center sm:pt-8">
           <p className="font-bold text-slate-950">Memeriksa sesi login...</p>
           <p className="mt-2 text-sm text-slate-500">Tunggu sebentar.</p>
         </CardContent>

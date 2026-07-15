@@ -9,9 +9,13 @@ export async function GET(_request: Request, props: Params) {
   const db = await readDb();
   const shop = findOnlineStore(db, shopId);
   const profile = shop ? db.adminProfiles.find((row) => row.shopId === shop.id) : null;
-  if (!shop || shop.onlineStoreOpen === false || !profile || !isAdminProfileActive(profile)) return fail("Toko online sedang tutup atau tidak tersedia.", 404);
+  if (!shop || !profile || !isAdminProfileActive(profile)) return fail("Toko online tidak tersedia.", 404);
+  const publicShop = { id: shop.id, name: shop.name, address: shop.address ?? null, phone: shop.phone ?? null };
+  if (shop.onlineStoreOpen === false) {
+    return ok({ shop: publicShop, products: [], isOpen: false, fulfillment: "pickup" as const, paymentMethod: "qris_pakasir" as const });
+  }
   const products = db.products
     .filter((row) => row.shopId === shop.id && row.isActive && (row.stock === null || row.stock === undefined || row.stock > 0))
     .map((row) => ({ id: row.id, sku: row.sku, name: row.name, price: row.price, discountType: row.discountType ?? "none", discountValue: row.discountValue ?? 0, stock: row.stock, photoUrl: row.photoUrl ?? null }));
-  return ok({ shop: { id: shop.id, name: shop.name, address: shop.address ?? null, phone: shop.phone ?? null }, products, fulfillment: "pickup" as const, paymentMethod: "qris_pakasir" as const });
+  return ok({ shop: publicShop, products, isOpen: true, fulfillment: "pickup" as const, paymentMethod: "qris_pakasir" as const });
 }
