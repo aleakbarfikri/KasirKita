@@ -37,7 +37,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
           {receipt.queueNumber ? <div className="flex justify-between"><span>No. Antrean / Queue</span><span className="font-black">{receipt.queueNumber}</span></div> : null}
           <div className="flex justify-between"><span>Tanggal</span><span>{new Date(receipt.transaction.createdAt).toLocaleString("id-ID")}</span></div>
           <div className="flex justify-between"><span>Kasir</span><span>{receipt.cashier.name}</span></div>
-          <div className="flex justify-between"><span>Metode</span><span>{receipt.transaction.paymentMethod}</span></div>
+          <div className="flex justify-between"><span>Metode</span><span>{receipt.transaction.paymentMethod === "qris_pakasir" ? "qris_kasirkita" : receipt.transaction.paymentMethod}</span></div>
         </div>
 
         <div className="my-5 border-t border-dashed border-[#bccac0]" />

@@ -32,6 +32,10 @@ function shortOrderId(id?: string | null) {
   return shortId ? `TRX-${shortId}` : "-";
 }
 
+function displayOrderId(transaction: TransactionRecord) {
+  return transaction.onlineOrderNumber || shortOrderId(transaction.id);
+}
+
 function itemSummary(transaction: TransactionRecord) {
   return transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-";
 }
@@ -267,6 +271,7 @@ export function TransactionHistory() {
   const filteredTransactions = transactions.filter((transaction) => {
     const haystack = [
       transaction.id,
+      transaction.onlineOrderNumber,
       transaction.externalRef,
       transaction.cashierName,
       methodLabel(transaction.paymentMethod, language),
@@ -327,7 +332,8 @@ export function TransactionHistory() {
                 <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-xl border border-[#d7e2dc] bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-extrabold text-[#0f172a]">{shortOrderId(transaction.id)}</p>
+                      <p className="font-extrabold text-[#0f172a]">{displayOrderId(transaction)}</p>
+                      {transaction.onlineOrderNumber ? <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-primary">Pesanan Online</p> : null}
                       <p className="mt-1 text-xs font-medium text-[#64748b]">{shortDate(transaction.createdAt)}</p>
                     </div>
                     <Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{statusLabel(transaction.status, language)}</Badge>
@@ -355,7 +361,7 @@ export function TransactionHistory() {
                   {filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id} onClick={() => openTransactionDetail(transaction)} className="cursor-pointer border-[#e5ebe7] hover:bg-[#006948]/5">
                       <TableCell>{shortDate(transaction.createdAt)}</TableCell>
-                      <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
+                      <TableCell className="max-w-[12rem] whitespace-nowrap font-bold" title={transaction.onlineOrderNumber || transaction.id}><span>{displayOrderId(transaction)}</span>{transaction.onlineOrderNumber ? <span className="mt-1 block text-[10px] font-black uppercase tracking-wider text-primary">Pesanan Online</span> : null}</TableCell>
                       <TableCell className="max-w-[16rem] truncate" title={itemSummary(transaction)}>{itemSummary(transaction)}</TableCell>
                       <TableCell>{methodLabel(transaction.paymentMethod, language)}</TableCell>
                       <TableCell>{formatCurrency(transaction.total)}</TableCell>
@@ -381,7 +387,7 @@ export function TransactionHistory() {
     </Card>
     <Modal
       open={Boolean(selectedTransaction)}
-      title={selectedTransaction ? shortOrderId(selectedTransaction.id) : t("Detail Transaksi")}
+      title={selectedTransaction ? displayOrderId(selectedTransaction) : t("Detail Transaksi")}
       description={selectedTransaction ? `${shortDate(selectedTransaction.createdAt)} • ${methodLabel(selectedTransaction.paymentMethod, language)}` : undefined}
       onClose={closeDetail}
     >
