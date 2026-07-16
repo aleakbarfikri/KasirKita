@@ -54,6 +54,7 @@ export const onlineOrderCheckoutSchema = z.object({
     productId: z.string().trim().min(1),
     quantity: z.coerce.number().int().min(1).max(100),
   })).min(1).max(50),
+  turnstileToken: z.string().trim().min(1, "Verifikasi keamanan wajib diselesaikan").max(2048),
 });
 
 export const onlineOrderStatusSchema = z.object({

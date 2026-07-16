@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defaultDb } from "../lib/server/data-store";
-import { canTransitionOnlineOrder, isOnlineOrderVisible, onlineOrderNumber, onlineOrderProductPrice } from "../lib/server/online-orders";
+import { activeOnlineOrdersForCustomer, canTransitionOnlineOrder, isOnlineOrderVisible, maintainOnlineOrders, onlineOrderNumber, onlineOrderProductPrice } from "../lib/server/online-orders";
 import { buildReceipt } from "../lib/server/receipt";
 import { findOnlineStore } from "../lib/server/online-store";
 
@@ -37,6 +37,28 @@ test("finished online orders leave the dashboard after 24 hours while active ord
 
 test("online orders receive a readable stable reference", () => {
   assert.equal(onlineOrderNumber("ord_1234567890abcdef", "2026-07-15T01:00:00.000Z"), "ONL-20260715-90ABCDEF");
+});
+
+test("an active invoice blocks the same customer email or phone at the same shop", () => {
+  const db = defaultDb();
+  const createdAt = new Date().toISOString();
+  db.onlineOrders.push({ id: "order_1", publicToken: "token", shopId: "shop_1", adminId: "admin_1", transactionId: "trx_1", customerName: "Ali", customerEmail: "ALI@example.com", customerPhone: "0812-3456-7890", status: "pending_payment", createdAt, updatedAt: createdAt });
+  assert.equal(activeOnlineOrdersForCustomer(db, "shop_1", "ali@example.com", "0899999999").length, 1);
+  assert.equal(activeOnlineOrdersForCustomer(db, "shop_1", "other@example.com", "+62 812 3456 7890").length, 1);
+  assert.equal(activeOnlineOrdersForCustomer(db, "shop_2", "ali@example.com", "081234567890").length, 0);
+});
+
+test("old unpaid online orders are expired then removed with their transaction data", () => {
+  const db = defaultDb();
+  const old = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+  db.onlineOrders.push({ id: "order_old", publicToken: "token", shopId: "shop_1", adminId: "admin_1", transactionId: "trx_old", customerName: "Ali", customerEmail: "ali@example.com", customerPhone: "081234567890", status: "payment_failed", createdAt: old, updatedAt: old });
+  db.transactions.push({ id: "trx_old", shopId: "shop_1", cashierId: "admin_1", paymentMethod: "qris_pakasir", total: 10_000, status: "failed", createdAt: old, updatedAt: old });
+  db.transactionItems.push({ id: "item_old", transactionId: "trx_old", productId: "product_1", sku: "SKU", name: "Item", originalPrice: 10_000, price: 10_000, costPrice: 5_000, discountAmount: 0, quantity: 1, subtotal: 10_000 });
+  const result = maintainOnlineOrders(db);
+  assert.equal(result.removed, 1);
+  assert.equal(db.onlineOrders.length, 0);
+  assert.equal(db.transactions.length, 0);
+  assert.equal(db.transactionItems.length, 0);
 });
 
 test("online order receipt includes pickup identity but not customer email", () => {

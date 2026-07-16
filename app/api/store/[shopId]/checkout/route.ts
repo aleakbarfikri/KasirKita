@@ -1,4 +1,4 @@
-import { fail, ok, readJson } from "@/lib/server/http";
+import { fail, ok, readLimitedJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { createPakasirQris } from "@/lib/server/pakasir";
 import { paymentCredentials } from "@/lib/server/payment-secrets";
@@ -7,27 +7,47 @@ import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/serve
 import { onlineOrderCheckoutSchema } from "@/lib/server/validators";
 import { addAuditLog, isAdminProfileActive, now, withDbTransaction, type OnlineOrder, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
-import { onlineOrderNumber, onlineOrderProductPrice } from "@/lib/server/online-orders";
+import { activeOnlineOrdersForCustomer, maintainOnlineOrders, normalizedCustomerEmail, normalizedCustomerPhone, onlineOrderNumber, onlineOrderProductPrice } from "@/lib/server/online-orders";
 import { findOnlineStore } from "@/lib/server/online-store";
 import { paymentDeadline } from "@/lib/server/subscription-invoice-retention";
+import { verifyTurnstile } from "@/lib/server/turnstile";
 
 type Params = { params: Promise<{ shopId: string }> };
+const CHECKOUT_BODY_LIMIT_BYTES = 16 * 1024;
+const RATE_WINDOW_MS = 15 * 60_000;
 
 export async function POST(request: Request, props: Params) {
   const { shopId: storeIdentifier } = await props.params;
   try {
-    const body = onlineOrderCheckoutSchema.parse(await readJson(request));
-    const limited = await enforceRateLimit(request, "online-order-checkout", { limit: 8, windowMs: 15 * 60_000 }, `${storeIdentifier}:${body.customerEmail}`);
-    if (!limited.allowed) return fail("Terlalu banyak percobaan checkout. Coba lagi beberapa menit.", 429);
+    const body = onlineOrderCheckoutSchema.parse(await readLimitedJson(request, CHECKOUT_BODY_LIMIT_BYTES));
+    const requireShared = process.env.NODE_ENV === "production";
+    const preVerificationLimits = await Promise.all([
+      enforceRateLimit(request, "online-order-turnstile-ip", { limit: 30, windowMs: RATE_WINDOW_MS, requireShared }),
+      enforceRateLimit(request, "online-order-turnstile-store", { limit: 300, windowMs: RATE_WINDOW_MS, requireShared }, storeIdentifier),
+    ]);
+    if (preVerificationLimits.some((limit) => "unavailable" in limit && limit.unavailable)) return fail("Checkout sementara dinonaktifkan karena sistem proteksi trafik tidak tersedia.", 503);
+    if (preVerificationLimits.some((limit) => !limit.allowed)) return fail("Terlalu banyak percobaan verifikasi. Coba lagi beberapa menit.", 429);
+    await verifyTurnstile(request, body.turnstileToken, "store_checkout");
+    const checkoutLimits = await Promise.all([
+      enforceRateLimit(request, "online-order-checkout-ip", { limit: 12, windowMs: RATE_WINDOW_MS, requireShared }),
+      enforceRateLimit(request, "online-order-checkout-store", { limit: 60, windowMs: RATE_WINDOW_MS, requireShared }, storeIdentifier),
+      enforceRateLimit(request, "online-order-checkout-email", { limit: 8, windowMs: RATE_WINDOW_MS, requireShared }, `${storeIdentifier}:${normalizedCustomerEmail(body.customerEmail)}`),
+      enforceRateLimit(request, "online-order-checkout-phone", { limit: 8, windowMs: RATE_WINDOW_MS, requireShared }, `${storeIdentifier}:${normalizedCustomerPhone(body.customerPhone)}`),
+    ]);
+    if (checkoutLimits.some((limit) => "unavailable" in limit && limit.unavailable)) return fail("Checkout sementara dinonaktifkan karena sistem proteksi trafik tidak tersedia.", 503);
+    if (checkoutLimits.some((limit) => !limit.allowed)) return fail("Terlalu banyak percobaan checkout. Coba lagi beberapa menit.", 429);
     const transactionId = createId("trx");
     const orderId = createId("ord");
     const publicToken = createId("ordpub");
     const receiptToken = createId("rcpt");
     const created = await withDbTransaction((db) => {
+      maintainOnlineOrders(db);
       const shop = findOnlineStore(db, storeIdentifier);
       const profile = shop ? db.adminProfiles.find((row) => row.shopId === shop.id) : null;
       if (!shop || shop.onlineStoreOpen === false || !profile || !isAdminProfileActive(profile)) throw Object.assign(new Error("Toko online sedang tutup atau tidak tersedia."), { status: 404 });
       const shopId = shop.id;
+      const activeOrders = activeOnlineOrdersForCustomer(db, shopId, body.customerEmail, body.customerPhone);
+      if (activeOrders.length > 0) throw Object.assign(new Error("Masih ada invoice aktif untuk email atau nomor WhatsApp ini. Selesaikan atau tunggu hingga invoice kedaluwarsa."), { status: 409 });
       assertFeatureAllowed(profile, "qrisPakasir");
       assertMonthlyTransactionLimit(db, profile);
       const config = db.paymentConfigs.find((row) => row.ownerId === profile.ownerId);
@@ -51,7 +71,7 @@ export async function POST(request: Request, props: Params) {
       db.transactions.push(transaction);
       db.transactionItems.push(...items);
       db.onlineOrders.push(order);
-      addAuditLog(db, { actorId: profile.userId, actorRole: "admin", shopId, action: "create_online_order", entityType: "online_order", entityId: order.id, message: `Pesanan online baru dibuat oleh ${order.customerName} senilai ${total}.`, metadata: { transactionId, customerEmail: order.customerEmail, customerPhone: order.customerPhone, total } });
+      addAuditLog(db, { actorId: profile.userId, actorRole: "admin", shopId, action: "create_online_order", entityType: "online_order", entityId: order.id, message: `Pesanan online baru dibuat oleh ${order.customerName} senilai ${total}.`, metadata: { transactionId, total } });
       return { order, transaction, items, shop, credentials };
     });
     try {

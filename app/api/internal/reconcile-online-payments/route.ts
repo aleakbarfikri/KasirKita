@@ -1,5 +1,6 @@
-import { readDb } from "@/lib/server/data-store";
+import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { reconcileOnlineOrderPayment } from "@/lib/server/online-order-payment";
+import { maintainOnlineOrders } from "@/lib/server/online-orders";
 import { reportServerError } from "@/lib/server/monitoring";
 
 export const maxDuration = 60;
@@ -16,11 +17,11 @@ export async function GET(request: Request) {
     .filter((order) => order.status === "pending_payment" || (order.status === "paid" && !order.invoiceEmailSentAt))
     .sort((a, b) => {
       const paidPriority = Number(b.status === "paid") - Number(a.status === "paid");
-      return paidPriority || b.createdAt.localeCompare(a.createdAt);
+      return paidPriority || a.createdAt.localeCompare(b.createdAt);
     })
     .slice(0, BATCH_SIZE)
     .map((order) => order.id);
-  const summary = { checked: orderIds.length, paid: 0, expired: 0, pending: 0, failed: 0 };
+  const summary = { checked: orderIds.length, paid: 0, expired: 0, removed: 0, pending: 0, failed: 0 };
 
   for (const orderId of orderIds) {
     try {
@@ -33,5 +34,7 @@ export async function GET(request: Request) {
       reportServerError(error, { operation: "scheduled_online_payment_reconciliation", orderId });
     }
   }
+  const maintenance = await withDbTransaction((current) => maintainOnlineOrders(current));
+  summary.removed = maintenance.removed;
   return Response.json({ ok: true, data: summary });
 }

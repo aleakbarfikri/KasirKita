@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 
 type StoreData = {
   shop: { id: string; name: string; address?: string | null; phone?: string | null };
@@ -40,6 +41,8 @@ export function OnlineStorefront({ shopId }: { shopId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutResult | null>(null);
   const [status, setStatus] = useState<OrderStatus | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   useEffect(() => {
     apiFetch<StoreData>(`/api/store/${shopId}`).then(setData).catch((err) => setError(err instanceof Error ? err.message : "Toko tidak tersedia")).finally(() => setLoading(false));
@@ -61,7 +64,7 @@ export function OnlineStorefront({ shopId }: { shopId: string }) {
   }, [data, search]);
   const itemCount = selected.reduce((sum, product) => sum + (cart[product.id] ?? 0), 0);
   const total = selected.reduce((sum, product) => sum + sellingPrice(product) * (cart[product.id] ?? 0), 0);
-  const canCheckout = total > 0 && name.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(email) && phone.replace(/\D/g, "").length >= 8;
+  const canCheckout = total > 0 && name.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(email) && phone.replace(/\D/g, "").length >= 8 && Boolean(turnstileToken);
 
   function quantity(product: StoreData["products"][number], delta: number) {
     setCart((current) => ({ ...current, [product.id]: Math.max(0, Math.min(product.stock ?? 100, (current[product.id] ?? 0) + delta)) }));
@@ -74,12 +77,14 @@ export function OnlineStorefront({ shopId }: { shopId: string }) {
     try {
       const result = await apiFetch<CheckoutResult>(`/api/store/${shopId}/checkout`, {
         method: "POST",
-        body: JSON.stringify({ customerName: name, customerEmail: email, customerPhone: phone, items: selected.map((product) => ({ productId: product.id, quantity: cart[product.id] })) }),
+        body: JSON.stringify({ customerName: name, customerEmail: email, customerPhone: phone, items: selected.map((product) => ({ productId: product.id, quantity: cart[product.id] })), turnstileToken }),
       });
       setCheckout(result);
       setCheckoutOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout gagal");
+      setTurnstileToken("");
+      setTurnstileReset((value) => value + 1);
     } finally {
       setSubmitting(false);
     }
@@ -104,7 +109,7 @@ export function OnlineStorefront({ shopId }: { shopId: string }) {
     <p className="mt-1 text-sm text-slate-500">Pembayaran hanya QRIS KasirKita • Ambil di toko</p>
     <div className="mt-5 space-y-3">{selected.length ? selected.map((product) => <div key={product.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><p className="truncate font-bold text-slate-950" title={product.name}>{product.name}</p><div className="mt-3 flex items-end justify-between gap-4"><div className="flex items-center gap-2"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white transition hover:border-primary hover:text-primary" onClick={() => quantity(product, -1)} aria-label={`Kurangi ${product.name}`}><Minus className="h-4 w-4" /></button><span className="flex h-10 min-w-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 font-black">{cart[product.id]}</span><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white transition hover:border-primary hover:text-primary" onClick={() => quantity(product, 1)} aria-label={`Tambah ${product.name}`}><Plus className="h-4 w-4" /></button></div><div className="text-right"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Subtotal</p><p className="mt-0.5 font-black text-slate-950">{formatCurrency(sellingPrice(product) * cart[product.id])}</p></div></div></div>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Pilih produk terlebih dahulu.</p>}</div>
     <div className="my-5 flex justify-between border-y py-4 text-lg font-black"><span>Total</span><span>{formatCurrency(total)}</span></div>
-    <div className="space-y-4"><div><Label>Nama pemesan</Label><Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} required /></div><div><Label>Email untuk invoice</Label><Input className="mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div><div><Label>Nomor WhatsApp</Label><Input className="mt-1" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" required /></div></div>
+    <div className="space-y-4"><div><Label>Nama pemesan</Label><Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} required /></div><div><Label>Email untuk invoice</Label><Input className="mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div><div><Label>Nomor WhatsApp</Label><Input className="mt-1" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" required /></div><div><Label>Verifikasi keamanan</Label><div className="mt-2"><TurnstileWidget onVerify={setTurnstileToken} resetSignal={turnstileReset} /></div></div></div>
     {error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
     <Button className="mt-5 w-full" disabled={submitting || !canCheckout} onClick={createOrder}>{submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WalletCards className="mr-2 h-4 w-4" />}Bayar QRIS KasirKita</Button>
   </>;
