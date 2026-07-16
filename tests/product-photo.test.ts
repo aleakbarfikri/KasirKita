@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "sharp";
 
-import { optimizedProductImage } from "../app/api/products/[id]/photo/route";
+import { optimizedProductImage, productImageUrl } from "../app/api/products/[id]/photo/route";
 import { PLAN_CONFIG } from "../lib/server/subscription";
 
 test("product photo upload is restricted to Pro and Business", () => {
@@ -25,4 +25,8 @@ test("product photos are resized and converted to compact WebP", async () => {
 
 test("invalid product photo payloads are rejected", async () => {
   await assert.rejects(() => optimizedProductImage(Buffer.from("not-an-image")));
+});
+
+test("private product photos are exposed only through the KasirKita image route", () => {
+  assert.equal(productImageUrl("shop 1", "product/1", 123), "/api/product-images/shop%201/product%2F1?v=123");
 });

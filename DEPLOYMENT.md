@@ -123,10 +123,10 @@ reported successful. Objects older than the retention period are removed.
 request to the internal endpoint must return HTTP `401`.
 
 The scheduled job now creates a dashboard-visible database backup and a separately encrypted,
-verified Blob backup. Product photos use the public application Blob store and should use
+verified Blob backup. Product photos use a private Blob store and should use
 `KASIRKITA_PRODUCT_BLOB_READ_WRITE_TOKEN`; when omitted, the standard `BLOB_READ_WRITE_TOKEN`
-from the connected public store is used. Product photos are converted to WebP and are only
-available to active Pro and Business plans.
+from the connected store is used. Product photos are converted to WebP, delivered through a
+KasirKita image endpoint, and are only available to active Pro and Business plans.
 
 ## GitHub repository push
 
