@@ -1,5 +1,5 @@
 import { createOffsiteBackup } from "@/lib/server/offsite-backup";
-import { withDbTransaction } from "@/lib/server/data-store";
+import { addAuditLog, createBackup, withDbTransaction } from "@/lib/server/data-store";
 import { protectPaymentConfig } from "@/lib/server/payment-secrets";
 import { reportServerError } from "@/lib/server/monitoring";
 
@@ -14,8 +14,22 @@ export async function GET(request: Request) {
     await withDbTransaction((db) => {
       db.paymentConfigs.forEach(protectPaymentConfig);
     });
-    const backup = await createOffsiteBackup("scheduled-daily");
-    return Response.json({ ok: true, data: backup });
+    const dashboardBackup = await createBackup("scheduled-daily");
+    const offsiteBackup = await createOffsiteBackup("scheduled-daily");
+    await withDbTransaction((db) => {
+      const owner = db.users.find((user) => user.role === "owner");
+      if (!owner) return;
+      addAuditLog(db, {
+        actorId: owner.id,
+        actorRole: "owner",
+        action: "create_backup",
+        entityType: "backup",
+        entityId: dashboardBackup.id,
+        message: "Sistem membuat backup harian otomatis dan memverifikasi salinan terenkripsi di Blob storage.",
+        metadata: { reason: "scheduled-daily", offsiteBackupId: offsiteBackup.id, checksum: offsiteBackup.checksum },
+      });
+    });
+    return Response.json({ ok: true, data: { dashboardBackup, offsiteBackup } });
   } catch (error) {
     reportServerError(error, { operation: "scheduled_offsite_backup" });
     return Response.json({ ok: false, error: { message: "Backup gagal dibuat" } }, { status: 503 });

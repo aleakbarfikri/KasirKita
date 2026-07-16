@@ -3,7 +3,7 @@ import { jakartaDateString, now, type AdminProfile, type AppDb } from "@/lib/ser
 export type SubscriptionPlan = "trial" | "basic" | "starter" | "pro" | "business";
 export type PaidSubscriptionPlan = Exclude<SubscriptionPlan, "trial">;
 export type BillingPeriod = "monthly" | "yearly";
-export type FeatureKey = "discounts" | "importExport" | "qrisPakasir" | "debts" | "shifts" | "backupRestore" | "multiCashier";
+export type FeatureKey = "discounts" | "importExport" | "qrisPakasir" | "debts" | "shifts" | "backupRestore" | "multiCashier" | "productPhotos";
 
 export type PlanConfig = {
   label: string;
@@ -25,6 +25,7 @@ const basicFeatures: Record<FeatureKey, boolean> = {
   shifts: false,
   backupRestore: false,
   multiCashier: false,
+  productPhotos: false,
 };
 
 export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
@@ -81,6 +82,7 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
       shifts: true,
       backupRestore: true,
       multiCashier: true,
+      productPhotos: true,
     },
   },
   business: {
@@ -100,6 +102,7 @@ export const PLAN_CONFIG: Record<SubscriptionPlan, PlanConfig> = {
       shifts: true,
       backupRestore: true,
       multiCashier: true,
+      productPhotos: true,
     },
   },
 };
