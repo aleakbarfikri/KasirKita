@@ -8,6 +8,9 @@ import { assertFeatureAllowed } from "@/lib/server/subscription";
 
 type Params = { params: Promise<{ id: string }> };
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 const MAX_COMPRESSED_UPLOAD_BYTES = 8 * 1024 * 1024;
 const PRODUCT_IMAGE_PREFIX = "product-images/";
 
@@ -19,6 +22,10 @@ function blobToken() {
 
 function productPath(shopId: string, productId: string) {
   return `${PRODUCT_IMAGE_PREFIX}${shopId}/${productId}.webp`;
+}
+
+export function productImageUrl(shopId: string, productId: string, version = Date.now()) {
+  return `/api/product-images/${encodeURIComponent(shopId)}/${encodeURIComponent(productId)}?v=${version}`;
 }
 
 export async function optimizedProductImage(input: Buffer) {
@@ -62,15 +69,15 @@ export async function POST(request: Request, props: Params) {
 
     const output = await optimizedProductImage(Buffer.from(await file.arrayBuffer()));
     const pathname = productPath(scope.shopId, product.id);
-    const uploaded = await put(pathname, output, {
+    await put(pathname, output, {
       token: blobToken(),
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "image/webp",
       cacheControlMaxAge: 31536000,
     });
-    product.photoUrl = `${uploaded.url}?v=${Date.now()}`;
+    product.photoUrl = productImageUrl(scope.shopId, product.id);
     product.updatedAt = now();
     addAuditLog(db, {
       actorId: session.user.id,
