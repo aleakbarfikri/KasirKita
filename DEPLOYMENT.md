@@ -110,6 +110,7 @@ CRON_SECRET
 KASIRKITA_BACKUP_BLOB_STORE_ID
 KASIRKITA_BACKUP_ENCRYPTION_KEY
 KASIRKITA_BACKUP_RETENTION_DAYS=30
+KASIRKITA_PRODUCT_BLOB_READ_WRITE_TOKEN
 ```
 
 Generate the encryption key with `openssl rand -base64 32`. Store a recovery
@@ -120,6 +121,12 @@ reported successful. Objects older than the retention period are removed.
 
 `vercel.json` schedules the job at `18:15 UTC` (`01:15 WIB`). An unauthorized
 request to the internal endpoint must return HTTP `401`.
+
+The scheduled job now creates a dashboard-visible database backup and a separately encrypted,
+verified Blob backup. Product photos use the public application Blob store and should use
+`KASIRKITA_PRODUCT_BLOB_READ_WRITE_TOKEN`; when omitted, the standard `BLOB_READ_WRITE_TOKEN`
+from the connected public store is used. Product photos are converted to WebP and are only
+available to active Pro and Business plans.
 
 ## GitHub repository push
 

@@ -16,9 +16,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAppLanguage } from "@/lib/i18n";
 import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 
+async function compressPhotoForUpload(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("File harus berupa gambar.");
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Browser tidak dapat memproses gambar ini.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Gagal mengompres gambar.")), "image/webp", 0.78));
+    return new File([blob], "product.webp", { type: "image/webp" });
+  } finally {
+    bitmap.close();
+  }
+}
+
 export function InventoryManager() {
   const { t } = useAppLanguage();
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const editPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const scannerVideoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const [items, setItems] = useState<ProductRecord[]>([]);
@@ -29,6 +52,7 @@ export function InventoryManager() {
   const [discountType, setDiscountType] = useState<"none" | "percent" | "amount">("none");
   const [discountValue, setDiscountValue] = useState("");
   const [stock, setStock] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,6 +68,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   const [editDiscountType, setEditDiscountType] = useState<"none" | "percent" | "amount">("none");
   const [editDiscountValue, setEditDiscountValue] = useState("");
   const [editStock, setEditStock] = useState("");
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -126,6 +151,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setDiscountType("none");
     setDiscountValue("");
     setStock("");
+    setPhotoFile(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
   }
 
   const filteredItems = useMemo(() => {
@@ -152,7 +179,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setError(null);
     setMessage(null);
     try {
-      const created = await api.products.create({
+      let created = await api.products.create({
         name,
         sku,
         price: Number(price),
@@ -162,6 +189,10 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         stock: stock ? Number(stock) : null,
         photoUrl: "",
       });
+      if (photoFile) {
+        const compressed = await compressPhotoForUpload(photoFile);
+        created = (await api.products.uploadPhoto(created.id, compressed)).product;
+      }
       setItems((current) => [created, ...current]);
       cacheProducts([created, ...items]);
       setMessage("Produk berhasil disimpan ke database.");
@@ -182,6 +213,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setEditDiscountType(product.discountType ?? "none");
     setEditDiscountValue(String(product.discountValue ?? ""));
     setEditStock(product.stock === null || product.stock === undefined ? "" : String(product.stock));
+    setEditPhotoFile(null);
+    if (editPhotoInputRef.current) editPhotoInputRef.current.value = "";
     setEditError(null);
   }
 
@@ -203,7 +236,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setError(null);
     setMessage(null);
     try {
-      const updated = await api.products.update(editingProduct.id, {
+      let updated = await api.products.update(editingProduct.id, {
         name: editName,
         sku: editSku,
         price: Number(editPrice),
@@ -212,6 +245,10 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         discountValue: editDiscountType === "none" ? 0 : Number(editDiscountValue || 0),
         stock: editStock ? Number(editStock) : null,
       });
+      if (editPhotoFile) {
+        const compressed = await compressPhotoForUpload(editPhotoFile);
+        updated = (await api.products.uploadPhoto(editingProduct.id, compressed)).product;
+      }
       setItems((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
       cacheProducts(items.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
       setMessage("Produk berhasil diperbarui.");
@@ -350,6 +387,15 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <div className="space-y-2"><Label>{t("Stok")}</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
             </div>
 
+            <div className="space-y-2">
+              <Label>{t("Foto Produk")} <span className="text-xs font-normal text-[#64748b]">({t("Pro/Business")})</span></Label>
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} />
+              <Button type="button" variant="outline" className="w-full" onClick={() => photoInputRef.current?.click()}>
+                <Camera className="mr-2 h-4 w-4" /> {photoFile ? photoFile.name : t("Pilih Foto Produk")}
+              </Button>
+              <p className="text-xs font-semibold leading-relaxed text-[#64748b]">{t("Gambar akan dikompres otomatis menjadi WebP agar tetap jelas dan hemat penyimpanan.")}</p>
+            </div>
+
 <div className="grid min-w-0 grid-cols-1 gap-2">
               <Button onClick={addProduct} disabled={saving} className="w-full min-w-0 px-3">{saving ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <Plus className="mr-2 h-4 w-4 shrink-0" />} <span className="min-w-0 truncate">{t("Simpan")}</span></Button>
             </div>
@@ -381,7 +427,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                 <TableBody>
                   {filteredItems.map((item) => (
                     <TableRow key={item.id}>
-<TableCell className="font-bold text-[#0f172a]">{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</TableCell>
+<TableCell className="font-bold text-[#0f172a]"><div className="flex min-w-44 items-center gap-3">{item.photoUrl ? <img src={item.photoUrl} alt="" className="h-11 w-11 shrink-0 rounded-lg border object-cover" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Camera className="h-5 w-5 text-slate-400" /></div>}<span>{item.name}{item.shopName ? <Badge className="ml-2" variant="secondary">{item.shopName}</Badge> : null}</span></div></TableCell>
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{formatCurrency(item.price)}</TableCell>
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
@@ -455,6 +501,16 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
           <div className="space-y-2">
             <Label>{t("Stok")}</Label>
             <Input value={editStock} onChange={(e) => setEditStock(e.target.value)} type="number" placeholder="50" />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("Foto Produk")} <span className="text-xs font-normal text-[#64748b]">({t("Pro/Business")})</span></Label>
+            {editingProduct?.photoUrl ? <img src={editingProduct.photoUrl} alt={editingProduct.name} className="h-28 w-28 rounded-xl border object-cover" /> : null}
+            <input ref={editPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => setEditPhotoFile(event.target.files?.[0] ?? null)} />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => editPhotoInputRef.current?.click()}><Camera className="mr-2 h-4 w-4" /> {editPhotoFile ? editPhotoFile.name : t("Pilih Foto Baru")}</Button>
+              {editingProduct?.photoUrl ? <Button type="button" variant="outline" onClick={async () => { try { const updated = await api.products.removePhoto(editingProduct.id); setEditingProduct(updated); setItems((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item)); } catch (err) { setEditError(err instanceof Error ? err.message : "Gagal menghapus foto"); } }}>{t("Hapus Foto")}</Button> : null}
+            </div>
+            <p className="text-xs font-semibold text-[#64748b]">{t("Gambar akan dikompres otomatis menjadi WebP agar tetap jelas dan hemat penyimpanan.")}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <Button type="button" variant="outline" onClick={closeEditProduct} disabled={editSaving}>{t("Tutup")}</Button>

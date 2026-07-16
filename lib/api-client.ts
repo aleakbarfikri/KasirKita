@@ -449,6 +449,12 @@ export const api = {
     list: () => apiFetch<ProductRecord[]>("/api/products"),
     create: (body: Partial<ProductRecord>) => apiFetch<ProductRecord>("/api/products", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: Partial<ProductRecord>) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    uploadPhoto: (id: string, file: File) => {
+      const body = new FormData();
+      body.append("photo", file, "product.webp");
+      return apiFetch<{ product: ProductRecord; storedBytes: number }>(`/api/products/${id}/photo`, { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
+    },
+    removePhoto: (id: string) => apiFetch<ProductRecord>(`/api/products/${id}/photo`, { method: "DELETE" }),
     remove: (id: string) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "DELETE" }),
     importCsv: (file: File) => {
       const body = new FormData();

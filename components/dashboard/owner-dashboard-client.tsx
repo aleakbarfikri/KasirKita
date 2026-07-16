@@ -30,6 +30,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 
+function jakartaDate(value: string | Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+}
+
 function OwnerMetricRow({
   title,
   value,
@@ -81,6 +85,7 @@ export function OwnerDashboardClient() {
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => jakartaDate());
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDashboard = useCallback(async () => {
@@ -119,7 +124,7 @@ export function OwnerDashboardClient() {
     setError(null);
 
     try {
-      const response = await fetch("/api/owner/report", {
+      const response = await fetch(`/api/owner/report?date=${encodeURIComponent(selectedDate)}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -200,10 +205,11 @@ export function OwnerDashboardClient() {
   }
 
   const stats = useMemo(() => {
-    const totalRevenue = transactions
+    const dailyTransactions = transactions.filter((row) => jakartaDate(row.createdAt) === selectedDate);
+    const totalRevenue = dailyTransactions
       .filter((row) => row.status === "success")
       .reduce((sum, row) => sum + row.total, 0);
-    const grossProfit = transactions
+    const grossProfit = dailyTransactions
       .filter((row) => row.status === "success")
       .reduce((sum, row) => sum + (row.grossProfit ?? 0), 0);
 
@@ -215,7 +221,7 @@ export function OwnerDashboardClient() {
       .filter((row) => row.debt.status !== "paid")
       .reduce((sum, row) => sum + row.debt.amount - row.debt.paidAmount, 0);
 
-    const totalDigital = admins.reduce(
+    const availableDigital = admins.reduce(
       (sum, row) =>
         sum +
         ((row.balance?.totalEarnedQrisApi ?? 0) -
@@ -223,8 +229,14 @@ export function OwnerDashboardClient() {
       0,
     );
 
-    return { totalRevenue, grossProfit, pendingWithdrawal, outstandingDebt, totalDigital };
-  }, [admins, debts, transactions, withdrawals]);
+    const totalDigital = dailyTransactions
+      .filter((row) => row.status === "success" && row.paymentMethod === "qris_pakasir")
+      .reduce((sum, row) => sum + row.total, 0);
+
+    return { totalRevenue, grossProfit, pendingWithdrawal, outstandingDebt, totalDigital, availableDigital };
+  }, [admins, debts, selectedDate, transactions, withdrawals]);
+
+  const pendingWithdrawals = useMemo(() => withdrawals.filter((row) => row.withdrawal.status !== "completed" && row.withdrawal.status !== "rejected"), [withdrawals]);
 
   return (
     <div>
@@ -251,24 +263,28 @@ export function OwnerDashboardClient() {
         <div className="space-y-8">
           <Card className="overflow-hidden border-[#d9e3de] bg-white/95">
             <CardContent className="space-y-4 p-5 sm:p-6">
+              <div className="flex flex-col gap-3 rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="font-black text-[#0f172a]">Ringkasan Harian</p><p className="text-sm font-semibold text-[#64748b]">Pilih tanggal untuk melihat pendapatan, laba, dan pemasukan QRIS.</p></div>
+                <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value || jakartaDate())} className="h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 font-bold text-[#0f172a]" />
+              </div>
               <OwnerMetricRow
-              title="Total Pendapatan"
+              title="Total Pendapatan Harian"
               value={formatCurrency(stats.totalRevenue)}
-              helper="Dari transaksi sukses semua cabang"
+              helper={`Transaksi sukses semua cabang pada ${new Date(`${selectedDate}T12:00:00+07:00`).toLocaleDateString("id-ID", { dateStyle: "long" })}`}
               icon={Wallet}
               tone="green"
             />
               <OwnerMetricRow
-              title="Laba Kotor"
+              title="Laba Kotor Harian"
               value={formatCurrency(stats.grossProfit)}
               helper="Pendapatan sukses dikurangi modal barang"
               icon={TrendingUp}
               tone="green"
             />
               <OwnerMetricRow
-              title="Saldo QRIS Digital"
+              title="Pemasukan QRIS Digital Harian"
               value={formatCurrency(stats.totalDigital)}
-              helper="Akumulasi QRIS KasirKita tersedia"
+              helper={`Dana masuk tanggal terpilih • saldo tersedia ${formatCurrency(stats.availableDigital)}`}
               icon={Landmark}
               tone="blue"
             />
@@ -431,7 +447,7 @@ export function OwnerDashboardClient() {
                     href={`/api/owner/backups/${backup.id}`}
                     className="block rounded-xl border border-[#d7e2dc] p-3 text-sm transition hover:border-primary hover:bg-[#f8fafc]"
                   >
-                    <span className="block truncate font-bold text-[#0f172a]">{backup.id}</span>
+                    <span className="block truncate font-bold text-[#0f172a]">{backup.reason === "scheduled-daily" ? "Backup Harian Otomatis" : backup.reason === "owner-manual" ? "Backup Manual Owner" : backup.id}</span>
                     <span className="text-xs font-medium text-[#64748b]">
                       {new Date(backup.createdAt).toLocaleString("id-ID")} • {(backup.sizeBytes / 1024).toFixed(1)} KB
                     </span>
@@ -472,65 +488,15 @@ export function OwnerDashboardClient() {
           </Card>
 
           <Card className="overflow-hidden bg-white">
-            <CardHeader className="flex-row items-center justify-between border-b border-[#bccac0]">
-              <CardTitle>Permintaan Tarik Dana</CardTitle>
-              <span className="h-2 w-2 rounded-full bg-red-600" />
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="grid grid-cols-[1fr_100px_70px] bg-[#eff4ff] px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-[#3d4a42]">
-                <span>Admin</span>
-                <span>Jumlah</span>
-                <span>Aksi</span>
-              </div>
-              {withdrawals.slice(0, 5).map((row) => (
-                <div
-                  key={row.withdrawal.id}
-                  className="grid grid-cols-[1fr_100px_70px] items-center border-t border-[#bccac0] px-6 py-4"
-                >
-                  <div>
-                    <p className="font-extrabold leading-tight">
-                      {row.admin.shopName || row.admin.name}
-                    </p>
-                    <p className="text-xs text-[#3d4a42]">
-                      Admin: {row.admin.name}
-                    </p>
-                  </div>
-                  <p className="font-extrabold text-primary">
-                    {formatCurrency(row.withdrawal.amount)}
-                  </p>
-                  <Link href="/owner/withdrawals">
-                    <Button size="sm">Buka</Button>
-                  </Link>
-                </div>
-              ))}
-              <Link
-                href="/owner/withdrawals"
-                className="block bg-[#eff4ff] px-6 py-4 text-center text-sm font-bold italic text-primary"
-              >
-                Lihat semua antrian ({withdrawals.length})
-              </Link>
+            <CardHeader className="border-b border-[#e2e8f0] pb-4"><CardTitle className="flex items-center justify-between gap-3"><span>Permintaan Tarik Dana</span>{pendingWithdrawals.length ? <Badge variant="danger">{pendingWithdrawals.length}</Badge> : <Badge variant="secondary">0</Badge>}</CardTitle></CardHeader>
+            <CardContent className="space-y-3 p-5">
+              {pendingWithdrawals.slice(0, 3).map((row) => <div key={row.withdrawal.id} className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-4"><p className="truncate font-black text-[#0f172a]">{row.admin.shopName || row.admin.name}</p><p className="mt-1 text-xs font-semibold text-[#64748b]">Admin: {row.admin.name}</p><div className="mt-3 flex items-center justify-between gap-3"><p className="font-black text-primary">{formatCurrency(row.withdrawal.amount)}</p><Link href="/owner/withdrawals"><Button size="sm">Review</Button></Link></div></div>)}
+              {pendingWithdrawals.length === 0 ? <div className="rounded-xl border border-dashed border-[#cbd5e1] p-5 text-center"><p className="font-bold text-[#475569]">Tidak ada permintaan aktif</p><p className="mt-1 text-xs text-[#64748b]">Antrian penarikan baru akan muncul di sini.</p></div> : null}
+              <Link href="/owner/withdrawals" className="flex items-center justify-center gap-2 rounded-xl border border-primary px-4 py-3 text-sm font-bold text-primary">Lihat semua antrian <ArrowRight className="h-4 w-4" /></Link>
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-[#3d4a42]">Piutang Aktif</p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#0b1c30]">
-                    {formatCurrency(stats.outstandingDebt)}
-                  </p>
-                </div>
-                <NotebookTabs className="h-10 w-10 text-primary" />
-              </div>
-              <Link
-                href="/owner/debts"
-                className="mt-4 inline-flex items-center gap-2 font-bold text-primary"
-              >
-                Review catatan hutang <ArrowRight className="h-4 w-4" />
-              </Link>
-            </CardContent>
-          </Card>
+          <Card className="overflow-hidden bg-white"><CardHeader className="border-b border-[#e2e8f0] pb-4"><CardTitle className="flex items-center gap-2"><NotebookTabs className="h-5 w-5 text-primary" />Piutang Aktif</CardTitle></CardHeader><CardContent className="p-5"><div className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#64748b]">Total belum dibayar</p><p className="mt-2 break-words text-3xl font-black text-[#0f172a]">{formatCurrency(stats.outstandingDebt)}</p></div><Link href="/owner/debts" className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-primary px-4 py-3 text-sm font-bold text-primary">Review catatan hutang <ArrowRight className="h-4 w-4" /></Link></CardContent></Card>
         </aside>
       </div>
     </div>
