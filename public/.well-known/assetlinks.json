@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kasirkita.pos",
+      "sha256_cert_fingerprints": [
+        "FE:EC:35:E9:FB:99:01:A9:D9:2B:21:D3:9D:00:F0:7F:0D:4E:BF:71:39:4A:F3:0A:AF:5D:8B:11:3D:F3:23:97"
+      ]
+    }
+  }
+]

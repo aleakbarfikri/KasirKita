@@ -8,3 +8,15 @@ out
 .vercel
 .env*
 tsconfig.tsbuildinfo
+
+# Android build output and private signing material
+android/.gradle/
+android/app/build/
+android/build/
+android/*.keystore
+android/*.jks
+android/keystore.properties
+android/app-release-*.apk
+android/app-release-*.aab
+android/*.idsig
+android/local.properties
