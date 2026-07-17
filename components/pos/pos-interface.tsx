@@ -79,6 +79,9 @@ function wrapThermalText(text: string, width: number) {
 function thermalColumns(left: string, right: string, width: number) {
   const cleanLeft = sanitizeReceiptText(left);
   const cleanRight = sanitizeReceiptText(right);
+  if (cleanLeft.length + cleanRight.length + 1 <= width) {
+    return `${cleanLeft}${" ".repeat(width - cleanLeft.length - cleanRight.length)}${cleanRight}`;
+  }
   const rightWidth = Math.min(cleanRight.length, Math.max(10, Math.floor(width * 0.42)));
   const leftWidth = Math.max(8, width - rightWidth - 1);
   const leftLines = wrapThermalText(cleanLeft, leftWidth);
@@ -143,9 +146,13 @@ async function escPosRasterImage(dataUrl: string, paperWidth: ReceiptPaperWidth,
 function formatReceiptDate(value: string | Date) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(date);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
-  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}:${part("second")}`;
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+}
+
+function receiptPaymentMethodLabel(method: PaymentMethod) {
+  return method === "qris_static" ? "QRIS Statis" : methodLabel[method];
 }
 
 export async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
@@ -172,7 +179,7 @@ export async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: Rec
     receipt.queueNumber ? thermalColumns("Antrean / Queue", String(receipt.queueNumber), width) : "",
     thermalColumns("Tanggal", formatReceiptDate(trx.createdAt), width),
     thermalColumns("Kasir", receipt.cashier.name, width),
-    thermalColumns("Metode", methodLabel[trx.paymentMethod], width),
+    thermalColumns("Metode", receiptPaymentMethodLabel(trx.paymentMethod), width),
     line,
     ...receipt.items.flatMap((item) => [
       ...wrapThermalText(item.name, width),
@@ -722,9 +729,9 @@ export function PosInterface() {
           <div class="line"></div>
           <div class="row"><span>Invoice</span><span>${escapeHtml(trx.invoiceNumber)}</span></div>
           ${receipt.queueNumber ? `<div class="row"><span>Antrean / Queue</span><span>${receipt.queueNumber}</span></div>` : ""}
-          <div class="row"><span>Tanggal</span><span>${escapeHtml(new Date(trx.createdAt).toLocaleString("id-ID"))}</span></div>
+          <div class="row"><span>Tanggal</span><span>${escapeHtml(formatReceiptDate(trx.createdAt))}</span></div>
           <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashier.name)}</span></div>
-          <div class="row"><span>Metode</span><span>${escapeHtml(methodLabel[trx.paymentMethod])}</span></div>
+          <div class="row"><span>Metode</span><span>${escapeHtml(receiptPaymentMethodLabel(trx.paymentMethod))}</span></div>
           <div class="line"></div>
           ${itemRows}
           <div class="line"></div>
