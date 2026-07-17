@@ -4,6 +4,7 @@ import { getPakasirTransactionStatus } from "@/lib/server/pakasir";
 import { confirmQrisPayment } from "@/lib/server/payment-confirmation";
 import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { paymentCredentials } from "@/lib/server/payment-secrets";
+import { buildReceipt } from "@/lib/server/receipt";
 
 type Params = { params: Promise<{ reference: string }> };
 
@@ -16,7 +17,8 @@ export async function GET(_request: Request, props: Params) {
     const transaction = db.transactions.find((row) => row.externalRef === params.reference);
     if (!transaction || transaction.cashierId !== session.user.id) return fail("Payment reference not found", 404);
 
-    if (transaction.status === "success") return ok({ status: "paid", providerStatus: "success", transaction });
+    const origin = new URL(_request.url).origin;
+    if (transaction.status === "success") return ok({ status: "paid", providerStatus: "success", transaction, receipt: buildReceipt(db, transaction, origin) });
     if (transaction.status === "failed" || transaction.status === "cancelled") return ok({ status: transaction.status, providerStatus: transaction.status, transaction });
 
     const config = db.paymentConfigs.find((row) => row.ownerId === scope.ownerId);
@@ -49,6 +51,7 @@ export async function GET(_request: Request, props: Params) {
         status: "paid",
         providerStatus,
         transaction: confirmed.transaction,
+        receipt: buildReceipt(await readDb(), confirmed.transaction, origin),
         replayed: !confirmed.applied,
       });
     }

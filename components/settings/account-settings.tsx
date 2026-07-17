@@ -116,7 +116,7 @@ export function AccountSettings({ role }: { role: "owner" | "admin" }) {
       setError(e instanceof Error ? e.message : t("Gagal mengubah status toko online."));
     } finally { setBusy(false); }
   }
-  async function testBluetooth() { try { const bt=(navigator as Navigator & {bluetooth?:{requestDevice:(o:unknown)=>Promise<{name?:string}>}}).bluetooth; if(!bt) throw new Error("Bluetooth printer membutuhkan Chrome/Edge desktop atau Android."); const device=await bt.requestDevice({acceptAllDevices:true,optionalServices:["generic_access"]}); setSuccess(`Printer ${device.name || "Bluetooth"} dipilih. Browser akan meminta koneksi lagi saat print.`); } catch(e){ setError(e instanceof Error?e.message:"Printer tidak terhubung."); } }
+  async function testBluetooth() { try { resetMessage(); const bt=(navigator as Navigator & {bluetooth?:{requestDevice:(o:unknown)=>Promise<{name?:string}>}}).bluetooth; if(!bt) throw new Error("Bluetooth printer membutuhkan Chrome/Edge desktop atau Android."); const device=await bt.requestDevice({acceptAllDevices:true,optionalServices:["000018f0-0000-1000-8000-00805f9b34fb","0000ff00-0000-1000-8000-00805f9b34fb","49535343-fe7d-4ae5-8fa9-9fafd205e455","e7810a71-73ae-499d-8c15-faa9aef0c3f2"]}); setSuccess(`Printer ${device.name || "Bluetooth"} sudah diberi izin. Auto-print akan memakainya setelah transaksi berhasil.`); } catch(e){ const message=e instanceof Error?e.message:String(e ?? ""); if(/NotFoundError|AbortError|cancel+ed|chooser/i.test(message)){ setError(null); return; } setError(message||"Printer tidak terhubung."); } }
 
   const tabs = [
     { id: "profile" as const, label: "Edit Profil", icon: UserRound },

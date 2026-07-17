@@ -473,7 +473,7 @@ export const api = {
     listInvoices: () => apiFetch<SubscriptionInvoiceRecord[]>("/api/subscription/invoices"),
     poll: (id: string) => apiFetch<{ invoice: SubscriptionInvoiceRecord; status: "pending" | "paid"; profile?: AdminProfile; providerStatus?: string }>(`/api/subscription/invoices/${id}`),
   },
-  pollPakasir: (reference: string) => apiFetch<{ status: "pending" | "paid" | "failed" | "cancelled"; providerStatus?: string; warning?: string; transaction: TransactionRecord }>(`/api/pakasir/status/${reference}`),
+  pollPakasir: (reference: string) => apiFetch<{ status: "pending" | "paid" | "failed" | "cancelled"; providerStatus?: string; warning?: string; transaction: TransactionRecord; receipt?: ReceiptRecord }>(`/api/pakasir/status/${reference}`),
 
   transactions: {
     list: () => apiFetch<TransactionRecord[]>("/api/transactions"),

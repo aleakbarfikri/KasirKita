@@ -18,3 +18,24 @@ test("public receipt exposes only display fields and accepts strong token format
   assert.equal(isReceiptToken(transaction.receiptToken), true);
   assert.equal(isReceiptToken("rcpt_guessable"), false);
 });
+
+test("Pro and Business receipts keep the saved logo and remove KasirKita watermark", () => {
+  for (const planType of ["pro", "business"] as const) {
+    const db = defaultDb();
+    const createdAt = new Date().toISOString();
+    const shopId = `shop-${planType}`;
+    const adminId = `admin-${planType}`;
+    const logoDataUrl = "data:image/png;base64,iVBORw0KGgo=";
+    db.shops.push({ id: shopId, ownerId: "owner", name: "Toko", createdAt, updatedAt: createdAt });
+    db.users.push({ id: adminId, name: "Admin", email: `${adminId}@example.com`, username: adminId, role: "admin", passwordHash: "hash", createdAt, updatedAt: createdAt });
+    db.adminProfiles.push({ userId: adminId, ownerId: "owner", shopId, isActive: true, planType, planStatus: "active", createdAt, updatedAt: createdAt });
+    db.receiptSettings.push({ shopId, paperWidth: "58mm", logoDataUrl, printCopies: 1, showQueueNumber: false, autoPrint: true, updatedAt: createdAt });
+    const transaction = { id: `trx_${planType}`, shopId, cashierId: adminId, receiptToken: "rcpt_0123456789abcdef0123456789abcdef", paymentMethod: "cash" as const, total: 5_000, paidAmount: 5_000, changeAmount: 0, status: "success" as const, createdAt, updatedAt: createdAt };
+    db.transactions.push(transaction);
+
+    const receipt = buildReceipt(db, transaction, "https://example.test");
+    assert.equal(receipt.showWatermark, false);
+    assert.equal(receipt.settings.logoDataUrl, logoDataUrl);
+    assert.equal(receipt.settings.autoPrint, true);
+  }
+});

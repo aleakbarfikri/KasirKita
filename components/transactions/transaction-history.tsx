@@ -109,10 +109,12 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
       .total { font-size: 13px; font-weight: 900; }
       .qr { display: block; width: ${paperWidth === "80mm" ? "34mm" : "28mm"}; height: ${paperWidth === "80mm" ? "34mm" : "28mm"}; margin: 4px auto 2px; }
       .small { font-size: 9px; }
+      .tear-space { height: 18mm; }
     </style></head><body>
       <div class="receipt">
         <div class="center">
           ${receipt.showWatermark ? `<div class="watermark">${escapeHtml(receipt.watermarkText || "www.kasir-kita.com")}</div>` : ""}
+          ${receipt.settings.logoDataUrl ? `<img src="${escapeHtml(receipt.settings.logoDataUrl)}" alt="Logo" style="max-width:28mm;max-height:20mm;object-fit:contain" />` : ""}
           <div class="shop">${escapeHtml(receipt.shop.name)}</div>
           ${receipt.shop.address ? `<div>${escapeHtml(receipt.shop.address)}</div>` : ""}
           <div>${receipt.shop.phone ? `Telp: ${escapeHtml(receipt.shop.phone)}` : ""}</div>
@@ -134,10 +136,14 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
         <div class="line"></div>
         <div class="center">REPRINT</div>
         <div class="center">Terima kasih</div>
+        <div class="tear-space" aria-hidden="true"></div>
       </div>
       <script>
         window.addEventListener("load", function () {
-          setTimeout(function () { window.print(); }, 180);
+          Promise.all(Array.from(document.images).map(function (image) {
+            if (image.complete) return image.decode ? image.decode().catch(function () {}) : Promise.resolve();
+            return new Promise(function (resolve) { image.addEventListener('load', resolve, { once: true }); image.addEventListener('error', resolve, { once: true }); });
+          })).then(function () { setTimeout(function () { window.print(); }, 120); });
         });
       </script>
     </body></html>`;

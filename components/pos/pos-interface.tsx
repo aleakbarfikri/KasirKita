@@ -29,6 +29,9 @@ type BluetoothWriteCharacteristic = {
   writeValue: (value: BufferSource) => Promise<void>;
   writeValueWithoutResponse?: (value: BufferSource) => Promise<void>;
 };
+type ThermalDevice = { name?: string; gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } };
+
+let rememberedThermalDevice: ThermalDevice | null = null;
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
@@ -101,7 +104,67 @@ function thermalColumns(left: string, right: string, width: number) {
   }).join("\n");
 }
 
-function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
+function concatBytes(...parts: Uint8Array[]) {
+  const result = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+function escPosQrCode(value: string, moduleSize: number) {
+  const data = new TextEncoder().encode(value);
+  const storeLength = data.length + 3;
+  return concatBytes(
+    new Uint8Array([0x1b, 0x61, 0x01]),
+    new Uint8Array([0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]),
+    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, moduleSize]),
+    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]),
+    new Uint8Array([0x1d, 0x28, 0x6b, storeLength & 0xff, (storeLength >> 8) & 0xff, 0x31, 0x50, 0x30]),
+    data,
+    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30, 0x1b, 0x61, 0x00]),
+  );
+}
+
+async function escPosLogo(dataUrl: string, paperWidth: ReceiptPaperWidth) {
+  const image = new Image();
+  image.decoding = "async";
+  image.src = dataUrl;
+  await image.decode();
+  const maxWidth = paperWidth === "80mm" ? 384 : 256;
+  const maxHeight = 180;
+  const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Logo struk tidak dapat diproses.");
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const bytesPerRow = Math.ceil(width / 8);
+  const raster = new Uint8Array(bytesPerRow * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const alpha = pixels[offset + 3] / 255;
+      const luminance = (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114) * alpha + 255 * (1 - alpha);
+      if (luminance < 170) raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+    }
+  }
+  return concatBytes(
+    new Uint8Array([0x1b, 0x61, 0x01, 0x1d, 0x76, 0x30, 0x00, bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff, height & 0xff, (height >> 8) & 0xff]),
+    raster,
+    new Uint8Array([0x0a, 0x1b, 0x61, 0x00]),
+  );
+}
+
+async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
   const trx = receipt.transaction;
   const width = paperWidth === "80mm" ? 48 : 32;
   const line = "-".repeat(width);
@@ -140,22 +203,25 @@ function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidt
     trx.changeAmount !== null && trx.changeAmount !== undefined ? thermalColumns("Kembalian", formatCurrency(trx.changeAmount), width) : "",
     receipt.publicUrl ? line : "",
     receipt.publicUrl ? center("Struk digital") : "",
-    receipt.publicUrl ? wrapThermalText(receipt.publicUrl, width).join("\n") : "",
     line,
     center("Terima kasih"),
-    "",
-    "",
-    "",
   ].filter(Boolean).join("\n");
 
   const encoder = new TextEncoder();
   const init = new Uint8Array([0x1b, 0x40, 0x1b, 0x61, 0x00]);
+  let logo = new Uint8Array();
+  if (receipt.settings.logoDataUrl) {
+    try {
+      logo = await escPosLogo(receipt.settings.logoDataUrl, paperWidth);
+    } catch {
+      // A corrupt logo must not prevent the transaction receipt from printing.
+    }
+  }
   const content = encoder.encode(`${body}\n`);
+  const qr = receipt.publicUrl ? escPosQrCode(receipt.publicUrl, paperWidth === "80mm" ? 6 : 5) : new Uint8Array();
+  const tearSpace = new Uint8Array([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a]);
   const cut = new Uint8Array([0x1d, 0x56, 0x42, 0x00]);
-  const payload = new Uint8Array(init.length + content.length + cut.length);
-  payload.set(init, 0);
-  payload.set(content, init.length);
-  payload.set(cut, init.length + content.length);
+  const payload = concatBytes(init, logo, content, qr, tearSpace, cut);
   if (receipt.settings.printCopies === 1) return payload;
   const doubled = new Uint8Array(payload.length * 2); doubled.set(payload); doubled.set(payload, payload.length); return doubled;
 }
@@ -303,7 +369,7 @@ export function PosInterface() {
         if (result.status === "paid") {
           setPaymentStatus("paid");
           await loadProducts();
-          showCheckoutSuccess("qris_pakasir");
+          showCheckoutSuccess("qris_pakasir", { receipt: result.receipt });
         } else if (result.status === "failed" || result.status === "cancelled") {
           setPaymentStatus("failed");
           setError("Pembayaran QRIS KasirKita gagal atau dibatalkan.");
@@ -654,6 +720,7 @@ export function PosInterface() {
         .total { font-size: 13px; font-weight: 900; }
         .qr { display: block; width: ${paperWidth === "80mm" ? "34mm" : "28mm"}; height: ${paperWidth === "80mm" ? "34mm" : "28mm"}; margin: 4px auto 2px; }
         .small { font-size: 9px; }
+        .tear-space { height: 18mm; }
       </style></head><body>
         <div class="receipt">
           <div class="center">
@@ -680,8 +747,15 @@ export function PosInterface() {
           ${qrDataUrl ? `<div class="line"></div><div class="center"><div>Struk digital</div><img class="qr" src="${qrDataUrl}" alt="QR struk digital" /><div class="small">Scan / simpan QR ini</div></div>` : ""}
           <div class="line"></div>
           <div class="center">Terima kasih</div>
+          <div class="tear-space" aria-hidden="true"></div>
         </div>
-        <script>${receipt.settings.printCopies === 2 ? `const copy=document.querySelector('.receipt').cloneNode(true);copy.style.pageBreakBefore='always';const label=document.createElement('div');label.className='center';label.style.fontWeight='900';label.textContent='KITCHEN COPY';copy.prepend(label);document.body.appendChild(copy);` : ""}window.print();</script>
+        <script>
+          ${receipt.settings.printCopies === 2 ? `const copy=document.querySelector('.receipt').cloneNode(true);copy.style.pageBreakBefore='always';const label=document.createElement('div');label.className='center';label.style.fontWeight='900';label.textContent='KITCHEN COPY';copy.prepend(label);document.body.appendChild(copy);` : ""}
+          Promise.all(Array.from(document.images).map(function (image) {
+            if (image.complete) return image.decode ? image.decode().catch(function () {}) : Promise.resolve();
+            return new Promise(function (resolve) { image.addEventListener('load', resolve, { once: true }); image.addEventListener('error', resolve, { once: true }); });
+          })).then(function () { setTimeout(function () { window.print(); }, 120); });
+        </script>
       </body></html>`;
     const win = window.open("", "_blank", "width=360,height=720");
     if (!win) {
@@ -717,7 +791,6 @@ export function PosInterface() {
   }
 
   async function directPrintThermalReceipt(receipt: ReceiptRecord, automatic = false) {
-    type ThermalDevice = { name?: string; gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } };
     const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: unknown) => Promise<ThermalDevice>; getDevices?: () => Promise<ThermalDevice[]> } }).bluetooth;
     if (!bluetooth) {
       setError("Direct printer butuh Chrome/Edge dengan Web Bluetooth. Di iPhone/Safari biasanya tidak tersedia.");
@@ -728,16 +801,18 @@ export function PosInterface() {
     setError(null);
     try {
       const permitted = automatic && bluetooth.getDevices ? await bluetooth.getDevices() : [];
-      const device = permitted[0] ?? (automatic ? null : await bluetooth.requestDevice({
+      const requested = automatic ? null : await bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: thermalBluetoothServices,
-      }));
+      });
+      const device = rememberedThermalDevice ?? permitted[0] ?? requested;
       if (!device) throw new Error("Auto print belum dapat mengakses printer. Pilih Print sekali untuk memberi izin Bluetooth.");
+      rememberedThermalDevice = device;
       const server = await device.gatt?.connect();
       if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
       const characteristic = await findBluetoothWriteCharacteristic(server);
       if (!characteristic) throw new Error("Printer tidak menyediakan channel tulis ESC/POS. Coba mode Print biasa atau printer thermal Bluetooth lain.");
-      await writeEscPosChunks(characteristic, buildEscPosReceipt(receipt, receipt.settings.paperWidth));
+      await writeEscPosChunks(characteristic, await buildEscPosReceipt(receipt, receipt.settings.paperWidth));
       setError("Struk berhasil dikirim ke printer thermal.");
     } catch (err) {
       const bluetoothError = err as { name?: unknown; message?: unknown } | null;
@@ -747,8 +822,12 @@ export function PosInterface() {
       const chooserCancelled = !automatic && (
         /NotFoundError|AbortError|cancel+ed|chooser/i.test(errorDetails)
       );
-      if (chooserCancelled || (automatic && /Auto print belum dapat mengakses printer/i.test(errorDetails))) {
+      if (chooserCancelled) {
         setError(null);
+        return;
+      }
+      if (automatic && /Auto print belum dapat mengakses printer/i.test(errorDetails)) {
+        setError("Auto-print belum mendapat izin printer. Tekan menu Print sekali, lalu transaksi berikutnya akan tercetak otomatis.");
         return;
       }
       setError(errorMessage || "Gagal direct print ke printer thermal.");
