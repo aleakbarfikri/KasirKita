@@ -2,6 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Runtime functions only need application code. Excluding build-time and
+  // local-development files prevents Turbopack from tracing the whole project
+  // through the JSON fallback store (including local env files).
+  outputFileTracingExcludes: {
+    "*": [
+      "next.config.mjs",
+      ".env*",
+      ".data/**",
+      "scripts/**",
+    ],
+  },
   async headers() {
     return [{
       source: "/api/:path*",
