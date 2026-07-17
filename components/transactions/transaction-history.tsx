@@ -13,6 +13,8 @@ import { Modal } from "@/components/ui/modal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, shortDate } from "@/lib/utils";
 import { useAppLanguage, type AppLanguage } from "@/lib/i18n";
+import { buildEscPosReceipt } from "@/components/pos/pos-interface";
+import { isBluetoothChooserCancelled, sendToThermalPrinter } from "@/lib/thermal-bluetooth";
 
 type ReceiptPaperWidth = "58mm" | "80mm";
 
@@ -268,9 +270,9 @@ export function TransactionHistory() {
     setPrinting(true);
     setError(null);
     try {
-      await printThermalReceipt(selectedReceipt, receiptPaperWidth);
+      await sendToThermalPrinter(await buildEscPosReceipt({ ...selectedReceipt, settings: { ...selectedReceipt.settings, paperWidth: receiptPaperWidth } }, receiptPaperWidth));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal reprint struk");
+      if (!isBluetoothChooserCancelled(err)) setError(err instanceof Error ? err.message : "Gagal reprint struk");
     } finally {
       setPrinting(false);
     }

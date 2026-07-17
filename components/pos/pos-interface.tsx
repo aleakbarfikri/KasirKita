@@ -16,6 +16,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/lib/i18n";
 import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
+import { isBluetoothChooserCancelled, sendToThermalPrinter } from "@/lib/thermal-bluetooth";
 
 type CartItem = ProductRecord & { qty: number; isManual?: boolean };
 type ModalMethod = PaymentMethod | null;
@@ -24,14 +25,6 @@ type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
 type SuccessSummary = { method: PaymentMethod; total: number; totalItems: number; queued?: boolean };
 type DiscountType = "none" | "percent" | "amount";
 type ReceiptPaperWidth = "58mm" | "80mm";
-type BluetoothWriteCharacteristic = {
-  properties?: { write?: boolean; writeWithoutResponse?: boolean };
-  writeValue: (value: BufferSource) => Promise<void>;
-  writeValueWithoutResponse?: (value: BufferSource) => Promise<void>;
-};
-type ThermalDevice = { name?: string; gatt?: { connect: () => Promise<{ getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }> } };
-
-let rememberedThermalDevice: ThermalDevice | null = null;
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: "Tunai (Cash)",
@@ -53,13 +46,6 @@ const emptyManualItem = {
   price: "",
   quantity: "1",
 };
-
-const thermalBluetoothServices = [
-  "000018f0-0000-1000-8000-00805f9b34fb",
-  "0000ff00-0000-1000-8000-00805f9b34fb",
-  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
-];
 
 function sanitizeReceiptText(value: unknown) {
   return String(value ?? "")
@@ -96,7 +82,11 @@ function thermalColumns(left: string, right: string, width: number) {
   const rightWidth = Math.min(cleanRight.length, Math.max(10, Math.floor(width * 0.42)));
   const leftWidth = Math.max(8, width - rightWidth - 1);
   const leftLines = wrapThermalText(cleanLeft, leftWidth);
-  const rightText = cleanRight.slice(-rightWidth);
+  if (cleanRight.length > rightWidth) {
+    const rightLines = wrapThermalText(cleanRight, width);
+    return [...leftLines, ...rightLines.map((line) => `${" ".repeat(Math.max(0, width - line.length))}${line}`)].join("\n");
+  }
+  const rightText = cleanRight;
   return leftLines.map((line, index) => {
     if (index < leftLines.length - 1) return line;
     const spaces = " ".repeat(Math.max(1, width - line.length - rightText.length));
@@ -114,27 +104,13 @@ function concatBytes(...parts: Uint8Array[]) {
   return result;
 }
 
-function escPosQrCode(value: string, moduleSize: number) {
-  const data = new TextEncoder().encode(value);
-  const storeLength = data.length + 3;
-  return concatBytes(
-    new Uint8Array([0x1b, 0x61, 0x01]),
-    new Uint8Array([0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]),
-    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, moduleSize]),
-    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]),
-    new Uint8Array([0x1d, 0x28, 0x6b, storeLength & 0xff, (storeLength >> 8) & 0xff, 0x31, 0x50, 0x30]),
-    data,
-    new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30, 0x1b, 0x61, 0x00]),
-  );
-}
-
-async function escPosLogo(dataUrl: string, paperWidth: ReceiptPaperWidth) {
+async function escPosRasterImage(dataUrl: string, paperWidth: ReceiptPaperWidth, kind: "logo" | "qr" = "logo") {
   const image = new Image();
   image.decoding = "async";
   image.src = dataUrl;
   await image.decode();
-  const maxWidth = paperWidth === "80mm" ? 384 : 256;
-  const maxHeight = 180;
+  const maxWidth = kind === "qr" ? (paperWidth === "80mm" ? 320 : 224) : (paperWidth === "80mm" ? 384 : 256);
+  const maxHeight = kind === "qr" ? maxWidth : 180;
   const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
   const width = Math.max(1, Math.round(image.naturalWidth * scale));
   const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -154,7 +130,7 @@ async function escPosLogo(dataUrl: string, paperWidth: ReceiptPaperWidth) {
       const offset = (y * width + x) * 4;
       const alpha = pixels[offset + 3] / 255;
       const luminance = (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114) * alpha + 255 * (1 - alpha);
-      if (luminance < 170) raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      if (luminance < (kind === "qr" ? 210 : 170)) raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
     }
   }
   return concatBytes(
@@ -164,7 +140,15 @@ async function escPosLogo(dataUrl: string, paperWidth: ReceiptPaperWidth) {
   );
 }
 
-async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
+function formatReceiptDate(value: string | Date) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}:${part("second")}`;
+}
+
+export async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPaperWidth) {
   const trx = receipt.transaction;
   const width = paperWidth === "80mm" ? 48 : 32;
   const line = "-".repeat(width);
@@ -186,7 +170,7 @@ async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPap
     receipt.onlineOrder ? line : "",
     thermalColumns("Invoice", trx.invoiceNumber, width),
     receipt.queueNumber ? thermalColumns("Antrean / Queue", String(receipt.queueNumber), width) : "",
-    thermalColumns("Tanggal", new Date(trx.createdAt).toLocaleString("id-ID"), width),
+    thermalColumns("Tanggal", formatReceiptDate(trx.createdAt), width),
     thermalColumns("Kasir", receipt.cashier.name, width),
     thermalColumns("Metode", methodLabel[trx.paymentMethod], width),
     line,
@@ -203,8 +187,6 @@ async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPap
     trx.changeAmount !== null && trx.changeAmount !== undefined ? thermalColumns("Kembalian", formatCurrency(trx.changeAmount), width) : "",
     receipt.publicUrl ? line : "",
     receipt.publicUrl ? center("Struk digital") : "",
-    line,
-    center("Terima kasih"),
   ].filter(Boolean).join("\n");
 
   const encoder = new TextEncoder();
@@ -212,16 +194,23 @@ async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPap
   let logo = new Uint8Array();
   if (receipt.settings.logoDataUrl) {
     try {
-      logo = await escPosLogo(receipt.settings.logoDataUrl, paperWidth);
+      logo = await escPosRasterImage(receipt.settings.logoDataUrl, paperWidth, "logo");
     } catch {
       // A corrupt logo must not prevent the transaction receipt from printing.
     }
   }
   const content = encoder.encode(`${body}\n`);
-  const qr = receipt.publicUrl ? escPosQrCode(receipt.publicUrl, paperWidth === "80mm" ? 6 : 5) : new Uint8Array();
-  const tearSpace = new Uint8Array([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a]);
+  let qr = new Uint8Array();
+  if (receipt.publicUrl) {
+    try {
+      const qrDataUrl = await QRCode.toDataURL(receipt.publicUrl, { margin: 1, width: paperWidth === "80mm" ? 320 : 224, errorCorrectionLevel: "M" });
+      qr = await escPosRasterImage(qrDataUrl, paperWidth, "qr");
+    } catch { /* A QR failure must not block the receipt text. */ }
+  }
+  const footer = encoder.encode(`${line}\n${center("Terima kasih")}\n`);
+  const tearSpace = new Uint8Array([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a]);
   const cut = new Uint8Array([0x1d, 0x56, 0x42, 0x00]);
-  const payload = concatBytes(init, logo, content, qr, tearSpace, cut);
+  const payload = concatBytes(init, logo, content, qr, footer, tearSpace, cut);
   if (receipt.settings.printCopies === 1) return payload;
   const doubled = new Uint8Array(payload.length * 2); doubled.set(payload); doubled.set(payload, payload.length); return doubled;
 }
@@ -767,61 +756,18 @@ export function PosInterface() {
     win.document.close();
   }
 
-  async function findBluetoothWriteCharacteristic(server: { getPrimaryServices: () => Promise<Array<{ getCharacteristics: () => Promise<BluetoothWriteCharacteristic[]> }>> }) {
-    const services = await server.getPrimaryServices();
-    for (const service of services) {
-      const characteristics = await service.getCharacteristics();
-      const writable = characteristics.find((item) => item.properties?.writeWithoutResponse || item.properties?.write);
-      if (writable) return writable;
-    }
-    return null;
-  }
-
-  async function writeEscPosChunks(characteristic: BluetoothWriteCharacteristic, payload: Uint8Array) {
-    const chunkSize = 20;
-    for (let index = 0; index < payload.length; index += chunkSize) {
-      const chunk = payload.slice(index, index + chunkSize);
-      if (characteristic.properties?.writeWithoutResponse && characteristic.writeValueWithoutResponse) {
-        await characteristic.writeValueWithoutResponse(chunk);
-      } else {
-        await characteristic.writeValue(chunk);
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 12));
-    }
-  }
-
   async function directPrintThermalReceipt(receipt: ReceiptRecord, automatic = false) {
-    const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: unknown) => Promise<ThermalDevice>; getDevices?: () => Promise<ThermalDevice[]> } }).bluetooth;
-    if (!bluetooth) {
-      setError("Direct printer butuh Chrome/Edge dengan Web Bluetooth. Di iPhone/Safari biasanya tidak tersedia.");
-      return;
-    }
-
     setDirectPrinting(true);
     setError(null);
     try {
-      const permitted = automatic && bluetooth.getDevices ? await bluetooth.getDevices() : [];
-      const requested = automatic ? null : await bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: thermalBluetoothServices,
-      });
-      const device = rememberedThermalDevice ?? permitted[0] ?? requested;
-      if (!device) throw new Error("Auto print belum dapat mengakses printer. Pilih Print sekali untuk memberi izin Bluetooth.");
-      rememberedThermalDevice = device;
-      const server = await device.gatt?.connect();
-      if (!server) throw new Error("Printer Bluetooth tidak bisa dihubungkan.");
-      const characteristic = await findBluetoothWriteCharacteristic(server);
-      if (!characteristic) throw new Error("Printer tidak menyediakan channel tulis ESC/POS. Coba mode Print biasa atau printer thermal Bluetooth lain.");
-      await writeEscPosChunks(characteristic, await buildEscPosReceipt(receipt, receipt.settings.paperWidth));
+      await sendToThermalPrinter(await buildEscPosReceipt(receipt, receipt.settings.paperWidth), automatic);
       setError("Struk berhasil dikirim ke printer thermal.");
     } catch (err) {
       const bluetoothError = err as { name?: unknown; message?: unknown } | null;
       const errorName = typeof bluetoothError?.name === "string" ? bluetoothError.name : "";
       const errorMessage = typeof bluetoothError?.message === "string" ? bluetoothError.message : String(err ?? "");
       const errorDetails = `${errorName} ${errorMessage} ${String(err ?? "")}`;
-      const chooserCancelled = !automatic && (
-        /NotFoundError|AbortError|cancel+ed|chooser/i.test(errorDetails)
-      );
+      const chooserCancelled = !automatic && isBluetoothChooserCancelled(err);
       if (chooserCancelled) {
         setError(null);
         return;
