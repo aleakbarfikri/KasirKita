@@ -238,6 +238,41 @@ export type CashShift = {
   createdAt: string;
 };
 
+export type LedgerAccount =
+  | "asset:cash"
+  | "asset:qris_static"
+  | "asset:qris_pakasir"
+  | "asset:settlement_bank"
+  | "asset:accounts_receivable"
+  | "income:sales"
+  | "income:subscription";
+
+export type FinancialLedgerLine = {
+  account: LedgerAccount;
+  side: "debit" | "credit";
+  amount: number;
+};
+
+/**
+ * Append-only, balanced journal used to independently reconstruct money flows.
+ * Existing balance fields remain the production source of truth during the
+ * expand-and-migrate phase.
+ */
+export type FinancialLedgerEntry = {
+  id: string;
+  journalKey: string;
+  ownerId?: string | null;
+  adminId?: string | null;
+  shopId?: string | null;
+  transactionId?: string | null;
+  sourceType: "transaction" | "debt_payment" | "withdrawal" | "subscription_invoice";
+  sourceId: string;
+  description: string;
+  currency: "IDR";
+  lines: FinancialLedgerLine[];
+  createdAt: string;
+};
+
 export type SubscriptionInvoice = {
   id: string;
   ownerId: string;
@@ -301,6 +336,7 @@ export type AppDb = {
   ownerMfaConfigs: OwnerMfaConfig[];
   receiptSettings: ReceiptSettings[];
   onlineOrders: OnlineOrder[];
+  financialLedgerEntries: FinancialLedgerEntry[];
 };
 
 function resolveDataDir() {
@@ -478,6 +514,7 @@ export function defaultDb(): AppDb {
     ownerMfaConfigs: [],
     receiptSettings: [],
     onlineOrders: [],
+    financialLedgerEntries: [],
   };
 }
 
@@ -504,6 +541,7 @@ function normalizeDb(db: AppDb): AppDb {
     ownerMfaConfigs: db.ownerMfaConfigs ?? [],
     receiptSettings: db.receiptSettings ?? [],
     onlineOrders: db.onlineOrders ?? [],
+    financialLedgerEntries: db.financialLedgerEntries ?? [],
   };
 }
 
@@ -1032,6 +1070,22 @@ export async function incrementSharedCounter(key: string, windowSeconds: number)
     return Number(count ?? 0);
   }
   return null;
+}
+
+/** Non-mutating readiness probe for the shared security/rate-limit store. */
+export async function checkSharedSecurityStore(): Promise<"ok" | "not_configured"> {
+  const config = getRedisConfig();
+  if (config) {
+    const result = await redisCommand<string>(["PING"]);
+    if (result !== "PONG") throw new Error("Shared security store returned an invalid response.");
+    return "ok";
+  }
+  if (process.env.REDIS_URL) {
+    const result = await redisUrlCommand<string>(["PING"]);
+    if (result !== "PONG") throw new Error("Shared security store returned an invalid response.");
+    return "ok";
+  }
+  return "not_configured";
 }
 
 function ensureDbFile() {

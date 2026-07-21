@@ -17,12 +17,17 @@ test("health check returns a safe failure and emits a redacted production log", 
     const unhealthy = await checkApplicationHealth(async () => {
       throw new Error("database failed password=super-secret");
     });
-    assert.deepEqual(unhealthy, { ok: false, status: "unhealthy", checks: { database: "unavailable" } });
+    assert.deepEqual(unhealthy, { ok: false, status: "unhealthy", checks: { dependencies: "unavailable" } });
   } finally {
     console.error = originalConsoleError;
   }
   assert.equal(logs.length, 1);
   assert.equal(logs[0].includes("super-secret"), false);
+});
+
+test("health check includes the shared security store without exposing its credentials", async () => {
+  const healthy = await checkApplicationHealth(async () => ({}), async () => "ok");
+  assert.deepEqual(healthy, { ok: true, status: "healthy", checks: { database: "ok", securityStore: "ok" } });
 });
 
 test("structured monitoring redacts credentials from error messages and context", () => {

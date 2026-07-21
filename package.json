@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
     "db:setup": "tsx scripts/seed-json-db.ts",
     "db:reset": "tsx scripts/seed-json-db.ts",
     "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
     "db:migrate:normalized": "tsx scripts/migrate-normalized-postgres.ts",
     "backup:create": "tsx scripts/create-backup.ts",
+    "backup:verify": "tsx scripts/verify-backup.ts",
     "security:secrets": "tsx scripts/scan-secrets.ts"
   },
   "dependencies": {
@@ -39,6 +41,7 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/qrcode": "^1.5.5",
     "eslint": "^9.39.1",
     "eslint-config-next": "16.2.10",

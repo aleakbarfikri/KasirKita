@@ -1,7 +1,7 @@
 import { readDb, withDbTransaction } from "@/lib/server/data-store";
 import { reconcileOnlineOrderPayment } from "@/lib/server/online-order-payment";
 import { maintainOnlineOrders } from "@/lib/server/online-orders";
-import { reportServerError } from "@/lib/server/monitoring";
+import { reportOperationalIncident, reportServerError } from "@/lib/server/monitoring";
 
 export const maxDuration = 60;
 const BATCH_SIZE = 50;
@@ -36,5 +36,13 @@ export async function GET(request: Request) {
   }
   const maintenance = await withDbTransaction((current) => maintainOnlineOrders(current));
   summary.removed = maintenance.removed;
+  if (summary.failed > 0) {
+    await reportOperationalIncident(new Error("One or more payment reconciliations failed."), {
+      operation: "scheduled_online_payment_reconciliation_batch",
+      severity: "high",
+      failedCount: summary.failed,
+      checkedCount: summary.checked,
+    });
+  }
   return Response.json({ ok: true, data: summary });
 }

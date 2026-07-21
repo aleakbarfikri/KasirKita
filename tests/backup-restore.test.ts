@@ -47,3 +47,11 @@ test("restore rejects malformed data and a backup without an Owner", () => {
   const withoutOwner = dataStore.defaultDb();
   assert.throws(() => dataStore.normalizeRestoredDb(withoutOwner), /tidak memiliki akun Owner/);
 });
+
+test("legacy backup without the additive financial ledger remains restorable", () => {
+  const legacy = dataStore.defaultDb() as Partial<ReturnType<typeof dataStore.defaultDb>>;
+  legacy.users!.push({ id: "legacy_owner", name: "Legacy Owner", email: "legacy@example.test", username: "legacy_owner", role: "owner", passwordHash: dataStore.hashPassword("legacy-safe-password"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  delete legacy.financialLedgerEntries;
+  const restored = dataStore.normalizeRestoredDb(legacy);
+  assert.deepEqual(restored.financialLedgerEntries, []);
+});

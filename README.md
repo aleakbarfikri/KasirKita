@@ -28,14 +28,16 @@ Aplikasi ini dibuat dengan Next.js App Router dan dapat dijalankan secara lokal 
 
 ## Tech Stack
 
-- Next.js 14 App Router
-- React 18
+- Next.js 16 App Router
+- React 19
 - TypeScript
 - Tailwind CSS
 - Next.js API Route Handlers
 - Signed HTTP-only cookie session
 - JSON data store untuk local development
-- Redis/KV untuk production di Vercel
+- PostgreSQL untuk data utama production
+- Redis untuk shared rate limiting dan proteksi checkout
+- Blob private terenkripsi untuk backup offsite
 - QRCode
 
 ## Struktur Project
@@ -104,7 +106,7 @@ password bawaan di source code.
 
 Setelah login sebagai Owner, buka Dashboard Owner lalu gunakan kartu **Ganti Password Owner**.
 
-Password baru minimal 8 karakter. Setelah berhasil diganti, logout lalu login ulang menggunakan password baru.
+Password baru minimal 12 karakter. Setelah berhasil diganti, sesi lain dicabut dan pengguna login ulang menggunakan password baru.
 
 ## Perintah NPM
 
@@ -113,13 +115,18 @@ npm run dev       # menjalankan development server
 npm run build     # build production
 npm run start     # menjalankan production server
 npm run lint      # menjalankan lint
+npm run test      # unit dan integration test
+npm run test:e2e  # smoke test browser Chromium
 npm run db:setup  # reset/seed data store lokal atau cloud
 npm run db:reset  # reset ulang data store
+npm run backup:verify -- /path/backup.json
 ```
 
 ## Storage / Database
 
-KasirKita menggunakan JSON data store.
+KasirKita memakai model aplikasi JSON yang disimpan sebagai JSONB PostgreSQL di
+production. Projection relasional dan ledger keuangan ditambahkan secara
+bertahap tanpa mengganti atau menghapus sumber data utama.
 
 Untuk local development, data disimpan sebagai file lokal:
 
@@ -127,23 +134,28 @@ Untuk local development, data disimpan sebagai file lokal:
 .data/kasirkita-db.json
 ```
 
-Untuk production di Vercel, gunakan Redis/KV agar data tetap persisten antar serverless function.
+Untuk production di Vercel, gunakan PostgreSQL sebagai sumber data utama:
 
 Environment variable yang didukung:
 
 ```env
 KASIRKITA_AUTH_SECRET="random-secret"
+POSTGRES_URL="postgresql://..."
+```
+
+Redis tetap wajib untuk shared rate limiting checkout publik. Gunakan official
+Redis integration dari Vercel atau kredensial REST Upstash:
+
+```env
+REDIS_URL="..."
+# atau:
 KV_REST_API_URL="..."
 KV_REST_API_TOKEN="..."
 ```
 
-Atau gunakan official Redis integration dari Vercel:
-
-```env
-REDIS_URL="..."
-```
-
-Jika Redis/KV belum diset di production, aplikasi bisa fallback ke file runtime sementara, tetapi penyimpanan seperti ini tidak disarankan untuk production karena data bisa tidak konsisten atau hilang.
+Data production tidak boleh mengandalkan filesystem serverless. Endpoint checkout
+publik gagal tertutup bila Redis tidak tersedia agar limit tidak dapat dilewati
+antar-instance.
 
 Untuk endpoint checkout toko online, Redis/KV bersifat wajib di production. Checkout akan mengembalikan status `503` jika penghitung bersama tidak tersedia agar proteksi spam tidak dapat dilewati antar-instance serverless.
 
@@ -163,8 +175,8 @@ Token Turnstile divalidasi server-side dengan action `store_checkout`, hostname 
 2. Import repository ke Vercel.
 3. Tambahkan environment variable production:
    - `KASIRKITA_AUTH_SECRET`
-   - `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau
-   - `REDIS_URL`
+   - `POSTGRES_URL`
+   - `KV_REST_API_URL` dan `KV_REST_API_TOKEN`, atau `REDIS_URL`
    - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
    - `TURNSTILE_SECRET_KEY`
    - `TURNSTILE_ALLOWED_HOSTNAMES`
@@ -215,7 +227,9 @@ Token Turnstile divalidasi server-side dengan action `store_checkout`, hostname 
 - Jika credential pernah terlanjur dipublikasikan, segera ganti password dan redeploy.
 - Hapus seluruh variabel `KASIRKITA_BOOTSTRAP_OWNER_*` setelah bootstrap berhasil.
 - Production akan menolak sesi jika auth secret hilang, terlalu pendek, atau masih berupa placeholder.
-- Untuk production, pastikan data store sudah memakai Redis/KV.
+- Untuk production, pastikan data utama memakai PostgreSQL dan backup offsite
+  terenkripsi berhasil diverifikasi.
+- Ikuti runbook di `docs/OPERATIONS_RUNBOOK.md` dan `docs/DATA_MIGRATION.md`.
 
 ## Status
 

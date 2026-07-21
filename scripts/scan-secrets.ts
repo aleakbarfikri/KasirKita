@@ -9,7 +9,7 @@ const patterns = [
   ["Stripe secret key", /\bsk_(?:live|test)_[A-Za-z0-9]{20,}\b/],
 ] as const;
 
-const files = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
+const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
 const findings: string[] = [];
 for (const file of files) {
   if (/\.(?:png|jpe?g|gif|ico|woff2?|pdf|lock)$/i.test(file)) continue;
@@ -21,4 +21,4 @@ if (findings.length) {
   console.error(`Potential secrets detected:\n${findings.join("\n")}`);
   process.exit(1);
 }
-console.log(`Secret scan passed (${files.length} tracked files).`);
+console.log(`Secret scan passed (${files.length} tracked and pending files).`);
