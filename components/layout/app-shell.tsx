@@ -9,6 +9,11 @@ import { authClient } from "@/lib/auth-client";
 import { ApiError, api, type SessionUser } from "@/lib/api-client";
 import { cacheSession, clearCachedSession, readCachedSession } from "@/lib/offline-session";
 import { clearOfflineData, readOfflineCheckouts } from "@/lib/offline-pos";
+import {
+  deviceNotificationPermission,
+  requestDeviceNotificationPermission,
+  showDeviceNotification,
+} from "@/lib/device-notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -206,28 +211,21 @@ export function AppShell({
   }, [pathname, role, router]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setNotificationPermission("unsupported");
-      return;
-    }
-    setNotificationPermission(Notification.permission);
+    setNotificationPermission(deviceNotificationPermission());
   }, []);
 
   async function enableDeviceNotifications() {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setNotificationPermission("unsupported");
-      return;
-    }
-
-    const permission = await Notification.requestPermission();
+    const permission = await requestDeviceNotificationPermission();
     setNotificationPermission(permission);
     if (permission === "granted") {
       const seedKey = `kasirkita-notifications-seen-${role}-${user?.id ?? "user"}`;
       window.localStorage.setItem(seedKey, JSON.stringify(notifications.map((item) => item.id).slice(0, 80)));
-      new Notification("KasirKita", {
+      const shown = await showDeviceNotification("KasirKita", {
         body: "Notifikasi device aktif. Aktivitas baru akan muncul dari browser ini.",
         tag: "kasirkita-notification-enabled",
+        url: role === "owner" ? "/owner" : "/admin",
       });
+      if (!shown) setNotificationError("Izin notifikasi aktif, tetapi service worker belum siap. Tutup lalu buka kembali aplikasi.");
     }
   }
 
@@ -321,7 +319,7 @@ export function AppShell({
       const nextItems = items.slice(0, 12);
       setNotifications(nextItems);
 
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      if (deviceNotificationPermission() === "granted") {
         const seenKey = `kasirkita-notifications-seen-${role}-${user.id}`;
         let seenIds: string[] = [];
         try {
@@ -332,12 +330,13 @@ export function AppShell({
 
         const seen = new Set(seenIds);
         const freshItems = nextItems.filter((item) => !seen.has(item.id)).slice(0, 3);
-        freshItems.forEach((item) => {
-          new Notification(`KasirKita: ${item.title}`, {
+        await Promise.allSettled(freshItems.map((item) =>
+          showDeviceNotification(`KasirKita: ${item.title}`, {
             body: item.description,
             tag: item.id,
-          });
-        });
+            url: item.href,
+          })
+        ));
 
         const merged = [...nextItems.map((item) => item.id), ...seenIds].filter((id, index, array) => array.indexOf(id) === index).slice(0, 100);
         window.localStorage.setItem(seenKey, JSON.stringify(merged));
