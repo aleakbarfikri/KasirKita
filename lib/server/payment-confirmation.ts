@@ -1,6 +1,7 @@
 import { applySuccessfulTransactionStock } from "@/lib/server/inventory";
 import { applyPaidSubscription } from "@/lib/server/subscription";
 import { addAuditLog, incrementBalance, now, type AppDb, type UserRole } from "@/lib/server/data-store";
+import { recordSubscriptionRevenue, recordSuccessfulSale } from "@/lib/server/financial-ledger";
 
 export function confirmQrisPayment(
   db: AppDb,
@@ -23,6 +24,8 @@ export function confirmQrisPayment(
   const items = db.transactionItems.filter((item) => item.transactionId === transaction.id);
   applySuccessfulTransactionStock(db, transaction.shopId, items, { allowNegative: true, ignoreMissing: true });
   incrementBalance(db, input.adminId, "totalEarnedQrisApi", transaction.total);
+  const profile = db.adminProfiles.find((row) => row.userId === input.adminId && row.shopId === input.shopId);
+  recordSuccessfulSale(db, transaction, { ownerId: profile?.ownerId, adminId: input.adminId });
   addAuditLog(db, {
     actorId: input.cashierId,
     actorRole: input.actorRole,
@@ -57,6 +60,13 @@ export function confirmSubscriptionPayment(
   invoice.status = "paid";
   invoice.paidAt = now();
   invoice.updatedAt = now();
+  recordSubscriptionRevenue(db, {
+    invoiceId: invoice.id,
+    amount: invoice.amount,
+    ownerId: invoice.ownerId,
+    adminId: invoice.adminId,
+    shopId: input.shopId,
+  });
   addAuditLog(db, {
     actorId: input.actorId,
     actorRole: "admin",

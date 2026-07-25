@@ -1,7 +1,7 @@
 import { createOffsiteBackup } from "@/lib/server/offsite-backup";
 import { addAuditLog, createBackup, withDbTransaction } from "@/lib/server/data-store";
 import { protectPaymentConfig } from "@/lib/server/payment-secrets";
-import { reportServerError } from "@/lib/server/monitoring";
+import { reportOperationalIncident } from "@/lib/server/monitoring";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     });
     return Response.json({ ok: true, data: { dashboardBackup, offsiteBackup } });
   } catch (error) {
-    reportServerError(error, { operation: "scheduled_offsite_backup" });
+    await reportOperationalIncident(error, { operation: "scheduled_offsite_backup", severity: "critical" });
     return Response.json({ ok: false, error: { message: "Backup gagal dibuat" } }, { status: 503 });
   }
 }

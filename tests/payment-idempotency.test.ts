@@ -16,6 +16,7 @@ test("QRIS confirmation changes stock and balance exactly once", () => {
   assert.equal(db.products[0].stock, 8);
   assert.equal(db.balances[0].totalEarnedQrisApi, 20_000);
   assert.equal(db.auditLogs.filter((row) => row.action === "confirm_qris_pakasir").length, 1);
+  assert.equal(db.financialLedgerEntries.filter((row) => row.journalKey === "sale:trx_1").length, 1);
 });
 
 test("subscription confirmation extends active period exactly once", () => {
@@ -31,4 +32,5 @@ test("subscription confirmation extends active period exactly once", () => {
   assert.equal(confirmSubscriptionPayment(db, input).applied, false);
   assert.equal(db.adminProfiles[0].activeUntil, activeUntil);
   assert.equal(db.auditLogs.filter((row) => row.action === "confirm_subscription_payment").length, 1);
+  assert.equal(db.financialLedgerEntries.filter((row) => row.journalKey === "subscription:invoice_1").length, 1);
 });

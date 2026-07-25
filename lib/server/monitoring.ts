@@ -7,7 +7,7 @@ function sanitizeText(value: string) {
     .replace(/(\w+:\/\/[^/:\s]+:)[^@\s]+@/g, "$1[REDACTED]@");
 }
 
-function sanitizeValue(value: unknown, key = "", seen = new WeakSet<object>()): unknown {
+export function sanitizeValue(value: unknown, key = "", seen = new WeakSet<object>()): unknown {
   if (SENSITIVE_KEY.test(key)) return "[REDACTED]";
   if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string") {
@@ -39,4 +39,26 @@ export function buildServerErrorLog(error: unknown, context: Record<string, unkn
 /** Emits structured, redacted JSON that is retained by the deployment log provider. */
 export function reportServerError(error: unknown, context: Record<string, unknown> = {}) {
   console.error(JSON.stringify(buildServerErrorLog(error, context)));
+}
+
+/**
+ * Emits the normal redacted log and optionally forwards a minimal incident to an
+ * operations webhook. The webhook is best-effort and can never break the request.
+ */
+export async function reportOperationalIncident(error: unknown, context: Record<string, unknown> = {}) {
+  const payload = buildServerErrorLog(error, context);
+  console.error(JSON.stringify(payload));
+  const endpoint = process.env.KASIRKITA_ALERT_WEBHOOK_URL?.trim();
+  if (!endpoint) return;
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    });
+  } catch (alertError) {
+    console.error(JSON.stringify(buildServerErrorLog(alertError, { operation: "send_operational_alert" })));
+  }
 }

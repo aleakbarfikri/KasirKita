@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
     "db:setup": "tsx scripts/seed-json-db.ts",
     "db:reset": "tsx scripts/seed-json-db.ts",
     "db:migrate:production": "tsx scripts/migrate-json-to-production-db.ts",
     "db:migrate:normalized": "tsx scripts/migrate-normalized-postgres.ts",
     "backup:create": "tsx scripts/create-backup.ts",
+    "backup:verify": "tsx scripts/verify-backup.ts",
     "security:secrets": "tsx scripts/scan-secrets.ts"
   },
   "dependencies": {
@@ -26,27 +28,29 @@
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
     "lucide-react": "^0.468.0",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "postcss": "^8.5.10",
     "postgres": "^3.4.5",
     "qrcode": "^1.5.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "tailwind-merge": "^2.4.0",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3",
     "zod": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/qrcode": "^1.5.5",
     "eslint": "^9.39.1",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "tsx": "latest"
   },
   "overrides": {
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "sharp": "$sharp"
   }
 }

@@ -10,7 +10,11 @@ export type NormalizedEntityRow = {
 };
 
 function idFor(type: keyof AppDb, row: Record<string, unknown>) {
-  return String(row.id ?? row.userId ?? row.adminId ?? row.ownerId ?? `${type}-unknown`);
+  const stableId = row.id ?? row.userId ?? row.adminId ?? row.ownerId ?? row.shopId ?? row.transactionId ?? row.debtId;
+  if (stableId === undefined || stableId === null || String(stableId).trim() === "") {
+    throw new Error(`Normalized projection cannot derive an id for ${type}.`);
+  }
+  return String(stableId);
 }
 
 export function projectNormalizedRows(db: AppDb): NormalizedEntityRow[] {

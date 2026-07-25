@@ -8,6 +8,8 @@ out
 .vercel
 .env*
 tsconfig.tsbuildinfo
+test-results/
+playwright-report/
 
 # Android build output and private signing material
 android/.gradle/

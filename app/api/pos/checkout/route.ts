@@ -8,6 +8,7 @@ import { checkoutSchema } from "@/lib/server/validators";
 import { addAuditLog, now, withDbTransaction, type Debt, type PaymentConfig, type Transaction, type TransactionItem } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
 import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
+import { recordSuccessfulSale } from "@/lib/server/financial-ledger";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
   const safeSubtotal = Math.max(0, Math.round(subtotal));
@@ -129,6 +130,9 @@ export async function POST(request: Request) {
 
       db.transactions.push(transaction);
       db.transactionItems.push(...items);
+      if (transaction.status === "success") {
+        recordSuccessfulSale(db, transaction, { ownerId: scope.ownerId, adminId: scope.adminId });
+      }
       addAuditLog(db, {
         actorId: session.user.id,
         actorRole: session.user.role === "cashier" ? "cashier" : "admin",
