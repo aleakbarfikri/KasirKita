@@ -132,9 +132,6 @@ export function AppShell({
   const { language, setLanguage, t } = useAppLanguage();
   const [user, setUser] = useState<SessionUser | null>(null);
   const nav = role === "owner" ? ownerNav : user?.role === "cashier" ? cashierNav : adminNav;
-  const sessionState = authClient.useSession();
-  const [checking, setChecking] = useState(true);
-  const [authMessage, setAuthMessage] = useState("Memeriksa sesi login...");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -160,21 +157,22 @@ export function AppShell({
 
   useEffect(() => {
     let alive = true;
+    const cachedAtStartup = readCachedSession();
+    const cachedRoleAllowed = cachedAtStartup?.user?.role === role ||
+      (role === "admin" && cachedAtStartup?.user?.role === "cashier" && cashierAllowedPaths.includes(pathname));
+    if (cachedAtStartup?.user && cachedRoleAllowed) setUser(cachedAtStartup.user);
 
     async function checkAccess() {
-      setChecking(true);
       try {
         const me = await api.me();
         if (!alive) return;
         if (role === "admin" && me.user.role === "cashier" && !cashierAllowedPaths.includes(pathname)) {
-          setAuthMessage("Kasir hanya dapat mengakses POS, Transaction History, dan Shift Kasir.");
           router.replace("/admin/pos");
           return;
         }
 
         const roleAllowed = me.user.role === role || (role === "admin" && me.user.role === "cashier");
         if (!roleAllowed) {
-          setAuthMessage("Akun ini tidak memiliki akses ke halaman tersebut.");
           router.replace(me.user.role === "owner" ? "/owner" : "/admin");
           return;
         }
@@ -194,14 +192,10 @@ export function AppShell({
         const cachedRoleAllowed = cached?.user?.role === role || (role === "admin" && cached?.user?.role === "cashier" && cashierAllowedPaths.includes(pathname));
         if (cached?.user && cachedRoleAllowed && temporaryConnectionProblem) {
           setUser(cached.user);
-          setAuthMessage("Mode offline aktif. Sesi lokal dipakai sementara.");
           return;
         }
 
-        setAuthMessage("Sesi berakhir. Mengarahkan ke halaman login...");
         router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-      } finally {
-        if (alive) setChecking(false);
       }
     }
 
@@ -484,18 +478,6 @@ export function AppShell({
     await clearOfflineData();
     router.replace("/login");
     router.refresh();
-  }
-
-  if (checking || sessionState.isPending) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] p-6 text-[#0f172a]">
-        <div className="rounded-xl border border-[#d7e2dc] bg-white p-8 text-center shadow-xl">
-          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-xl bg-primary" />
-          <p className="text-lg font-extrabold">{appBrand}</p>
-          <p className="mt-2 text-sm font-medium text-[#64748b]">{authMessage}</p>
-        </div>
-      </main>
-    );
   }
 
   return (

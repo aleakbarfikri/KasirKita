@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Minus, PackagePlus, Plus, QrCode, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { api, ApiError, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type SessionUser } from "@/lib/api-client";
-import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
+import { cacheProducts, enqueueOfflineCheckout, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, subscribeOfflineData, type OfflineCheckout } from "@/lib/offline-pos";
 import { readCachedSession } from "@/lib/offline-session";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,9 +74,22 @@ export function HomePosClient() {
 
   const isAdmin = user?.role === "admin";
 
-  async function loadData() {
-    setLoading(true);
-    setError(null);
+  async function loadData(background = false) {
+    const cachedProducts = readCachedProducts();
+    const cachedSession = readCachedSession();
+    if (cachedSession?.user) {
+      setUser(cachedSession.user);
+      if (cachedSession.shop?.name || cachedSession.user.shopName) setShopName(cachedSession.shop?.name || cachedSession.user.shopName || "KasirKita");
+      setShopQrisImage(cachedSession.shop?.qrisStaticImageUrl ?? "");
+    }
+    if (cachedProducts?.products.length) {
+      setProducts(cachedProducts.products.filter((product) => product.isActive !== false));
+      setLoading(false);
+    } else if (!background) {
+      setLoading(true);
+    }
+    if (!background) setError(null);
+
     try {
       const me = await api.me();
       setUser(me.user);
@@ -92,11 +105,10 @@ export function HomePosClient() {
       setProducts(activeProducts);
       cacheProducts(activeProducts);
     } catch (err) {
-      const cachedProducts = readCachedProducts();
-      const cachedSession = readCachedSession();
       if (cachedSession?.user && typeof navigator !== "undefined" && !navigator.onLine) {
         setUser(cachedSession.user);
-        if (cachedSession.user.shopName) setShopName(cachedSession.user.shopName);
+        if (cachedSession.shop?.name || cachedSession.user.shopName) setShopName(cachedSession.shop?.name || cachedSession.user.shopName || "KasirKita");
+        setShopQrisImage(cachedSession.shop?.qrisStaticImageUrl ?? "");
         setProducts(cachedProducts?.products.filter((product) => product.isActive !== false) ?? []);
         setError(cachedProducts?.products.length ? null : "Produk offline belum tersedia. Buka POS sekali saat online untuk membuat cache.");
       } else if (err instanceof ApiError && err.status === 401) {
@@ -115,7 +127,26 @@ export function HomePosClient() {
   useEffect(() => {
     setIsOnline(typeof navigator === "undefined" ? true : navigator.onLine);
     setOfflineQueue(readOfflineCheckouts());
-    loadData();
+    const cached = readCachedProducts();
+    const cachedSession = readCachedSession();
+    if (cachedSession?.user) {
+      setUser(cachedSession.user);
+      setShopName(cachedSession.shop?.name || cachedSession.user.shopName || "KasirKita");
+      setShopQrisImage(cachedSession.shop?.qrisStaticImageUrl ?? "");
+    }
+    if (cached?.products.length) {
+      setProducts(cached.products.filter((product) => product.isActive !== false));
+      setLoading(false);
+    }
+    void initializeOfflinePos().then(() => {
+      const hydrated = readCachedProducts();
+      if (hydrated?.products.length) {
+        setProducts(hydrated.products.filter((product) => product.isActive !== false));
+        setLoading(false);
+      }
+      setOfflineQueue(readOfflineCheckouts());
+      void loadData(Boolean(hydrated?.products.length));
+    });
   }, []);
 
   useEffect(() => {
@@ -167,6 +198,12 @@ export function HomePosClient() {
     if (!isOnline || offlineQueue.length === 0) return;
     syncOfflineQueue();
   }, [isOnline, offlineQueue.length]);
+
+  useEffect(() => subscribeOfflineData(() => {
+    setOfflineQueue(readOfflineCheckouts());
+    const cached = readCachedProducts();
+    if (cached?.products.length) setProducts(cached.products.filter((product) => product.isActive !== false));
+  }), []);
 
   useEffect(() => {
     if (paymentMethod !== "qris_pakasir" || !pakasirPayment?.reference || paymentStatus !== "waiting") return;
@@ -438,7 +475,7 @@ export function HomePosClient() {
         <div className="mt-4 rounded-2xl border border-[#bccac0] bg-white p-3">
           <div className="mb-2 flex items-center justify-between text-sm font-bold">
             <span className="flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" /> {t("Produk Database")}</span>
-            <button onClick={loadData} className="text-xs text-primary">{t("Refresh")}</button>
+            <button onClick={() => void loadData()} className="text-xs text-primary">{t("Refresh")}</button>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {filteredProducts.map((product) => {

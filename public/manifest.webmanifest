@@ -1,7 +1,7 @@
 {
   "name": "KasirKita POS",
   "short_name": "KasirKita",
-  "description": "Aplikasi kasir UMKM dengan mode offline ringan.",
+  "description": "Aplikasi kasir UMKM offline-first yang tetap dapat mencatat transaksi saat internet terputus.",
   "start_url": "/admin/pos",
   "scope": "/",
   "display": "standalone",

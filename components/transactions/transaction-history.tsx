@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Ban, Download, ExternalLink, Loader2, Printer, RefreshCw, Search } from "lucide-react";
 import { api, paymentMethodLabel, transactionStatusLabel, type ReceiptRecord, type TransactionRecord } from "@/lib/api-client";
-import { cacheTransactions, readCachedTransactions } from "@/lib/offline-pos";
+import { cacheTransactions, initializeOfflinePos, readCachedTransactions, subscribeOfflineData } from "@/lib/offline-pos";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,18 +171,26 @@ export function TransactionHistory() {
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadTransactions() {
-    setLoading(true);
-    setError(null);
+  async function loadTransactions(background = false) {
+    const cached = readCachedTransactions();
+    if (cached?.transactions.length) {
+      setTransactions(cached.transactions);
+      setLoading(false);
+    } else if (!background) {
+      setLoading(true);
+    }
+    if (!background) setError(null);
+
     try {
       const rows = await api.transactions.list();
       setTransactions(rows);
       cacheTransactions(rows);
     } catch (err) {
-      const cached = readCachedTransactions();
       if (cached?.transactions.length) {
         setTransactions(cached.transactions);
-        setError(`${t("Mode offline")}: ${t("transaksi memakai cache terakhir")} (${new Date(cached.cachedAt).toLocaleString("id-ID")}).`);
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          setError(`${t("Mode offline")}: ${t("transaksi memakai cache terakhir")} (${new Date(cached.cachedAt).toLocaleString("id-ID")}).`);
+        }
       } else {
         setError(err instanceof Error ? err.message : t("Gagal memuat transaksi"));
       }
@@ -192,7 +200,23 @@ export function TransactionHistory() {
   }
 
   useEffect(() => {
-    loadTransactions();
+    const cached = readCachedTransactions();
+    if (cached?.transactions.length) {
+      setTransactions(cached.transactions);
+      setLoading(false);
+    }
+    void initializeOfflinePos().then(() => {
+      const hydrated = readCachedTransactions();
+      if (hydrated?.transactions.length) {
+        setTransactions(hydrated.transactions);
+        setLoading(false);
+      }
+      void loadTransactions(Boolean(hydrated?.transactions.length));
+    });
+    return subscribeOfflineData(() => {
+      const current = readCachedTransactions();
+      if (current?.transactions.length) setTransactions(current.transactions);
+    });
   }, []);
 
   async function exportTransactions() {
@@ -312,7 +336,7 @@ export function TransactionHistory() {
               {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {exporting ? t("Export...") : t("Export CSV")}
             </Button>
-            <Button variant="outline" size="sm" onClick={loadTransactions}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
+            <Button variant="outline" size="sm" onClick={() => void loadTransactions()}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
           </div>
         </div>
       </CardHeader>
