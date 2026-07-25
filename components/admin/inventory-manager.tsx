@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { Camera, Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, ScanLine, Upload, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { api, type ProductRecord } from "@/lib/api-client";
-import { cacheProducts, readCachedProducts } from "@/lib/offline-pos";
+import { cacheProducts, initializeOfflinePos, readCachedProducts, subscribeOfflineData } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -120,18 +120,26 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     return () => { active = false; stopScanner(); };
   }, [closeScanner, scannerOpen, stopScanner]);
 
-  async function loadProducts() {
-    setLoading(true);
-    setError(null);
+  async function loadProducts(background = false) {
+    const cached = readCachedProducts();
+    if (cached?.products.length) {
+      setItems(cached.products);
+      setLoading(false);
+    } else if (!background) {
+      setLoading(true);
+    }
+    if (!background) setError(null);
+
     try {
       const rows = await api.products.list();
       setItems(rows);
       cacheProducts(rows);
     } catch (err) {
-      const cached = readCachedProducts();
       if (cached?.products.length) {
         setItems(cached.products);
-        setError(`Mode offline: produk memakai cache terakhir (${new Date(cached.cachedAt).toLocaleString("id-ID")}).`);
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          setError(`Sinkronisasi inventaris tertunda. Cache terakhir: ${new Date(cached.cachedAt).toLocaleString("id-ID")}.`);
+        }
       } else {
         setError(err instanceof Error ? err.message : "Gagal memuat produk");
       }
@@ -141,7 +149,23 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   }
 
   useEffect(() => {
-    loadProducts();
+    const cached = readCachedProducts();
+    if (cached?.products.length) {
+      setItems(cached.products);
+      setLoading(false);
+    }
+    void initializeOfflinePos().then(() => {
+      const hydrated = readCachedProducts();
+      if (hydrated?.products.length) {
+        setItems(hydrated.products);
+        setLoading(false);
+      }
+      void loadProducts(Boolean(hydrated?.products.length));
+    });
+    return subscribeOfflineData(() => {
+      const current = readCachedProducts();
+      if (current?.products.length) setItems(current.products);
+    });
   }, []);
   function resetForm() {
     setName("");
@@ -414,7 +438,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3d4a42]" />
                   <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("Cari barang, SKU, atau UMKM...")} className="h-10 pl-9 sm:w-72" />
                 </div>
-                <Button variant="outline" size="sm" onClick={loadProducts} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
+                <Button variant="outline" size="sm" onClick={() => void loadProducts()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
               </div>
             </div>
           </CardHeader>

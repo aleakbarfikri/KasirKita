@@ -5,7 +5,8 @@ import QRCode from "qrcode";
 import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
-import { cacheProducts, enqueueOfflineCheckout, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, type OfflineCheckout } from "@/lib/offline-pos";
+import { cacheProducts, enqueueOfflineCheckout, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, subscribeOfflineData, type OfflineCheckout } from "@/lib/offline-pos";
+import { readCachedSession } from "@/lib/offline-session";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -268,9 +269,16 @@ export function PosInterface() {
 
   const categories = useMemo(() => ["Semua", "Stok Rendah", "Terbaru"], []);
 
-  async function loadProducts() {
-    setLoading(true);
-    setError(null);
+  async function loadProducts(background = false) {
+    const cached = readCachedProducts();
+    if (cached?.products.length) {
+      setProducts(cached.products.filter((product) => product.isActive !== false));
+      setLoading(false);
+    } else if (!background) {
+      setLoading(true);
+    }
+    if (!background) setError(null);
+
     try {
       const [rows, me] = await Promise.all([api.products.list(), api.me().catch(() => null)]);
       const activeProducts = rows.filter((product) => product.isActive !== false);
@@ -279,10 +287,11 @@ export function PosInterface() {
       if (me?.shop?.name) setShopName(me.shop.name);
       setShopQrisImage(me?.shop?.qrisStaticImageUrl ?? "");
     } catch (err) {
-      const cached = readCachedProducts();
       if (cached?.products.length) {
         setProducts(cached.products.filter((product) => product.isActive !== false));
-        setError(`Produk offline dipakai dari cache terakhir (${new Date(cached.cachedAt).toLocaleString("id-ID")}).`);
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          setError(`Sinkronisasi produk tertunda. Cache terakhir: ${new Date(cached.cachedAt).toLocaleString("id-ID")}.`);
+        }
       } else {
         setError(err instanceof Error ? err.message : "Gagal memuat produk");
       }
@@ -294,7 +303,23 @@ export function PosInterface() {
   useEffect(() => {
     setIsOnline(typeof navigator === "undefined" ? true : navigator.onLine);
     setOfflineQueue(readOfflineCheckouts());
-    loadProducts();
+    const cachedSession = readCachedSession();
+    if (cachedSession?.shop?.name) setShopName(cachedSession.shop.name);
+    if (cachedSession?.shop?.qrisStaticImageUrl) setShopQrisImage(cachedSession.shop.qrisStaticImageUrl);
+    const cached = readCachedProducts();
+    if (cached?.products.length) {
+      setProducts(cached.products.filter((product) => product.isActive !== false));
+      setLoading(false);
+    }
+    void initializeOfflinePos().then(() => {
+      const hydrated = readCachedProducts();
+      if (hydrated?.products.length) {
+        setProducts(hydrated.products.filter((product) => product.isActive !== false));
+        setLoading(false);
+      }
+      setOfflineQueue(readOfflineCheckouts());
+      void loadProducts(Boolean(hydrated?.products.length));
+    });
   }, []);
 
   useEffect(() => {
@@ -354,6 +379,21 @@ export function PosInterface() {
     }, 15000);
 
     return () => window.clearInterval(timer);
+  }, [syncOfflineQueue]);
+
+  useEffect(() => {
+    const refreshLocalState = () => {
+      setOfflineQueue(readOfflineCheckouts());
+      const cached = readCachedProducts();
+      if (cached?.products.length) setProducts(cached.products.filter((product) => product.isActive !== false));
+    };
+    const unsubscribe = subscribeOfflineData(refreshLocalState);
+    const syncNow = () => void syncOfflineQueue();
+    window.addEventListener("kasirkita:sync-offline-checkouts", syncNow);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("kasirkita:sync-offline-checkouts", syncNow);
+    };
   }, [syncOfflineQueue]);
 
   useEffect(() => {
@@ -950,7 +990,7 @@ export function PosInterface() {
             <Button variant="outline" size="lg" className="h-12 shrink-0 justify-center px-5 text-[#0f172a] xl:min-w-[160px]" onClick={() => setManualItemOpen(true)}>
               <PackagePlus className="mr-2 h-5 w-5" /> {t("Add Item")}
             </Button>
-            <Button variant="secondary" size="lg" className="h-12 shrink-0 justify-center px-5 text-[#0f172a] xl:min-w-[210px]" onClick={loadProducts}>
+            <Button variant="secondary" size="lg" className="h-12 shrink-0 justify-center px-5 text-[#0f172a] xl:min-w-[210px]" onClick={() => void loadProducts()}>
               <RefreshCw className="mr-2 h-5 w-5" /> {t("Refresh Produk")}
             </Button>
           </div>
