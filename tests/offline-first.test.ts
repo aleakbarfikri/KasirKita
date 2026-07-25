@@ -47,4 +47,15 @@ test("service worker caches only approved offline screens and never caches API r
   assert.match(source, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(source, /CLEAR_PRIVATE_CACHE/);
   assert.match(source, /SYNC_OFFLINE_CHECKOUTS/);
+  assert.match(source, /notificationclick/);
+});
+
+test("device notifications use the service worker instead of the illegal Android constructor", async () => {
+  const helper = await readFile(new URL("../lib/device-notifications.ts", import.meta.url), "utf8");
+  const appShell = await readFile(new URL("../components/layout/app-shell.tsx", import.meta.url), "utf8");
+  const orderDashboard = await readFile(new URL("../components/orders/online-order-dashboard.tsx", import.meta.url), "utf8");
+
+  assert.match(helper, /registration\.showNotification/);
+  assert.doesNotMatch(appShell, /new Notification\s*\(/);
+  assert.doesNotMatch(orderDashboard, /new Notification\s*\(/);
 });

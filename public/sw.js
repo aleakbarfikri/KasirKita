@@ -148,3 +148,18 @@ self.addEventListener("sync", (event) => {
       .then((clients) => clients.forEach((client) => client.postMessage({ type: "SYNC_OFFLINE_CHECKOUTS" })))
   );
 });
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/admin", self.location.origin).toString();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      const existing = clients.find((client) => client.url.startsWith(self.location.origin));
+      if (existing) {
+        await existing.navigate(targetUrl);
+        return existing.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});

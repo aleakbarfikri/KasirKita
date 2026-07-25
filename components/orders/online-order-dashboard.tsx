@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock, ExternalLink, Loader2, MessageCircle, PackageCheck, Printer, RefreshCw, Store } from "lucide-react";
 import { api, apiFetch, type OnlineOrderRecord, type OnlineOrderStatus, type ReceiptRecord } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
+import { showDeviceNotification } from "@/lib/device-notifications";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,7 +67,13 @@ export function OnlineOrderDashboard() {
         if (!order.printedAt && order.status === "paid" && order.receipt?.settings.autoPrint && !attempted.current.has(order.id)) {
           attempted.current.add(order.id);
           const printed = await printReceipt(order, true);
-          if (printed && typeof Notification !== "undefined" && Notification.permission === "granted") new Notification("Pesanan online terbayar", { body: `${order.customerName} • ${formatCurrency(order.transaction.total)}`, tag: `online-order-${order.id}` });
+          if (printed) {
+            await showDeviceNotification("Pesanan online terbayar", {
+              body: `${order.customerName} • ${formatCurrency(order.transaction.total)}`,
+              tag: `online-order-${order.id}`,
+              url: "/admin/online-orders",
+            });
+          }
         }
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Gagal memuat pesanan online"); }
