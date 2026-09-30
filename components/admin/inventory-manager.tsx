@@ -64,6 +64,7 @@ function BulkPriceFields({ rows, setRows }: { rows: BulkPriceInput[]; setRows: D
 export function InventoryManager() {
   const { t } = useAppLanguage();
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const repairInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const editPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const scannerVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -82,6 +83,8 @@ export function InventoryManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [repairPreview, setRepairPreview] = useState<{ file: File; matchedProducts: number; correctedProducts: number; repairedTransactionItems: number; skippedProducts: number; unmatchedRows: number } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -384,6 +387,39 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     }
   }
 
+  async function previewCostRepair(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setRepairing(true);
+    setRepairPreview(null);
+    setError(null);
+    try {
+      const result = await api.products.repairCosts(file, false);
+      setRepairPreview({ file, ...result });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memeriksa CSV harga modal");
+    } finally {
+      setRepairing(false);
+      if (repairInputRef.current) repairInputRef.current.value = "";
+    }
+  }
+
+  async function applyCostRepair() {
+    if (!repairPreview) return;
+    setRepairing(true);
+    setError(null);
+    try {
+      const result = await api.products.repairCosts(repairPreview.file, true);
+      setMessage(`Perbaikan selesai: ${result.correctedProducts} harga modal produk dan ${result.repairedTransactionItems} item transaksi lama dikoreksi. Stok dan harga jual tidak berubah.`);
+      setRepairPreview(null);
+      await loadProducts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbaiki harga modal");
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   return (
     <>
       <div className="grid w-full min-w-0 max-w-full gap-6 overflow-hidden xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
@@ -413,6 +449,17 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={importProducts} className="hidden" />
             </div>
             <p className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3 text-xs font-semibold leading-relaxed text-[#64748b]">{t("Download template, kolom SKU/nama/harga/stok/diskon sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
+            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <p className="font-bold text-amber-900">Perbaiki harga modal dari CSV lama</p>
+              <p className="text-amber-800">Gunakan file CSV asli yang memiliki koma desimal. Pratinjau dan perbaikan ini hanya mengubah harga modal yang cocok dengan kesalahan impor lama; stok, harga jual, dan diskon tetap.</p>
+              <input ref={repairInputRef} type="file" accept=".csv,text/csv" onChange={previewCostRepair} className="hidden" />
+              <Button type="button" variant="outline" size="sm" disabled={repairing || importing} onClick={() => repairInputRef.current?.click()}>{repairing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Pilih CSV untuk pratinjau</Button>
+              {repairPreview ? <div className="space-y-2 rounded-lg border border-amber-300 bg-white p-3">
+                <p className="font-semibold">{repairPreview.file.name}: {repairPreview.matchedProducts} produk cocok; {repairPreview.correctedProducts} harga modal produk dan {repairPreview.repairedTransactionItems} item transaksi akan dikoreksi.</p>
+                {repairPreview.skippedProducts || repairPreview.unmatchedRows ? <p className="text-xs text-amber-800">{repairPreview.skippedProducts} produk dengan modal baru berbeda dilewati; {repairPreview.unmatchedRows} SKU tidak ditemukan.</p> : null}
+                <Button type="button" size="sm" disabled={repairing || (repairPreview.correctedProducts === 0 && repairPreview.repairedTransactionItems === 0)} onClick={applyCostRepair}>Terapkan perbaikan harga modal</Button>
+              </div> : null}
+            </div>
             <div className="space-y-2"><Label>{t("Nama Barang")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Contoh: Gula 1kg")} /></div>
             <div className="space-y-2"><Label>{t("Harga Jual")}</Label><Input value={price} onChange={(e) => setPrice(e.target.value)} type="number" placeholder="15000" /></div>
             <div className="space-y-2"><Label>{t("Harga Modal")}</Label><Input value={costPrice} onChange={(e) => setCostPrice(e.target.value)} type="number" placeholder="12500" /></div>

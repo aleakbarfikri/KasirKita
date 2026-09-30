@@ -462,6 +462,12 @@ export const api = {
       body.append("file", file);
       return apiFetch<{ created: number; updated: number; repairedTransactionItems: number; total: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
     },
+    repairCosts: (file: File, apply: boolean) => {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("mode", apply ? "repair-apply" : "repair-preview");
+      return apiFetch<{ matchedProducts: number; correctedProducts: number; repairedTransactionItems: number; skippedProducts: number; unmatchedRows: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
+    },
   },
 
   checkout: (body: CheckoutPayload) => {

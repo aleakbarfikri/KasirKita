@@ -1,10 +1,11 @@
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
-import { addAuditLog, now, readDb, writeDb, type Product } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, withDbTransaction, writeDb, type Product } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertProductLimit } from "@/lib/server/subscription";
 import { legacyCsvNumber, parseCsvNumber } from "@/lib/server/csv-number";
 import { repairLegacyTransactionCosts } from "@/lib/server/legacy-cost-repair";
+import { repairCsvCosts } from "@/lib/server/csv-cost-repair";
 
 type ImportRow = {
   sku: string;
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
     if (session.user.role !== "admin") return fail("Only admin can import products", 403);
 
     const formData = await request.formData();
+    const mode = formData.get("mode");
     const file = formData.get("file");
     if (!(file instanceof File)) return fail("File CSV wajib di-upload.", 422);
     const fileName = file.name.toLowerCase();
@@ -142,7 +144,7 @@ export async function POST(request: Request) {
     }
 
     const scope = await getAdminScope(session.user.id);
-    assertFeatureAllowed(scope.adminProfile, "importExport");
+    if (mode !== "repair-preview" && mode !== "repair-apply") assertFeatureAllowed(scope.adminProfile, "importExport");
     const importedRows = rowsFromCsv(await file.text());
     if (!importedRows.length) return fail("File CSV kosong atau belum berisi produk.", 422);
 
@@ -152,6 +154,27 @@ export async function POST(request: Request) {
       const normalizedSku = row.sku.toLowerCase();
       if (seenSku.has(normalizedSku)) return fail(`SKU duplikat di file: ${row.sku}`, 422);
       seenSku.add(normalizedSku);
+    }
+
+    if (mode === "repair-preview" || mode === "repair-apply") {
+      if (!importedRows.some((row) => row.sku && row.legacyCostPrice !== null)) return fail("CSV tidak berisi SKU dan harga modal desimal yang bisa diperbaiki.", 422);
+      if (mode === "repair-preview") {
+        return ok(repairCsvCosts(await readDb(), scope.shopId, importedRows, false));
+      }
+      const result = await withDbTransaction((db) => {
+        const counts = repairCsvCosts(db, scope.shopId, importedRows, true);
+        addAuditLog(db, {
+          actorId: session.user.id,
+          actorRole: "admin",
+          shopId: scope.shopId,
+          action: "repair_csv_costs",
+          entityType: "product",
+          message: `Perbaikan harga modal CSV: ${counts.correctedProducts} produk dan ${counts.repairedTransactionItems} item transaksi.`,
+          metadata: counts,
+        });
+        return counts;
+      });
+      return ok(result);
     }
 
     const db = await readDb();
