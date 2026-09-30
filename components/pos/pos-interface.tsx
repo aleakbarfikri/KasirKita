@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { bulkPriceTotal } from "@/lib/bulk-pricing";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/lib/i18n";
@@ -184,7 +185,8 @@ export async function buildEscPosReceipt(receipt: ReceiptRecord, paperWidth: Rec
     line,
     ...receipt.items.flatMap((item) => [
       ...wrapThermalText(item.name, width),
-      thermalColumns(`${item.quantity} x ${formatCurrency(item.price)}`, formatCurrency(item.price * item.quantity), width),
+      thermalColumns(`${item.quantity} x ${formatCurrency(item.price)}`, formatCurrency(item.subtotal ?? item.price * item.quantity), width),
+      (item.subtotal ?? item.price * item.quantity) < item.price * item.quantity ? "Harga paket diterapkan" : "",
       item.discountAmount ? `Diskon item: ${formatCurrency(item.discountAmount)} / pcs` : "",
     ]),
     line,
@@ -458,7 +460,8 @@ export function PosInterface() {
     return 0;
   }
 
-  const subtotal = cart.reduce((sum, item) => sum + productFinalPrice(item) * item.qty, 0);
+  const itemTotal = (item: CartItem) => bulkPriceTotal(productFinalPrice(item), item.qty, item.bulkPrices);
+  const subtotal = cart.reduce((sum, item) => sum + itemTotal(item), 0);
   const checkoutDiscountAmount = calculateCheckoutDiscount(subtotal);
   const total = Math.max(0, subtotal - checkoutDiscountAmount);
   const change = Math.max(cashReceived - total, 0);
@@ -707,7 +710,7 @@ export function PosInterface() {
       `Kasir: ${receipt.cashier.name}`,
       `Metode: ${methodLabel[trx.paymentMethod]}`,
       "",
-      ...receipt.items.map((item) => `${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}${item.discountAmount ? ` (diskon ${formatCurrency(item.discountAmount)}/item)` : ""}`),
+      ...receipt.items.map((item) => `${item.name} x${item.quantity} = ${formatCurrency(item.subtotal ?? item.price * item.quantity)}${(item.subtotal ?? item.price * item.quantity) < item.price * item.quantity ? " (harga paket)" : ""}${item.discountAmount ? ` (diskon ${formatCurrency(item.discountAmount)}/item)` : ""}`),
       "",
       receipt.transaction.subtotal !== undefined ? `Subtotal: ${formatCurrency(receipt.transaction.subtotal)}` : "",
       receipt.transaction.discountAmount ? `Diskon transaksi: -${formatCurrency(receipt.transaction.discountAmount)}` : "",
@@ -731,7 +734,8 @@ export function PosInterface() {
     const itemRows = receipt.items.map((item) => `
       <div class="item">
         <div class="item-name">${escapeHtml(item.name)}</div>
-        <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.price * item.quantity))}</span></div>
+        <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.subtotal ?? item.price * item.quantity))}</span></div>
+        ${(item.subtotal ?? item.price * item.quantity) < item.price * item.quantity ? '<div class="muted small">Harga paket diterapkan</div>' : ""}
         ${item.discountAmount ? `<div class="muted small">Diskon item: ${escapeHtml(formatCurrency(item.discountAmount))} / pcs</div>` : ""}
       </div>
     `).join("");
@@ -1028,6 +1032,7 @@ export function PosInterface() {
                         </div>
                         <span className="rounded-full border border-[#dbe6ef] bg-[#f8fafc] px-2 py-1 text-[11px] font-bold text-[#64748b]">SKU {product.sku.slice(-4)}</span>
                       </div>
+                      {product.bulkPrices?.length ? <p className="mt-2 line-clamp-2 text-xs font-semibold text-emerald-700">{[...product.bulkPrices].sort((a, b) => a.quantity - b.quantity).map((offer) => `${offer.quantity} pcs ${formatCurrency(offer.total)}`).join(" · ")}</p> : null}
                     </div>
                   </button>
                 );
@@ -1135,6 +1140,7 @@ export function PosInterface() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2"><p className="truncate text-sm font-bold lg:text-base lg:font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>
                       <p className="text-sm font-bold text-primary">{formatCurrency(productFinalPrice(item))} × {item.qty}</p>
+                      {itemTotal(item) < productFinalPrice(item) * item.qty ? <p className="text-xs font-semibold text-emerald-700">Harga paket: {formatCurrency(itemTotal(item))}</p> : null}
                       {productDiscountAmount(item) > 0 ? <p className="text-xs font-semibold text-amber-700">{t("Diskon item")} {formatCurrency(productDiscountAmount(item))} / pcs</p> : null}
                     </div>
                     <button onClick={() => updateQty(item.id, 0)} className="flex h-8 w-8 items-center justify-center rounded-full text-red-600 hover:bg-red-50 lg:h-9 lg:w-9"><Trash2 className="h-4 w-4" /></button>
@@ -1154,7 +1160,7 @@ export function PosInterface() {
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3d4a42] lg:text-[11px] lg:tracking-[0.16em]">Subtotal</p>
-                      <p className="text-sm font-extrabold text-[#0b1c30] lg:text-lg">{formatCurrency(productFinalPrice(item) * item.qty)}</p>
+                      <p className="text-sm font-extrabold text-[#0b1c30] lg:text-lg">{formatCurrency(itemTotal(item))}</p>
                     </div>
                   </div>
                 </div>

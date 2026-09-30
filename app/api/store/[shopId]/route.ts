@@ -16,6 +16,6 @@ export async function GET(_request: Request, props: Params) {
   }
   const products = db.products
     .filter((row) => row.shopId === shop.id && row.isActive && (row.stock === null || row.stock === undefined || row.stock > 0))
-    .map((row) => ({ id: row.id, sku: row.sku, name: row.name, price: row.price, discountType: row.discountType ?? "none", discountValue: row.discountValue ?? 0, stock: row.stock, photoUrl: row.photoUrl ?? null }));
+    .map((row) => ({ id: row.id, sku: row.sku, name: row.name, price: row.price, discountType: row.discountType ?? "none", discountValue: row.discountValue ?? 0, bulkPrices: row.bulkPrices ?? [], stock: row.stock, photoUrl: row.photoUrl ?? null }));
   return ok({ shop: publicShop, products, isOpen: true, fulfillment: "pickup" as const, paymentMethod: "qris_pakasir" as const });
 }

@@ -93,6 +93,7 @@ export async function POST(request: Request) {
 
     const scope = await getAdminScope(session.user.id);
     const body = productSchema.parse(await readJson(request));
+    if (body.bulkPrices.some((offer) => offer.total >= body.price * offer.quantity)) return fail("Harga paket harus lebih murah daripada harga satuan × jumlah.", 422);
     if (body.discountType && body.discountType !== "none" && body.discountValue > 0) assertFeatureAllowed(scope.adminProfile, "discounts");
     const sku = body.sku?.trim() || `SKU-${Date.now().toString().slice(-8)}`;
     const t = now();
@@ -112,6 +113,7 @@ export async function POST(request: Request) {
       costPrice: body.costPrice,
       discountType: body.discountType === "none" ? "none" : body.discountType,
       discountValue: body.discountType === "none" ? 0 : body.discountValue,
+      bulkPrices: body.bulkPrices,
       stock: body.stock ?? null,
       photoUrl: body.photoUrl || null,
       isActive: true,

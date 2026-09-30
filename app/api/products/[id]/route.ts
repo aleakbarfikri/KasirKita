@@ -44,6 +44,7 @@ export async function PATCH(request: Request, props: Params) {
     const db = await readDb();
     const product = db.products.find((row) => row.id === params.id);
     if (!product) return fail("Product not found", 404);
+    if ((body.bulkPrices ?? product.bulkPrices ?? []).some((offer) => offer.total >= (body.price ?? product.price) * offer.quantity)) return fail("Harga paket harus lebih murah daripada harga satuan × jumlah.", 422);
     const nextDiscountType = body.discountType ?? product.discountType ?? "none";
     const nextDiscountValue = body.discountValue ?? product.discountValue ?? 0;
     if (session.user.role === "admin" && nextDiscountType !== "none" && nextDiscountValue > 0) {
@@ -63,6 +64,7 @@ export async function PATCH(request: Request, props: Params) {
     if (body.costPrice !== undefined) product.costPrice = body.costPrice;
     if (body.discountType !== undefined) product.discountType = body.discountType;
     if (body.discountValue !== undefined) product.discountValue = body.discountType === "none" ? 0 : body.discountValue;
+    if (body.bulkPrices !== undefined) product.bulkPrices = body.bulkPrices;
     if (body.stock !== undefined) product.stock = body.stock;
     if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
     if (typeof body.isActive === "boolean") product.isActive = body.isActive;

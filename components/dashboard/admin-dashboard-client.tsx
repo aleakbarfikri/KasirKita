@@ -123,9 +123,9 @@ function StitchStatCard({
   return (
     <div className="kk-stitch-card min-h-[168px] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(21,27,45,0.08)]">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-black uppercase tracking-[0.14em] text-[#505f76]">{title}</p>
-          <p className="mt-4 break-words text-3xl font-black tracking-normal text-[#151b2d]">{value}</p>
+          <p className="mt-4 break-all text-3xl font-black tracking-normal text-[#151b2d]">{value}</p>
         </div>
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
           <Icon className="h-6 w-6" />

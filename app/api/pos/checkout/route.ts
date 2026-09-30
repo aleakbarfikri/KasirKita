@@ -9,6 +9,8 @@ import { addAuditLog, now, withDbTransaction, type Debt, type PaymentConfig, typ
 import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
 import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
 import { recordSuccessfulSale } from "@/lib/server/financial-ledger";
+import { bulkPriceTotal } from "@/lib/bulk-pricing";
+import { onlineOrderProductPrice } from "@/lib/server/online-orders";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
   const safeSubtotal = Math.max(0, Math.round(subtotal));
@@ -27,16 +29,12 @@ export async function POST(request: Request) {
     if (body.paymentMethod === "qris_pakasir") assertFeatureAllowed(scope.adminProfile, "qrisPakasir");
     if (body.paymentMethod === "debt") assertFeatureAllowed(scope.adminProfile, "debts");
 
-    const subtotal = body.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const discountAmount = calculateDiscount(subtotal, body.discountType, body.discountValue);
-    const total = Math.max(0, subtotal - discountAmount);
     const paidAmount = body.paidAmount ?? 0;
     const transactionId = createId("trx");
     const receiptToken = createId("rcpt");
     const origin = new URL(request.url).origin;
     const idempotencyKey = request.headers.get("idempotency-key")?.trim() || null;
 
-    if (body.paymentMethod === "cash" && paidAmount < total) return fail("Cash paid amount cannot be lower than total", 422);
     if (body.paymentMethod === "debt" && !body.customerName) return fail("Customer name is required for debt transaction", 422);
     if (idempotencyKey && !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) return fail("Idempotency-Key tidak valid.", 422);
 
@@ -54,6 +52,24 @@ export async function POST(request: Request) {
       const currentProfile = db.adminProfiles.find((row) => row.userId === scope.adminId);
       if (!currentProfile) throw Object.assign(new Error("Profil admin tidak ditemukan."), { status: 404 });
       assertMonthlyTransactionLimit(db, currentProfile);
+
+      const items: TransactionItem[] = body.items.map((item) => {
+        const product = item.productId ? db.products.find((row) => row.id === item.productId && row.shopId === scope.shopId) : null;
+        const basePrice = product?.bulkPrices?.length ? onlineOrderProductPrice(product) : item.price;
+        return {
+          id: createId("trxi"), transactionId, productId: item.productId ?? null,
+          sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
+          name: item.name, originalPrice: item.originalPrice ?? item.price,
+          price: basePrice, costPrice: product?.costPrice ?? 0,
+          discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - basePrice),
+          quantity: item.quantity,
+          subtotal: product?.bulkPrices?.length ? bulkPriceTotal(basePrice, item.quantity, product.bulkPrices) : basePrice * item.quantity,
+        };
+      });
+      const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+      const discountAmount = calculateDiscount(subtotal, body.discountType, body.discountValue);
+      const total = Math.max(0, subtotal - discountAmount);
+      if (body.paymentMethod === "cash" && paidAmount < total) throw Object.assign(new Error("Cash paid amount cannot be lower than total"), { status: 422 });
 
       const pakasirConfig: PaymentConfig | null = body.paymentMethod === "qris_pakasir"
         ? db.paymentConfigs.find((row) => row.ownerId === scope.ownerId) ?? null
@@ -87,23 +103,6 @@ export async function POST(request: Request) {
         createdAt: t,
         updatedAt: t,
       };
-
-      const items: TransactionItem[] = body.items.map((item) => {
-        const product = item.productId ? db.products.find((row) => row.id === item.productId && row.shopId === scope.shopId) : null;
-        return {
-          id: createId("trxi"),
-          transactionId,
-          productId: item.productId ?? null,
-          sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
-          name: item.name,
-          originalPrice: item.originalPrice ?? item.price,
-          price: item.price,
-          costPrice: product?.costPrice ?? 0,
-          discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - item.price),
-          quantity: item.quantity,
-          subtotal: item.price * item.quantity,
-        };
-      });
 
       if (body.paymentMethod === "qris_pakasir") applySuccessfulTransactionStock(db, scope.shopId, items, { validateOnly: true });
       else applySuccessfulTransactionStock(db, scope.shopId, items);
@@ -171,7 +170,7 @@ export async function POST(request: Request) {
           slug: atomic.pakasirConfig!.pakasirSlug!,
           apiKey: atomic.pakasirConfig!.pakasirApiKey!,
           orderId: transactionId,
-          amount: total,
+          amount: atomic.result.transaction.total,
         });
         return ok({
           ...atomic.result,
@@ -180,7 +179,7 @@ export async function POST(request: Request) {
             status: "pending",
             orderId: transactionId,
             reference: transactionId,
-            amount: total,
+            amount: atomic.result.transaction.total,
             totalPayment: pakasir.totalPayment,
             fee: pakasir.fee,
             qrString: pakasir.qrString,

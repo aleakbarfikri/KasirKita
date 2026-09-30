@@ -32,6 +32,7 @@ export type ProductRecord = {
   costPrice: number;
   discountType?: "none" | "percent" | "amount";
   discountValue?: number;
+  bulkPrices?: { quantity: number; total: number }[];
   stock?: number | null;
   photoUrl?: string | null;
   isActive?: boolean;
@@ -331,7 +332,7 @@ export type ReceiptRecord = {
     changeAmount?: number | null;
     status: TransactionRecord["status"];
   };
-  items: Array<Pick<CheckoutItem, "name" | "originalPrice" | "price" | "discountAmount" | "quantity">>;
+  items: Array<Pick<CheckoutItem, "name" | "originalPrice" | "price" | "discountAmount" | "quantity"> & { subtotal?: number }>;
   shop: {
     name: string;
     address?: string | null;
@@ -459,7 +460,7 @@ export const api = {
     importCsv: (file: File) => {
       const body = new FormData();
       body.append("file", file);
-      return apiFetch<{ created: number; updated: number; total: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
+      return apiFetch<{ created: number; updated: number; repairedTransactionItems: number; total: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
     },
   },
 

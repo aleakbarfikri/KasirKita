@@ -10,6 +10,11 @@ export function normalizeUsername(value: unknown) {
 }
 
 
+const bulkPricesSchema = z.array(z.object({
+  quantity: z.number().int().min(2).max(1000),
+  total: z.number().int().min(0).safe(),
+})).max(20).refine((offers) => new Set(offers.map((offer) => offer.quantity)).size === offers.length, "Jumlah paket tidak boleh duplikat.");
+
 export const productSchema = z.object({
   sku: z.string().trim().optional().or(z.literal("")),
   name: z.string().min(2),
@@ -17,6 +22,7 @@ export const productSchema = z.object({
   costPrice: z.coerce.number().int().min(0).default(0),
   discountType: z.enum(["none", "percent", "amount"]).optional().default("none"),
   discountValue: z.coerce.number().int().min(0).optional().default(0),
+  bulkPrices: bulkPricesSchema.optional().default([]),
   stock: z.coerce.number().int().min(0).optional().nullable(),
   photoUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),

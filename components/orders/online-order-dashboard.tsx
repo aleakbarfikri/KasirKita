@@ -17,7 +17,7 @@ function whatsapp(phone: string) {
   return digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
 }
 function receiptText(receipt: ReceiptRecord) {
-  return ["PESANAN ONLINE", receipt.shop.name, receipt.transaction.invoiceNumber, `Pemesan: ${receipt.onlineOrder?.customerName || "-"}`, `WhatsApp: ${receipt.onlineOrder?.customerPhone || "-"}`, "-------------------------------", ...receipt.items.map((item) => `${item.name} x${item.quantity}  ${formatCurrency(item.price * item.quantity)}`), "-------------------------------", `TOTAL ${formatCurrency(receipt.transaction.total)}`, "AMBIL DI TOKO", ""].join("\n");
+  return ["PESANAN ONLINE", receipt.shop.name, receipt.transaction.invoiceNumber, `Pemesan: ${receipt.onlineOrder?.customerName || "-"}`, `WhatsApp: ${receipt.onlineOrder?.customerPhone || "-"}`, "-------------------------------", ...receipt.items.map((item) => `${item.name} x${item.quantity}  ${formatCurrency(item.subtotal ?? item.price * item.quantity)}`), "-------------------------------", `TOTAL ${formatCurrency(receipt.transaction.total)}`, "AMBIL DI TOKO", ""].join("\n");
 }
 
 export function OnlineOrderDashboard() {

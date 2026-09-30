@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAppLanguage } from "@/lib/i18n";
+import { bulkPriceTotal } from "@/lib/bulk-pricing";
 
 type CartItem = ProductRecord & { qty: number; isManual?: boolean };
 type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
@@ -234,7 +235,8 @@ export function HomePosClient() {
   }, [products, query]);
 
   const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const itemTotal = (item: CartItem) => bulkPriceTotal(item.price, item.qty, item.bulkPrices);
+  const total = cart.reduce((sum, item) => sum + itemTotal(item), 0);
   const change = Math.max(cashReceived - total, 0);
 
   function addToCart(product: ProductRecord, quantity = 1) {
@@ -465,7 +467,7 @@ export function HomePosClient() {
                     <input value={item.qty} onChange={(event) => updateQty(item.id, Number(event.target.value))} className="h-9 w-full border-x border-[#bccac0] bg-white text-center text-sm font-bold outline-none" aria-label={`Quantity ${item.name}`} />
                     <button onClick={() => updateQty(item.id, item.qty + 1)} className="flex h-9 items-center justify-center"><Plus className="h-4 w-4" /></button>
                   </div>
-                  <p className="text-right text-base font-extrabold text-primary">{formatCurrency(item.price * item.qty)}</p>
+                  <p className="text-right text-base font-extrabold text-primary">{formatCurrency(itemTotal(item))}</p>
                 </div>
               </div>
             ))
@@ -490,6 +492,7 @@ export function HomePosClient() {
                     <span>SKU {product.sku}</span>
                     <b className="text-primary">{formatCurrency(product.price)}</b>
                   </div>
+                  {product.bulkPrices?.length ? <p className="mt-1 text-xs font-semibold text-emerald-700">{[...product.bulkPrices].sort((a, b) => a.quantity - b.quantity).map((offer) => `${offer.quantity} pcs ${formatCurrency(offer.total)}`).join(" · ")}</p> : null}
                 </button>
               );
             })}

@@ -102,12 +102,12 @@ export async function sendOnlineOrderInvoiceEmail(input: {
   invoiceNumber: string;
   total: number;
   receiptUrl?: string | null;
-  items: Array<{ name: string; quantity: number; price: number }>;
+  items: Array<{ name: string; quantity: number; price: number; subtotal?: number }>;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Email invoice belum dikonfigurasi."), { status: 503 });
   const from = process.env.KASIRKITA_EMAIL_FROM || defaultFrom;
-  const rows = input.items.map((item) => `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">${escapeHtml(item.name)} × ${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right">Rp ${Math.round(item.price * item.quantity).toLocaleString("id-ID")}</td></tr>`).join("");
+  const rows = input.items.map((item) => `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">${escapeHtml(item.name)} × ${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right">Rp ${Math.round(item.subtotal ?? item.price * item.quantity).toLocaleString("id-ID")}</td></tr>`).join("");
   const receiptLink = input.receiptUrl ? `<p><a href="${escapeHtml(input.receiptUrl)}" style="display:inline-block;background:#0f7a53;color:white;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Lihat struk digital</a></p>` : "";
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",

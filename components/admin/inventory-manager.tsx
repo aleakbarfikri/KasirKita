@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { Camera, Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, ScanLine, Upload, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { api, type ProductRecord } from "@/lib/api-client";
@@ -37,6 +37,30 @@ async function compressPhotoForUpload(file: File) {
   }
 }
 
+type BulkPriceInput = { quantity: string; total: string };
+
+function validatedBulkPrices(rows: BulkPriceInput[], unitPrice: number) {
+  if (rows.some((row) => !row.quantity.trim() || !row.total.trim())) throw new Error("Isi jumlah dan harga total untuk setiap paket.");
+  const offers = rows.map((row) => ({ quantity: Number(row.quantity), total: Number(row.total) }));
+  if (offers.some((offer) => !Number.isInteger(offer.quantity) || offer.quantity < 2 || !Number.isSafeInteger(offer.total) || offer.total < 0 || offer.total >= unitPrice * offer.quantity)) {
+    throw new Error("Setiap harga paket harus punya jumlah minimal 2 dan total lebih kecil dari harga satuan × jumlah.");
+  }
+  if (new Set(offers.map((offer) => offer.quantity)).size !== offers.length) throw new Error("Jumlah paket tidak boleh duplikat.");
+  return offers;
+}
+
+function BulkPriceFields({ rows, setRows }: { rows: BulkPriceInput[]; setRows: Dispatch<SetStateAction<BulkPriceInput[]>> }) {
+  return <div className="space-y-2 rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3">
+    <div><Label>Harga Paket Berdasarkan Jumlah</Label><p className="text-xs text-[#64748b]">Contoh: 2 pcs total Rp5.000, 3 pcs total Rp8.000. Berlaku otomatis di kasir dan toko online.</p></div>
+    {rows.map((row, index) => <div key={index} className="flex items-end gap-2">
+      <div className="min-w-0 flex-1"><Label>Jumlah (pcs)</Label><Input type="number" min={2} step={1} value={row.quantity} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, quantity: event.target.value } : item))} placeholder="2" /></div>
+      <div className="min-w-0 flex-1"><Label>Harga total (Rp)</Label><Input type="number" min={0} step={1} value={row.total} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, total: event.target.value } : item))} placeholder="5000" /></div>
+      <Button type="button" variant="outline" size="icon" aria-label={`Hapus harga paket ${index + 1}`} onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><X className="h-4 w-4" /></Button>
+    </div>)}
+    <Button type="button" variant="outline" size="sm" onClick={() => setRows((current) => [...current, { quantity: "", total: "" }])}><Plus className="mr-1 h-4 w-4" />Tambah Harga Paket</Button>
+  </div>;
+}
+
 export function InventoryManager() {
   const { t } = useAppLanguage();
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -51,6 +75,7 @@ export function InventoryManager() {
   const [costPrice, setCostPrice] = useState("");
   const [discountType, setDiscountType] = useState<"none" | "percent" | "amount">("none");
   const [discountValue, setDiscountValue] = useState("");
+  const [bulkPrices, setBulkPrices] = useState<BulkPriceInput[]>([]);
   const [stock, setStock] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [search, setSearch] = useState("");
@@ -67,6 +92,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   const [editCostPrice, setEditCostPrice] = useState("");
   const [editDiscountType, setEditDiscountType] = useState<"none" | "percent" | "amount">("none");
   const [editDiscountValue, setEditDiscountValue] = useState("");
+  const [editBulkPrices, setEditBulkPrices] = useState<BulkPriceInput[]>([]);
   const [editStock, setEditStock] = useState("");
   const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -174,6 +200,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setCostPrice("");
     setDiscountType("none");
     setDiscountValue("");
+    setBulkPrices([]);
     setStock("");
     setPhotoFile(null);
     if (photoInputRef.current) photoInputRef.current.value = "";
@@ -210,6 +237,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         costPrice: Number(costPrice || 0),
         discountType,
         discountValue: discountType === "none" ? 0 : Number(discountValue || 0),
+        bulkPrices: validatedBulkPrices(bulkPrices, Number(price)),
         stock: stock ? Number(stock) : null,
         photoUrl: "",
       });
@@ -236,6 +264,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setEditCostPrice(String(product.costPrice ?? 0));
     setEditDiscountType(product.discountType ?? "none");
     setEditDiscountValue(String(product.discountValue ?? ""));
+    setEditBulkPrices((product.bulkPrices ?? []).map((offer) => ({ quantity: String(offer.quantity), total: String(offer.total) })));
     setEditStock(product.stock === null || product.stock === undefined ? "" : String(product.stock));
     setEditPhotoFile(null);
     if (editPhotoInputRef.current) editPhotoInputRef.current.value = "";
@@ -267,6 +296,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         costPrice: Number(editCostPrice || 0),
         discountType: editDiscountType,
         discountValue: editDiscountType === "none" ? 0 : Number(editDiscountValue || 0),
+        bulkPrices: validatedBulkPrices(editBulkPrices, Number(editPrice)),
         stock: editStock ? Number(editStock) : null,
       });
       if (editPhotoFile) {
@@ -344,7 +374,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setMessage(null);
     try {
       const result = await api.products.importCsv(file);
-      setMessage(`Import selesai: ${result.created} produk baru, ${result.updated} produk diperbarui.`);
+      setMessage(`Import selesai: ${result.created} produk baru, ${result.updated} produk diperbarui, ${result.repairedTransactionItems} item transaksi lama dikoreksi.`);
       await loadProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal import produk");
@@ -400,6 +430,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                 <Input value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} type="number" min={0} max={discountType === "percent" ? 100 : undefined} disabled={discountType === "none"} placeholder={discountType === "percent" ? "10" : "2000"} />
               </div>
             </div>
+            <BulkPriceFields rows={bulkPrices} setRows={setBulkPrices} />
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label>
@@ -447,7 +478,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat produk...")}</div>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Diskon")}</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Status")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("Barang")}</TableHead><TableHead>SKU</TableHead><TableHead>{t("Harga Jual")}</TableHead><TableHead>{t("Harga Modal")}</TableHead><TableHead>{t("Diskon")}</TableHead><TableHead>Harga Paket</TableHead><TableHead>{t("Stok")}</TableHead><TableHead>{t("Status")}</TableHead><TableHead>{t("Aksi")}</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredItems.map((item) => (
                     <TableRow key={item.id}>
@@ -456,6 +487,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
                       <TableCell>{formatCurrency(item.price)}</TableCell>
                       <TableCell>{formatCurrency(item.costPrice)}</TableCell>
                       <TableCell>{discountLabel(item)}</TableCell>
+                      <TableCell>{item.bulkPrices?.length ? [...item.bulkPrices].sort((a, b) => a.quantity - b.quantity).map((offer) => `${offer.quantity} pcs: ${formatCurrency(offer.total)}`).join(" · ") : "-"}</TableCell>
                       <TableCell>{item.stock ?? "-"}</TableCell>
                       <TableCell><Badge variant={item.isActive === false ? "secondary" : "success"}>{item.isActive === false ? t("Nonaktif") : t("Aktif")}</Badge></TableCell>
                       <TableCell>
@@ -522,6 +554,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               <Input value={editDiscountValue} onChange={(e) => setEditDiscountValue(e.target.value)} type="number" min={0} max={editDiscountType === "percent" ? 100 : undefined} disabled={editDiscountType === "none"} placeholder={editDiscountType === "percent" ? "10" : "2000"} />
             </div>
           </div>
+          <BulkPriceFields rows={editBulkPrices} setRows={setEditBulkPrices} />
           <div className="space-y-2">
             <Label>{t("Stok")}</Label>
             <Input value={editStock} onChange={(e) => setEditStock(e.target.value)} type="number" placeholder="50" />

@@ -46,11 +46,12 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
             <div key={`${item.name}-${index}`} className="text-sm">
               <div className="flex justify-between gap-3">
                 <span className="font-semibold">{item.name}</span>
-                <span>{formatCurrency(item.price * item.quantity)}</span>
+                <span>{formatCurrency(item.subtotal ?? item.price * item.quantity)}</span>
               </div>
               <p className="text-xs text-[#3d4a42]">
                 {item.quantity} x {formatCurrency(item.price)}
                 {item.discountAmount ? ` • Diskon ${formatCurrency(item.discountAmount)} / item` : ""}
+                {(item.subtotal ?? item.price * item.quantity) < item.price * item.quantity ? " • Harga paket" : ""}
               </p>
             </div>
           ))}

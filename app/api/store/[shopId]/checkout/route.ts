@@ -11,6 +11,7 @@ import { activeOnlineOrdersForCustomer, maintainOnlineOrders, normalizedCustomer
 import { findOnlineStore } from "@/lib/server/online-store";
 import { paymentDeadline } from "@/lib/server/subscription-invoice-retention";
 import { verifyTurnstile } from "@/lib/server/turnstile";
+import { bulkPriceTotal } from "@/lib/bulk-pricing";
 
 type Params = { params: Promise<{ shopId: string }> };
 const CHECKOUT_BODY_LIMIT_BYTES = 16 * 1024;
@@ -60,7 +61,7 @@ export async function POST(request: Request, props: Params) {
         if (!product) throw Object.assign(new Error("Salah satu produk tidak lagi tersedia."), { status: 422 });
         if (product.stock !== null && product.stock !== undefined && product.stock < quantity) throw Object.assign(new Error(`Stok ${product.name} tidak mencukupi.`), { status: 422 });
         const price = onlineOrderProductPrice(product);
-        return { id: createId("trxi"), transactionId, productId, sku: product.sku, name: product.name, originalPrice: product.price, price, costPrice: product.costPrice, discountAmount: Math.max(0, product.price - price), quantity, subtotal: price * quantity };
+        return { id: createId("trxi"), transactionId, productId, sku: product.sku, name: product.name, originalPrice: product.price, price, costPrice: product.costPrice, discountAmount: Math.max(0, product.price - price), quantity, subtotal: bulkPriceTotal(price, quantity, product.bulkPrices) };
       });
       applySuccessfulTransactionStock(db, shopId, items, { validateOnly: true });
       const total = items.reduce((sum, item) => sum + item.subtotal, 0);

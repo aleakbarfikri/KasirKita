@@ -87,7 +87,8 @@ async function printThermalReceipt(receipt: ReceiptRecord, paperWidth: ReceiptPa
   const itemRows = receipt.items.map((item) => `
     <div class="item">
       <div class="item-name">${escapeHtml(item.name)}</div>
-      <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.price * item.quantity))}</span></div>
+      <div class="row muted"><span>${item.quantity} x ${escapeHtml(formatCurrency(item.price))}</span><span>${escapeHtml(formatCurrency(item.subtotal ?? item.price * item.quantity))}</span></div>
+      ${(item.subtotal ?? item.price * item.quantity) < item.price * item.quantity ? '<div class="muted small">Harga paket diterapkan</div>' : ""}
       ${item.discountAmount ? `<div class="muted small">Diskon item: ${escapeHtml(formatCurrency(item.discountAmount))} / pcs</div>` : ""}
     </div>
   `).join("");

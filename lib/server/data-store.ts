@@ -118,6 +118,7 @@ export type Product = {
   costPrice: number;
   discountType?: "none" | "percent" | "amount";
   discountValue?: number;
+  bulkPrices?: { quantity: number; total: number }[];
   stock?: number | null;
   photoUrl?: string | null;
   isActive: boolean;
