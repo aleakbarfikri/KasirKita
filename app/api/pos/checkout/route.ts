@@ -9,8 +9,8 @@ import { addAuditLog, now, withDbTransaction, type Debt, type PaymentConfig, typ
 import { assertFeatureAllowed, assertMonthlyTransactionLimit } from "@/lib/server/subscription";
 import { paymentCredentials, protectPaymentConfig } from "@/lib/server/payment-secrets";
 import { recordSuccessfulSale } from "@/lib/server/financial-ledger";
-import { bulkPriceTotal } from "@/lib/bulk-pricing";
 import { onlineOrderProductPrice } from "@/lib/server/online-orders";
+import { manualItemDiscount, posItemTotal } from "@/lib/pos-item-pricing";
 
 function calculateDiscount(subtotal: number, type: "none" | "percent" | "amount" = "none", value = 0) {
   const safeSubtotal = Math.max(0, Math.round(subtotal));
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const scope = await getAdminScope(session.user.id);
     const body = checkoutSchema.parse(await readJson(request));
     if ((body.discountType === "percent" || body.discountType === "amount") && (body.discountValue ?? 0) > 0) assertFeatureAllowed(scope.adminProfile, "discounts");
+    if (body.items.some((item) => item.manualDiscountType !== "none" && item.manualDiscountValue > 0)) assertFeatureAllowed(scope.adminProfile, "discounts");
     if (body.paymentMethod === "qris_pakasir") assertFeatureAllowed(scope.adminProfile, "qrisPakasir");
     if (body.paymentMethod === "debt") assertFeatureAllowed(scope.adminProfile, "debts");
 
@@ -56,14 +57,15 @@ export async function POST(request: Request) {
       const items: TransactionItem[] = body.items.map((item) => {
         const product = item.productId ? db.products.find((row) => row.id === item.productId && row.shopId === scope.shopId) : null;
         const basePrice = product?.bulkPrices?.length ? onlineOrderProductPrice(product) : item.price;
+        const manualDiscount = manualItemDiscount(basePrice, item.manualDiscountType, item.manualDiscountValue);
         return {
           id: createId("trxi"), transactionId, productId: item.productId ?? null,
           sku: item.sku?.trim() || `ITEM-${Date.now().toString().slice(-8)}`,
           name: item.name, originalPrice: item.originalPrice ?? item.price,
-          price: basePrice, costPrice: product?.costPrice ?? 0,
-          discountAmount: item.discountAmount ?? Math.max(0, (item.originalPrice ?? item.price) - basePrice),
+          price: Math.max(0, basePrice - manualDiscount), costPrice: product?.costPrice ?? 0,
+          discountAmount: Math.max(0, (item.originalPrice ?? item.price) - basePrice) + manualDiscount,
           quantity: item.quantity,
-          subtotal: product?.bulkPrices?.length ? bulkPriceTotal(basePrice, item.quantity, product.bulkPrices) : basePrice * item.quantity,
+          subtotal: posItemTotal(basePrice, item.quantity, product?.bulkPrices, item.manualDiscountType, item.manualDiscountValue),
         };
       });
       const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);

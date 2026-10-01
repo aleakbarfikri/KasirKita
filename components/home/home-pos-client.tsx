@@ -13,9 +13,9 @@ import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAppLanguage } from "@/lib/i18n";
-import { bulkPriceTotal } from "@/lib/bulk-pricing";
+import { manualItemDiscount, posItemTotal, type ItemDiscountType } from "@/lib/pos-item-pricing";
 
-type CartItem = ProductRecord & { qty: number; isManual?: boolean };
+type CartItem = ProductRecord & { qty: number; isManual?: boolean; manualDiscountType?: ItemDiscountType; manualDiscountValue?: number };
 type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
 
 type ManualItem = {
@@ -57,6 +57,9 @@ export function HomePosClient() {
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [itemDiscountId, setItemDiscountId] = useState<string | null>(null);
+  const [itemDiscountType, setItemDiscountType] = useState<ItemDiscountType>("none");
+  const [itemDiscountValue, setItemDiscountValue] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [manualItem, setManualItem] = useState<ManualItem>(emptyManualItem);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -235,7 +238,11 @@ export function HomePosClient() {
   }, [products, query]);
 
   const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
-  const itemTotal = (item: CartItem) => bulkPriceTotal(item.price, item.qty, item.bulkPrices);
+  const basePrice = (item: CartItem) => {
+    const discount = item.discountType === "percent" ? Math.round(item.price * Math.min(item.discountValue ?? 0, 100) / 100) : item.discountType === "amount" ? Math.min(item.price, item.discountValue ?? 0) : 0;
+    return Math.max(0, item.price - discount);
+  };
+  const itemTotal = (item: CartItem) => posItemTotal(basePrice(item), item.qty, item.bulkPrices, item.manualDiscountType, item.manualDiscountValue);
   const total = cart.reduce((sum, item) => sum + itemTotal(item), 0);
   const change = Math.max(cashReceived - total, 0);
 
@@ -258,18 +265,35 @@ export function HomePosClient() {
     }));
   }
 
+  function openItemDiscount(item: CartItem) {
+    setItemDiscountId(item.id);
+    setItemDiscountType(item.manualDiscountType ?? "none");
+    setItemDiscountValue(item.manualDiscountValue ? String(item.manualDiscountValue) : "");
+  }
+
+  function saveItemDiscount() {
+    const value = Math.max(0, Math.round(Number(itemDiscountValue) || 0));
+    const type = itemDiscountType === "none" || value === 0 ? "none" : itemDiscountType;
+    setCart((current) => current.map((item) => item.id === itemDiscountId ? { ...item, manualDiscountType: type, manualDiscountValue: type === "none" ? 0 : value } : item));
+    setItemDiscountId(null);
+  }
+
   function itemsPayload(): CheckoutItem[] {
     return cart.map((item) => ({
       productId: item.isManual ? undefined : item.id,
       sku: item.sku,
       name: item.name,
-      price: item.price,
+      originalPrice: item.price,
+      price: basePrice(item),
+      manualDiscountType: item.manualDiscountType ?? "none",
+      manualDiscountValue: item.manualDiscountValue ?? 0,
       quantity: item.qty,
     }));
   }
 
   function resetTransaction() {
     setCart([]);
+    setItemDiscountId(null);
     setPaymentMethod(null);
     setCashReceived(0);
     setPaymentStatus("idle");
@@ -455,12 +479,14 @@ export function HomePosClient() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{item.name}</p>
-                    <p className="mt-1 text-xs text-[#3d4a42]">{formatCurrency(item.price)} × {item.qty}</p>
+                    <p className="mt-1 text-xs text-[#3d4a42]">{formatCurrency(basePrice(item) - manualItemDiscount(basePrice(item), item.manualDiscountType, item.manualDiscountValue))} × {item.qty}</p>
+                    {manualItemDiscount(basePrice(item), item.manualDiscountType, item.manualDiscountValue) > 0 ? <p className="text-xs font-semibold text-amber-700">Diskon transaksi {formatCurrency(manualItemDiscount(basePrice(item), item.manualDiscountType, item.manualDiscountValue))} / pcs</p> : null}
                   </div>
                   <button onClick={() => updateQty(item.id, 0)} className="text-[#3d4a42] hover:text-red-600" aria-label={`Hapus ${item.name}`}>
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+                <button type="button" onClick={() => openItemDiscount(item)} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100">Atur diskon item</button>
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div className="grid w-32 grid-cols-3 overflow-hidden rounded-xl border border-[#bccac0] bg-white">
                     <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex h-9 items-center justify-center"><Minus className="h-4 w-4" /></button>
@@ -499,6 +525,18 @@ export function HomePosClient() {
           </div>
         </div>
       </div>
+
+      <Modal open={itemDiscountId !== null} title="Diskon item untuk transaksi ini" description="Berlaku per pcs pada item yang dipilih. Inventaris tidak berubah." onClose={() => setItemDiscountId(null)}>
+        <div className="space-y-4">
+          <p className="font-bold">{cart.find((item) => item.id === itemDiscountId)?.name}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2"><Label>Mode Diskon</Label><select value={itemDiscountType} onChange={(event) => setItemDiscountType(event.target.value as ItemDiscountType)} className="h-11 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold"><option value="none">Tanpa Diskon</option><option value="percent">Persen</option><option value="amount">Nominal Rupiah per pcs</option></select></div>
+            <div className="space-y-2"><Label>Nilai Diskon</Label><Input type="number" min={0} max={itemDiscountType === "percent" ? 100 : undefined} value={itemDiscountValue} onChange={(event) => setItemDiscountValue(event.target.value)} disabled={itemDiscountType === "none"} placeholder={itemDiscountType === "percent" ? "10" : "500"} /></div>
+          </div>
+          <p className="text-sm text-[#64748b]">Diskon diterapkan setelah harga paket jika item memiliki harga paket.</p>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => { setCart((current) => current.map((item) => item.id === itemDiscountId ? { ...item, manualDiscountType: "none", manualDiscountValue: 0 } : item)); setItemDiscountId(null); }}>Hapus diskon</Button><Button onClick={saveItemDiscount}>Simpan Diskon</Button></div>
+        </div>
+      </Modal>
 
       <Modal open={manualOpen} title={t("Add Item / Tambah Barang")} description={t("Bisa langsung masuk keranjang, atau disimpan juga ke inventaris backend.")} onClose={() => !submitting ? setManualOpen(false) : undefined}>
         <div className="space-y-4">

@@ -13,14 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { bulkPriceTotal } from "@/lib/bulk-pricing";
+import { manualItemDiscount, posItemTotal } from "@/lib/pos-item-pricing";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppLanguage } from "@/lib/i18n";
 import { UpgradeSubscriptionCta } from "@/components/subscription/upgrade-cta";
 import { isBluetoothChooserCancelled, sendToThermalPrinter } from "@/lib/thermal-bluetooth";
 
-type CartItem = ProductRecord & { qty: number; isManual?: boolean };
+type CartItem = ProductRecord & { qty: number; isManual?: boolean; manualDiscountType?: DiscountType; manualDiscountValue?: number };
 type ModalMethod = PaymentMethod | null;
 
 type PaymentStatus = "idle" | "waiting" | "paid" | "failed";
@@ -240,6 +240,9 @@ export function PosInterface() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [cartMenuOpen, setCartMenuOpen] = useState(false);
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [itemDiscountId, setItemDiscountId] = useState<string | null>(null);
+  const [itemDiscountType, setItemDiscountType] = useState<DiscountType>("none");
+  const [itemDiscountValue, setItemDiscountValue] = useState("");
   const [receiptMenuOpen, setReceiptMenuOpen] = useState(false);
   const [checkoutDiscountType, setCheckoutDiscountType] = useState<DiscountType>("none");
   const [checkoutDiscountValue, setCheckoutDiscountValue] = useState("");
@@ -460,7 +463,7 @@ export function PosInterface() {
     return 0;
   }
 
-  const itemTotal = (item: CartItem) => bulkPriceTotal(productFinalPrice(item), item.qty, item.bulkPrices);
+  const itemTotal = (item: CartItem) => posItemTotal(productFinalPrice(item), item.qty, item.bulkPrices, item.manualDiscountType, item.manualDiscountValue);
   const subtotal = cart.reduce((sum, item) => sum + itemTotal(item), 0);
   const checkoutDiscountAmount = calculateCheckoutDiscount(subtotal);
   const total = Math.max(0, subtotal - checkoutDiscountAmount);
@@ -633,6 +636,19 @@ export function PosInterface() {
     }));
   }
 
+  function openItemDiscount(item: CartItem) {
+    setItemDiscountId(item.id);
+    setItemDiscountType(item.manualDiscountType ?? "none");
+    setItemDiscountValue(item.manualDiscountValue ? String(item.manualDiscountValue) : "");
+  }
+
+  function saveItemDiscount() {
+    const value = Math.max(0, Math.round(Number(itemDiscountValue) || 0));
+    const type = itemDiscountType === "none" || value === 0 ? "none" : itemDiscountType;
+    setCart((current) => current.map((item) => item.id === itemDiscountId ? { ...item, manualDiscountType: type, manualDiscountValue: type === "none" ? 0 : value } : item));
+    setItemDiscountId(null);
+  }
+
   function handleSkuSubmit() {
     const exact = products.find((product) => product.sku.toLowerCase() === query.trim().toLowerCase());
     if (exact) {
@@ -655,12 +671,15 @@ export function PosInterface() {
       originalPrice: item.price,
       price: productFinalPrice(item),
       discountAmount: productDiscountAmount(item),
+      manualDiscountType: item.manualDiscountType ?? "none",
+      manualDiscountValue: item.manualDiscountValue ?? 0,
       quantity: item.qty,
     }));
   }
 
   function resetTransaction() {
     setCart([]);
+    setItemDiscountId(null);
     setPaymentMethod(null);
     setCashReceived(0);
     setCheckoutDiscountType("none");
@@ -1139,12 +1158,14 @@ export function PosInterface() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2"><p className="truncate text-sm font-bold lg:text-base lg:font-semibold">{item.name}</p>{item.isManual ? <Badge variant="warning" className="normal-case tracking-normal">Manual</Badge> : null}</div>
-                      <p className="text-sm font-bold text-primary">{formatCurrency(productFinalPrice(item))} × {item.qty}</p>
-                      {itemTotal(item) < productFinalPrice(item) * item.qty ? <p className="text-xs font-semibold text-emerald-700">Harga paket: {formatCurrency(itemTotal(item))}</p> : null}
-                      {productDiscountAmount(item) > 0 ? <p className="text-xs font-semibold text-amber-700">{t("Diskon item")} {formatCurrency(productDiscountAmount(item))} / pcs</p> : null}
+                      <p className="text-sm font-bold text-primary">{formatCurrency(productFinalPrice(item) - manualItemDiscount(productFinalPrice(item), item.manualDiscountType, item.manualDiscountValue))} × {item.qty}</p>
+                      {item.bulkPrices?.length && itemTotal(item) < (productFinalPrice(item) - manualItemDiscount(productFinalPrice(item), item.manualDiscountType, item.manualDiscountValue)) * item.qty ? <p className="text-xs font-semibold text-emerald-700">Harga paket dan diskon: {formatCurrency(itemTotal(item))}</p> : null}
+                      {productDiscountAmount(item) > 0 ? <p className="text-xs font-semibold text-amber-700">Diskon inventaris {formatCurrency(productDiscountAmount(item))} / pcs</p> : null}
+                      {manualItemDiscount(productFinalPrice(item), item.manualDiscountType, item.manualDiscountValue) > 0 ? <p className="text-xs font-semibold text-amber-700">Diskon transaksi {formatCurrency(manualItemDiscount(productFinalPrice(item), item.manualDiscountType, item.manualDiscountValue))} / pcs</p> : null}
                     </div>
                     <button onClick={() => updateQty(item.id, 0)} className="flex h-8 w-8 items-center justify-center rounded-full text-red-600 hover:bg-red-50 lg:h-9 lg:w-9"><Trash2 className="h-4 w-4" /></button>
                   </div>
+                  <button type="button" onClick={() => openItemDiscount(item)} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100">Atur diskon item</button>
                   <div className="mt-2 grid grid-cols-[minmax(0,140px)_auto] items-end gap-2 lg:mt-3 lg:grid-cols-[1fr_auto] lg:gap-3">
                     <div className="grid grid-cols-3 items-center gap-1.5 rounded-xl bg-white p-1.5 lg:gap-2 lg:p-2">
                       <button onClick={() => updateQty(item.id, item.qty - 1)} className="flex h-8 items-center justify-center rounded-lg border border-[#bccac0] lg:h-9"><Minus className="h-4 w-4" /></button>
@@ -1256,6 +1277,18 @@ export function PosInterface() {
           <Button className="w-full" size="lg" onClick={addManualItem}>
             <PackagePlus className="mr-2 h-5 w-5" /> {t("Tambahkan ke Keranjang")}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal open={itemDiscountId !== null} title="Diskon item untuk transaksi ini" description="Berlaku per pcs pada item yang dipilih. Harga dan diskon inventaris tidak berubah." onClose={() => setItemDiscountId(null)}>
+        <div className="space-y-4">
+          <p className="font-bold">{cart.find((item) => item.id === itemDiscountId)?.name}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2"><Label>Mode Diskon</Label><select value={itemDiscountType} onChange={(event) => setItemDiscountType(event.target.value as DiscountType)} className="h-11 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold"><option value="none">Tanpa Diskon</option><option value="percent">Persen</option><option value="amount">Nominal Rupiah per pcs</option></select></div>
+            <div className="space-y-2"><Label>Nilai Diskon</Label><Input type="number" min={0} max={itemDiscountType === "percent" ? 100 : undefined} value={itemDiscountValue} onChange={(event) => setItemDiscountValue(event.target.value)} disabled={itemDiscountType === "none"} placeholder={itemDiscountType === "percent" ? "10" : "500"} /></div>
+          </div>
+          <p className="text-sm text-[#64748b]">Diskon diterapkan setelah harga paket jika item memiliki harga paket.</p>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => { setCart((current) => current.map((item) => item.id === itemDiscountId ? { ...item, manualDiscountType: "none", manualDiscountValue: 0 } : item)); setItemDiscountId(null); }}>Hapus diskon</Button><Button onClick={saveItemDiscount}>Simpan Diskon</Button></div>
         </div>
       </Modal>
 

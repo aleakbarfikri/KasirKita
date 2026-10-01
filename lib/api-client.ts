@@ -261,6 +261,8 @@ export type CheckoutItem = {
   originalPrice?: number;
   price: number;
   discountAmount?: number;
+  manualDiscountType?: "none" | "percent" | "amount";
+  manualDiscountValue?: number;
   quantity: number;
 };
 

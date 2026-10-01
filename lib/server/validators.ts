@@ -37,6 +37,8 @@ export const cartItemSchema = z.object({
   originalPrice: z.coerce.number().int().min(0).optional(),
   price: z.coerce.number().int().min(0),
   discountAmount: z.coerce.number().int().min(0).optional(),
+  manualDiscountType: z.enum(["none", "percent", "amount"]).optional().default("none"),
+  manualDiscountValue: z.coerce.number().int().min(0).max(1_000_000_000).optional().default(0),
   quantity: z.coerce.number().int().min(1),
 });
 
