@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
 import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
+import { jakartaDateKey, shiftDateKey } from "@/lib/report-dates";
+import { dailyTransactionSummary } from "@/lib/report-summary";
 
 type SubscriptionPlanChoice = "trial" | "basic" | "starter" | "pro" | "business";
 type PaidSubscriptionPlanChoice = Exclude<SubscriptionPlanChoice, "trial">;
@@ -154,6 +156,7 @@ export function AdminDashboardClient() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("pro");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("yearly");
+  const [selectedDate, setSelectedDate] = useState(() => jakartaDateKey(new Date()));
   const [reportStart, setReportStart] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return dateInputValue(date); });
   const [reportEnd, setReportEnd] = useState(() => dateInputValue(new Date()));
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(searchParams.get("subscription") === "1");
@@ -229,16 +232,15 @@ export function AdminDashboardClient() {
   }
 
   const stats = useMemo(() => {
-    const today = new Date().toDateString();
-    const todaySuccess = transactions.filter((row) => new Date(row.createdAt).toDateString() === today && row.status === "success");
-    const todaySales = todaySuccess.reduce((sum, row) => sum + row.total, 0);
-    const todayProfit = todaySuccess.reduce((sum, row) => sum + (row.grossProfit ?? 0), 0);
+    const daily = dailyTransactionSummary(transactions, selectedDate);
     const qrisEarned = transactions.filter((row) => row.paymentMethod === "qris_pakasir" && row.status === "success").reduce((sum, row) => sum + row.total, 0);
     const withdrawn = withdrawals.filter((row) => row.status === "completed").reduce((sum, row) => sum + row.amount, 0);
     const reserved = withdrawals.filter((row) => row.status === "pending" || row.status === "processed").reduce((sum, row) => sum + row.amount, 0);
     const activeDebt = debts.filter((debt) => debt.status !== "paid").reduce((sum, debt) => sum + debt.amount - debt.paidAmount, 0);
-    return { todaySales, todayProfit, todayCount: todaySuccess.length, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
-  }, [debts, transactions, withdrawals]);
+    return { daily, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
+  }, [debts, selectedDate, transactions, withdrawals]);
+
+  const dailyRecentTransactions = useMemo(() => transactions.filter((transaction) => jakartaDateKey(transaction.createdAt) === selectedDate).slice(0, 8), [selectedDate, transactions]);
 
   const reportTransactions = useMemo(() => {
     const start = new Date(`${reportStart}T00:00:00`);
@@ -348,11 +350,18 @@ export function AdminDashboardClient() {
     <div>
       {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="mb-4 flex items-center rounded-2xl bg-white p-3 text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat data...")}</p> : null}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StitchStatCard title={t("Omzet Hari Ini")} value={formatCurrency(stats.todaySales)} helper={t("Tunai + QRIS sukses")} icon={ReceiptText} tone="green" />
-        <StitchStatCard title={t("Transaksi")} value={`${stats.todayCount}`} helper={t("Transaksi sukses hari ini")} icon={BarChart3} tone="navy" />
-        <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.todayProfit)} helper={t("Omzet dikurangi modal barang")} icon={TrendingUp} tone="green" />
-        <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("QRIS KasirKita sukses - withdraw")} icon={Wallet} tone="blue" />
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#bec9c1] bg-white p-3 sm:p-4">
+        <div className="mr-auto"><p className="font-black text-[#151b2d]">{t("Ringkasan Harian")}</p><p className="text-sm font-semibold text-[#505f76]">{t("Pilih tanggal untuk melihat omzet, modal, dan laba hari sebelumnya.")}</p></div>
+        <label className="text-xs font-bold text-[#505f76]">{t("Tanggal")}<input type="date" value={selectedDate} max={jakartaDateKey(new Date())} onChange={(event) => { if (event.target.value) setSelectedDate(event.target.value); }} className="mt-1 block h-10 rounded-lg border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d]" /></label>
+        <Button variant="outline" size="sm" onClick={() => setSelectedDate(shiftDateKey(selectedDate, -1))}>{t("Hari sebelumnya")}</Button>
+        <Button variant="outline" size="sm" onClick={() => setSelectedDate(jakartaDateKey(new Date()))}>{t("Hari ini")}</Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <StitchStatCard title={t("Omzet")} value={formatCurrency(stats.daily.sales)} helper={t("Transaksi sukses pada tanggal dipilih")} icon={ReceiptText} tone="green" />
+        <StitchStatCard title={t("Transaksi")} value={`${stats.daily.count}`} helper={t("Transaksi sukses pada tanggal dipilih")} icon={BarChart3} tone="navy" />
+        <StitchStatCard title={t("Harga Modal")} value={formatCurrency(stats.daily.cost)} helper={t("Total modal barang terjual pada tanggal dipilih")} icon={Package} tone="navy" />
+        <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.daily.profit)} helper={t("Omzet dikurangi modal barang")} icon={TrendingUp} tone="green" />
+        <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("Saldo saat ini dari seluruh tanggal")} icon={Wallet} tone="blue" />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
@@ -530,12 +539,12 @@ export function AdminDashboardClient() {
         </Modal>
 
         <Card className="w-full min-w-0 max-w-full bg-white xl:col-span-2">
-          <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Riwayat singkat transaksi terbaru.")}</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Tanggal Transaksi")}: {selectedDate}</CardDescription></CardHeader>
           <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
             <Table className="min-w-[640px]">
               <TableHeader><TableRow><TableHead>{t("Order")}</TableHead><TableHead>{t("Barang")}</TableHead><TableHead>{t("Metode")}</TableHead><TableHead>{t("Total")}</TableHead><TableHead>{t("Status")}</TableHead></TableRow></TableHeader>
               <TableBody>
-                {transactions.slice(0, 8).map((transaction) => (
+                {dailyRecentTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                     <TableCell className="max-w-[14rem] truncate" title={transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || ""}>{transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-"}</TableCell>
@@ -544,6 +553,7 @@ export function AdminDashboardClient() {
                     <TableCell><Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{t(transactionStatusLabel(transaction.status))}</Badge></TableCell>
                   </TableRow>
                 ))}
+                {dailyRecentTransactions.length === 0 ? <TableRow><TableCell colSpan={5} className="py-6 text-center text-[#64748b]">{t("Tidak ada transaksi pada tanggal ini.")}</TableCell></TableRow> : null}
               </TableBody>
             </Table>
           </CardContent>

@@ -15,6 +15,7 @@ import { formatCurrency, shortDate } from "@/lib/utils";
 import { useAppLanguage, type AppLanguage } from "@/lib/i18n";
 import { buildEscPosReceipt } from "@/components/pos/pos-interface";
 import { isBluetoothChooserCancelled, sendToThermalPrinter } from "@/lib/thermal-bluetooth";
+import { jakartaDateKey, shiftDateKey } from "@/lib/report-dates";
 
 type ReceiptPaperWidth = "58mm" | "80mm";
 
@@ -162,6 +163,7 @@ export function TransactionHistory() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TransactionRecord["status"]>("all");
+  const [selectedDate, setSelectedDate] = useState(() => jakartaDateKey(new Date()));
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
@@ -320,7 +322,7 @@ export function TransactionHistory() {
       statusLabel(transaction.status, language),
       itemSummary(transaction),
     ].join(" ").toLowerCase();
-    return (statusFilter === "all" || transaction.status === statusFilter) && haystack.includes(searchTerm.trim().toLowerCase());
+    return jakartaDateKey(transaction.createdAt) === selectedDate && (statusFilter === "all" || transaction.status === statusFilter) && haystack.includes(searchTerm.trim().toLowerCase());
   });
 
   return (
@@ -329,13 +331,13 @@ export function TransactionHistory() {
       <CardHeader className="border-b border-[#bec9c1]">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-2xl text-[#151b2d]">{t("Semua Transaksi")}</CardTitle>
-            <CardDescription className="break-words font-semibold text-[#505f76]">{t("Rekap transaksi dan barang yang terjual.")}</CardDescription>
+            <CardTitle className="text-2xl text-[#151b2d]">{t("Transaksi Harian")}</CardTitle>
+            <CardDescription className="break-words font-semibold text-[#505f76]">{t("Pilih satu tanggal untuk melihat transaksi hari itu. CSV tetap memuat semua tanggal.")}</CardDescription>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" size="sm" onClick={exportTransactions} disabled={exporting || loading}>
               {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              {exporting ? t("Export...") : t("Export CSV")}
+              {exporting ? t("Export...") : t("Export CSV Semua Tanggal")}
             </Button>
             <Button variant="outline" size="sm" onClick={() => void loadTransactions()}><RefreshCw className="mr-2 h-4 w-4" /> {t("Refresh")}</Button>
           </div>
@@ -343,6 +345,11 @@ export function TransactionHistory() {
       </CardHeader>
       <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
         {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-3">
+          <label className="mr-auto text-xs font-bold text-[#505f76]">{t("Tanggal Transaksi")}<input type="date" value={selectedDate} max={jakartaDateKey(new Date())} onChange={(event) => { if (event.target.value) setSelectedDate(event.target.value); }} className="mt-1 block h-11 rounded-xl border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d]" /></label>
+          <Button variant="outline" size="sm" onClick={() => setSelectedDate(shiftDateKey(selectedDate, -1))}>{t("Hari sebelumnya")}</Button>
+          <Button variant="outline" size="sm" onClick={() => setSelectedDate(jakartaDateKey(new Date()))}>{t("Hari ini")}</Button>
+        </div>
         <div className="mb-4 grid gap-3 rounded-xl border border-[#bec9c1] bg-[#f8fafc] p-3 md:grid-cols-[minmax(0,1fr)_220px]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f7a72]" />
@@ -369,6 +376,8 @@ export function TransactionHistory() {
           <div className="flex min-h-72 items-center justify-center text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat transaksi...")}</div>
         ) : (
           <>
+            <p className="mb-3 text-sm font-semibold text-[#505f76]">{filteredTransactions.length} transaksi pada {selectedDate}</p>
+            {filteredTransactions.length === 0 ? <p className="rounded-xl border border-dashed border-[#bec9c1] bg-[#f8fafc] p-6 text-center text-sm font-semibold text-[#64748b]">{t("Tidak ada transaksi untuk tanggal dan filter ini.")}</p> : null}
             <div className="space-y-3 md:hidden">
               {filteredTransactions.map((transaction) => (
                 <div key={transaction.id} role="button" tabIndex={0} onClick={() => openTransactionDetail(transaction)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openTransactionDetail(transaction); }} className="block w-full rounded-xl border border-[#d7e2dc] bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
