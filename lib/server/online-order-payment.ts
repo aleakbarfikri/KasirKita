@@ -38,6 +38,7 @@ export async function sendOnlineOrderInvoiceIfNeeded(orderId: string, origin: st
       invoiceNumber: claimed.receipt.transaction.invoiceNumber,
       total: claimed.transaction.total,
       receiptUrl: claimed.receipt.publicUrl,
+      receiptPdfUrl: claimed.receipt.pdfUrl,
       items: claimed.receipt.items,
     });
     await withDbTransaction((db) => {

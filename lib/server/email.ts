@@ -102,6 +102,7 @@ export async function sendOnlineOrderInvoiceEmail(input: {
   invoiceNumber: string;
   total: number;
   receiptUrl?: string | null;
+  receiptPdfUrl?: string | null;
   items: Array<{ name: string; quantity: number; price: number; subtotal?: number }>;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -109,6 +110,7 @@ export async function sendOnlineOrderInvoiceEmail(input: {
   const from = process.env.KASIRKITA_EMAIL_FROM || defaultFrom;
   const rows = input.items.map((item) => `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">${escapeHtml(item.name)} × ${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right">Rp ${Math.round(item.subtotal ?? item.price * item.quantity).toLocaleString("id-ID")}</td></tr>`).join("");
   const receiptLink = input.receiptUrl ? `<p><a href="${escapeHtml(input.receiptUrl)}" style="display:inline-block;background:#0f7a53;color:white;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Lihat struk digital</a></p>` : "";
+  const pdfLink = input.receiptPdfUrl ? `<p><a href="${escapeHtml(input.receiptPdfUrl)}" style="display:inline-block;border:1px solid #0f7a53;color:#0f7a53;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Unduh struk PDF</a></p>` : "";
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -116,7 +118,7 @@ export async function sendOnlineOrderInvoiceEmail(input: {
       from,
       to: input.to,
       subject: `Pembayaran Pesanan Online ${input.invoiceNumber} Berhasil`,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0b1c30;max-width:640px;margin:auto"><h2>Pembayaran berhasil</h2><p>Halo ${escapeHtml(input.customerName)}, pesanan online Anda di <b>${escapeHtml(input.shopName)}</b> sudah terbayar dan akan diproses untuk diambil di toko.</p><p><b>Invoice:</b> ${escapeHtml(input.invoiceNumber)}</p><table style="width:100%;border-collapse:collapse">${rows}<tr><td style="padding:12px 8px;font-weight:800">Total</td><td style="padding:12px 8px;text-align:right;font-weight:800">Rp ${Math.round(input.total).toLocaleString("id-ID")}</td></tr></table>${receiptLink}<p style="font-size:13px;color:#64748b">Pesanan hanya tersedia untuk ambil di toko. Anda dapat mengatur pengambilan sendiri atau menggunakan ojek online.</p></div>`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0b1c30;max-width:640px;margin:auto"><h2>Pembayaran berhasil</h2><p>Halo ${escapeHtml(input.customerName)}, pesanan online Anda di <b>${escapeHtml(input.shopName)}</b> sudah terbayar dan akan diproses untuk diambil di toko.</p><p><b>Invoice:</b> ${escapeHtml(input.invoiceNumber)}</p><table style="width:100%;border-collapse:collapse">${rows}<tr><td style="padding:12px 8px;font-weight:800">Total</td><td style="padding:12px 8px;text-align:right;font-weight:800">Rp ${Math.round(input.total).toLocaleString("id-ID")}</td></tr></table>${receiptLink}${pdfLink}<p style="font-size:13px;color:#64748b">Pesanan hanya tersedia untuk ambil di toko. Anda dapat mengatur pengambilan sendiri atau menggunakan ojek online.</p></div>`,
     }),
     cache: "no-store",
   });

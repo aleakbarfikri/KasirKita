@@ -344,6 +344,7 @@ export type ReceiptRecord = {
     name: string;
   };
   publicUrl?: string;
+  pdfUrl?: string;
   showWatermark?: boolean;
   watermarkText?: string;
   settings: { paperWidth: "58mm" | "80mm"; logoDataUrl?: string | null; printCopies: 1 | 2; showQueueNumber: boolean; autoPrint: boolean };

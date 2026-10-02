@@ -18,6 +18,12 @@ export function receiptPublicUrl(token: string | null | undefined, origin?: stri
   return base ? `${base.replace(/\/$/, "")}/r/${token}` : `/r/${token}`;
 }
 
+export function receiptPdfUrl(token: string | null | undefined, origin?: string | null) {
+  if (!token) return undefined;
+  const base = origin || process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL || "";
+  return `${base.replace(/\/$/, "")}/api/receipts/${token}/pdf`;
+}
+
 export function buildReceipt(db: AppDb, transaction: Transaction, origin?: string | null) {
   const shop = db.shops.find((row) => row.id === transaction.shopId);
   const cashier = db.users.find((row) => row.id === transaction.cashierId);
@@ -60,6 +66,7 @@ export function buildReceipt(db: AppDb, transaction: Transaction, origin?: strin
       name: cashier?.name || "Kasir",
     },
     publicUrl: receiptPublicUrl(transaction.receiptToken, origin),
+    pdfUrl: receiptPdfUrl(transaction.receiptToken, origin),
     showWatermark,
     watermarkText: "www.kasir-kita.com",
     settings,

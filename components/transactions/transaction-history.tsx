@@ -511,6 +511,7 @@ export function TransactionHistory() {
                 Buka struk digital
               </a>
             ) : null}
+            {selectedReceipt?.pdfUrl ? <a href={selectedReceipt.pdfUrl} download className="mt-3 ml-4 inline-flex items-center text-sm font-bold text-primary"><Download className="mr-2 h-4 w-4" />{t("Unduh PDF")}</a> : null}
           </div>
 
           {selectedTransaction.status === "success" ? (

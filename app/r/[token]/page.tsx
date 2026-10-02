@@ -5,6 +5,7 @@ import { readDb } from "@/lib/server/data-store";
 import { buildReceipt, isReceiptToken, receiptPublicUrl } from "@/lib/server/receipt";
 import { formatCurrency } from "@/lib/utils";
 import { OnlineOrderReceiptStatus } from "@/components/receipts/online-order-receipt-status";
+import { Download } from "lucide-react";
 
 export const metadata: Metadata = { robots: { index: false, follow: false, nocache: true } };
 
@@ -22,6 +23,7 @@ export default async function DigitalReceiptPage(props: { params: Promise<{ toke
   return (
     <main className="min-h-screen bg-[#f8f9ff] p-4 text-[#0b1c30]">
       <section className="mx-auto max-w-md rounded-3xl border border-[#bccac0] bg-white p-6 shadow-xl">
+        {receipt.pdfUrl ? <a href={receipt.pdfUrl} download className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-white"><Download className="h-5 w-5" />Unduh Struk PDF</a> : null}
         <div className="text-center">
           {receipt.showWatermark ? <p className="mb-2 text-xs font-black tracking-[0.16em] text-primary">{receipt.watermarkText || "www.kasir-kita.com"}</p> : null}
           {receipt.settings.logoDataUrl ? <img src={receipt.settings.logoDataUrl} alt="Logo usaha" className="mx-auto mb-2 h-20 w-20 object-contain" /> : null}

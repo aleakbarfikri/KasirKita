@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards, X } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, CloudOff, Copy, CreditCard, Download, Loader2, Minus, MoreVertical, NotebookPen, PackagePlus, Plus, Printer, QrCode, RefreshCw, ScanLine, Search, Send, ShoppingCart, Trash2, WalletCards, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { ApiError, api, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type ReceiptRecord } from "@/lib/api-client";
 import { cacheProducts, enqueueOfflineCheckout, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, subscribeOfflineData, type OfflineCheckout } from "@/lib/offline-pos";
@@ -737,6 +737,7 @@ export function PosInterface() {
       trx.paidAmount !== null && trx.paidAmount !== undefined ? `Dibayar: ${formatCurrency(trx.paidAmount)}` : "",
       trx.changeAmount !== null && trx.changeAmount !== undefined ? `Kembalian: ${formatCurrency(trx.changeAmount)}` : "",
       receipt.publicUrl ? `Struk digital: ${receipt.publicUrl}` : "",
+      receipt.pdfUrl ? `Unduh PDF: ${receipt.pdfUrl}` : "",
       "",
       "Terima kasih.",
     ];
@@ -861,6 +862,12 @@ export function PosInterface() {
     if (!receipt.publicUrl) return;
     await navigator.clipboard.writeText(receipt.publicUrl);
     setError("Link struk digital berhasil disalin.");
+  }
+
+  async function copyReceiptPdfLink(receipt: ReceiptRecord) {
+    if (!receipt.pdfUrl) return;
+    await navigator.clipboard.writeText(receipt.pdfUrl);
+    setError("Link unduh PDF berhasil disalin.");
   }
 
   function shouldQueueOffline(err: unknown) {
@@ -1497,6 +1504,8 @@ export function PosInterface() {
                             <Copy className="h-4 w-4 text-primary" />
                             {t("Salin Link")}
                           </button>
+                          {lastReceipt.pdfUrl ? <a href={lastReceipt.pdfUrl} download onClick={() => setReceiptMenuOpen(false)} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc]"><Download className="h-4 w-4 text-primary" />{t("Unduh Struk PDF")}</a> : null}
+                          <button type="button" onClick={() => { void copyReceiptPdfLink(lastReceipt); setReceiptMenuOpen(false); }} disabled={!lastReceipt.pdfUrl} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[#0f172a] hover:bg-[#f8fafc] disabled:opacity-50"><Copy className="h-4 w-4 text-primary" />{t("Salin Link PDF")}</button>
                         </div>
                       </div>
                     </div>
