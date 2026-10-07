@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Camera, Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, ScanLine, Upload, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { api, type ProductRecord } from "@/lib/api-client";
-import { cacheProducts, initializeOfflinePos, readCachedProducts, subscribeOfflineData } from "@/lib/offline-pos";
+import { cacheProducts, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, subscribeOfflineData } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,12 +83,13 @@ export function InventoryManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [replaceExistingStock, setReplaceExistingStock] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [repairPreview, setRepairPreview] = useState<{ file: File; matchedProducts: number; correctedProducts: number; repairedTransactionItems: number; skippedProducts: number; unmatchedRows: number } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
   const [editName, setEditName] = useState("");
   const [editSku, setEditSku] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -150,7 +151,7 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   }, [closeScanner, scannerOpen, stopScanner]);
 
   async function loadProducts(background = false) {
-    const cached = readCachedProducts();
+    const cached = background ? null : readCachedProducts();
     if (cached?.products.length) {
       setItems(cached.products);
       setLoading(false);
@@ -195,6 +196,18 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
       const current = readCachedProducts();
       if (current?.products.length) setItems(current.products);
     });
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void loadProducts(true); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 15_000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
+    };
   }, []);
   function resetForm() {
     setName("");
@@ -292,6 +305,8 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setError(null);
     setMessage(null);
     try {
+      const editedStock = editStock === "" ? null : Number(editStock);
+      const stockChanged = editedStock !== (editingProduct.stock ?? null);
       let updated = await api.products.update(editingProduct.id, {
         name: editName,
         sku: editSku,
@@ -300,14 +315,13 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
         discountType: editDiscountType,
         discountValue: editDiscountType === "none" ? 0 : Number(editDiscountValue || 0),
         bulkPrices: validatedBulkPrices(editBulkPrices, Number(editPrice)),
-        stock: editStock ? Number(editStock) : null,
+        ...(stockChanged ? { stock: editedStock } : {}),
       });
       if (editPhotoFile) {
         const compressed = await compressPhotoForUpload(editPhotoFile);
         updated = (await api.products.uploadPhoto(editingProduct.id, compressed)).product;
       }
-      setItems((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
-      cacheProducts(items.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+      await loadProducts(true);
       setMessage("Produk berhasil diperbarui.");
       setEditingProduct(null);
     } catch (err) {
@@ -332,6 +346,10 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
   }
 
   async function downloadProductsFile(format: "template" | "csv") {
+    if (format === "csv" && readOfflineCheckouts().length > 0) {
+      setError("Ada transaksi offline yang belum tersinkron di perangkat ini. Sinkronkan di Kasir POS sebelum export agar stok tidak tertinggal.");
+      return;
+    }
     setDownloading(true);
     setError(null);
     try {
@@ -376,8 +394,9 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
     setError(null);
     setMessage(null);
     try {
-      const result = await api.products.importCsv(file);
-      setMessage(`Import selesai: ${result.created} produk baru, ${result.updated} produk diperbarui, ${result.repairedTransactionItems} item transaksi lama dikoreksi.`);
+      const result = await api.products.importCsv(file, replaceExistingStock);
+      setMessage(`Import selesai: ${result.created} produk baru, ${result.updated} produk diperbarui, ${result.repairedTransactionItems} item transaksi lama dikoreksi. ${replaceExistingStock ? "Stok produk lama diganti sesuai CSV." : "Stok produk lama tetap mengikuti transaksi terbaru."}`);
+      setReplaceExistingStock(false);
       await loadProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal import produk");
@@ -448,6 +467,10 @@ const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
               </Button>
               <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={importProducts} className="hidden" />
             </div>
+            <label className="flex items-start gap-2 rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3 text-xs font-semibold leading-relaxed text-[#475569]">
+              <input type="checkbox" className="mt-0.5" checked={replaceExistingStock} onChange={(event) => setReplaceExistingStock(event.target.checked)} disabled={importing} />
+              <span>Stok opname: ganti stok produk yang sudah ada sesuai CSV. Biarkan kosong untuk import biasa agar stok terbaru tidak tertimpa file lama.</span>
+            </label>
             <p className="rounded-xl border border-[#dbe6ef] bg-[#f8fafc] p-3 text-xs font-semibold leading-relaxed text-[#64748b]">{t("Download template, kolom SKU/nama/harga/stok/diskon sudah terpisah di Excel. Isi data lalu Save As CSV sebelum import.")}</p>
             <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
               <p className="font-bold text-amber-900">Perbaiki harga modal dari CSV lama</p>

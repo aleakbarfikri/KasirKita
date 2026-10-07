@@ -1,11 +1,12 @@
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
-import { addAuditLog, now, readDb, withDbTransaction, writeDb, type Product } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, withDbTransaction, type Product } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertProductLimit } from "@/lib/server/subscription";
 import { legacyCsvNumber, parseCsvNumber } from "@/lib/server/csv-number";
 import { repairLegacyTransactionCosts } from "@/lib/server/legacy-cost-repair";
 import { repairCsvCosts } from "@/lib/server/csv-cost-repair";
+import { importedStock } from "@/lib/server/imported-stock";
 
 type ImportRow = {
   sku: string;
@@ -113,6 +114,9 @@ function rowsFromCsv(text: string): ImportRow[] {
     const costPrice = rawCostPrice ? numberValue(rawCostPrice, rowNumber, "harga_modal") : 0;
     const oldParsedCost = rawCostPrice.includes(",") ? legacyCsvNumber(rawCostPrice) : null;
     const stock = index.stock === -1 || row[index.stock] === "" || row[index.stock] === undefined ? null : numberValue(String(row[index.stock]), rowNumber, "stok");
+    if (stock !== null && (!Number.isSafeInteger(stock) || stock < 0)) {
+      throw Object.assign(new Error(`Baris ${rowNumber}: stok harus bilangan bulat minimal 0.`), { status: 422 });
+    }
     const discountType = index.discountType === -1 ? "none" : discountTypeValue(String(row[index.discountType] ?? ""));
     const discountValue = index.discountValue === -1 || !row[index.discountValue] ? 0 : numberValue(String(row[index.discountValue]), rowNumber, "diskon_nilai");
 
@@ -136,6 +140,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const mode = formData.get("mode");
+    const replaceExistingStock = formData.get("replaceExistingStock") === "true";
     const file = formData.get("file");
     if (!(file instanceof File)) return fail("File CSV wajib di-upload.", 422);
     const fileName = file.name.toLowerCase();
@@ -177,61 +182,53 @@ export async function POST(request: Request) {
       return ok(result);
     }
 
-    const db = await readDb();
-    assertProductLimit(db, scope.adminProfile, importedRows.length);
-    const timestamp = now();
-    let created = 0;
-    let updated = 0;
-    let repairedTransactionItems = 0;
+    const result = await withDbTransaction((db) => {
+      assertProductLimit(db, scope.adminProfile, importedRows.length);
+      const timestamp = now();
+      let created = 0;
+      let updated = 0;
+      let repairedTransactionItems = 0;
 
-    for (const row of importedRows) {
-      const sku = row.sku || `SKU-${Date.now().toString().slice(-8)}-${created + updated + 1}`;
-      const existing = db.products.find((product) => product.shopId === scope.shopId && product.sku.toLowerCase() === sku.toLowerCase());
-      if (existing) {
-        // Only repair snapshots whose exact bad value can be reproduced from this CSV.
-        repairedTransactionItems += repairLegacyTransactionCosts(db, existing.id, row.legacyCostPrice, row.costPrice);
-        existing.name = row.name;
-        existing.price = row.price;
-        existing.costPrice = row.costPrice;
-        existing.stock = row.stock;
-        existing.discountType = row.discountType;
-        existing.discountValue = row.discountValue;
-        existing.isActive = true;
-        existing.updatedAt = timestamp;
-        updated += 1;
-      } else {
-        const product: Product = {
-          id: createId("prd"),
-          shopId: scope.shopId,
-          sku,
-          name: row.name,
-          price: row.price,
-          costPrice: row.costPrice,
-          discountType: row.discountType,
-          discountValue: row.discountValue,
-          stock: row.stock,
-          photoUrl: null,
-          isActive: true,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        db.products.push(product);
-        created += 1;
+      for (const row of importedRows) {
+        const sku = row.sku || `SKU-${Date.now().toString().slice(-8)}-${created + updated + 1}`;
+        const existing = db.products.find((product) => product.shopId === scope.shopId && product.sku.toLowerCase() === sku.toLowerCase());
+        if (existing) {
+          if (replaceExistingStock && existing.stock != null && row.stock === null) {
+            throw Object.assign(new Error(`SKU ${sku}: stok kosong. Isi angka stok untuk stok opname, termasuk 0.`), { status: 422 });
+          }
+          // Only repair snapshots whose exact bad value can be reproduced from this CSV.
+          repairedTransactionItems += repairLegacyTransactionCosts(db, existing.id, row.legacyCostPrice, row.costPrice);
+          existing.name = row.name;
+          existing.price = row.price;
+          existing.costPrice = row.costPrice;
+          // A previously exported CSV is not a live stock count.
+          existing.stock = importedStock(existing.stock, row.stock, replaceExistingStock);
+          existing.discountType = row.discountType;
+          existing.discountValue = row.discountValue;
+          existing.isActive = true;
+          existing.updatedAt = timestamp;
+          updated += 1;
+        } else {
+          const product: Product = {
+            id: createId("prd"), shopId: scope.shopId, sku, name: row.name,
+            price: row.price, costPrice: row.costPrice, discountType: row.discountType,
+            discountValue: row.discountValue, stock: row.stock, photoUrl: null,
+            isActive: true, createdAt: timestamp, updatedAt: timestamp,
+          };
+          db.products.push(product);
+          created += 1;
+        }
       }
-    }
 
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: "admin",
-      shopId: scope.shopId,
-      action: "import_products",
-      entityType: "product",
-      message: `Import produk selesai: ${created} baru, ${updated} diperbarui.`,
-      metadata: { created, updated, repairedTransactionItems, total: importedRows.length },
+      addAuditLog(db, {
+        actorId: session.user.id, actorRole: "admin", shopId: scope.shopId,
+        action: "import_products", entityType: "product",
+        message: `Import produk selesai: ${created} baru, ${updated} diperbarui.`,
+        metadata: { created, updated, repairedTransactionItems, total: importedRows.length, replaceExistingStock },
+      });
+      return { created, updated, repairedTransactionItems, total: importedRows.length };
     });
-
-    await writeDb(db);
-    return ok({ created, updated, repairedTransactionItems, total: importedRows.length }, { status: 201 });
+    return ok(result, { status: 201 });
   } catch (error) {
     const { message, status } = authError(error);
     return fail(message, status >= 400 ? status : 400);

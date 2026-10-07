@@ -1,7 +1,7 @@
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { updateProductSchema } from "@/lib/server/validators";
-import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, withDbTransaction } from "@/lib/server/data-store";
 import { assertFeatureAllowed } from "@/lib/server/subscription";
 
 type Params = { params: Promise<{ id: string }> };
@@ -41,47 +41,44 @@ export async function PATCH(request: Request, props: Params) {
     if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses mengubah inventaris.", 403);
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
     const body = updateProductSchema.parse(await readJson(request));
-    const db = await readDb();
-    const product = db.products.find((row) => row.id === params.id);
-    if (!product) return fail("Product not found", 404);
-    if ((body.bulkPrices ?? product.bulkPrices ?? []).some((offer) => offer.total >= (body.price ?? product.price) * offer.quantity)) return fail("Harga paket harus lebih murah daripada harga satuan × jumlah.", 422);
-    const nextDiscountType = body.discountType ?? product.discountType ?? "none";
-    const nextDiscountValue = body.discountValue ?? product.discountValue ?? 0;
-    if (session.user.role === "admin" && nextDiscountType !== "none" && nextDiscountValue > 0) {
-      const scope = await getAdminScope(session.user.id);
-      assertFeatureAllowed(scope.adminProfile, "discounts");
-    }
-
-    if (body.sku !== undefined) {
-      const nextSku = body.sku.trim() || `SKU-${Date.now().toString().slice(-8)}`;
-      if (db.products.some((row) => row.id !== product.id && row.shopId === product.shopId && row.sku === nextSku)) {
-        return fail("SKU sudah digunakan di UMKM ini.", 409);
+    const scope = session.user.role === "admin" ? await getAdminScope(session.user.id) : null;
+    const updated = await withDbTransaction((db) => {
+      const product = db.products.find((row) => row.id === params.id);
+      if (!product) throw Object.assign(new Error("Product not found"), { status: 404 });
+      if ((body.bulkPrices ?? product.bulkPrices ?? []).some((offer) => offer.total >= (body.price ?? product.price) * offer.quantity)) {
+        throw Object.assign(new Error("Harga paket harus lebih murah daripada harga satuan × jumlah."), { status: 422 });
       }
-      product.sku = nextSku;
-    }
-    if (body.name !== undefined) product.name = body.name;
-    if (body.price !== undefined) product.price = body.price;
-    if (body.costPrice !== undefined) product.costPrice = body.costPrice;
-    if (body.discountType !== undefined) product.discountType = body.discountType;
-    if (body.discountValue !== undefined) product.discountValue = body.discountType === "none" ? 0 : body.discountValue;
-    if (body.bulkPrices !== undefined) product.bulkPrices = body.bulkPrices;
-    if (body.stock !== undefined) product.stock = body.stock;
-    if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
-    if (typeof body.isActive === "boolean") product.isActive = body.isActive;
-    product.updatedAt = now();
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: session.user.role === "owner" ? "owner" : "admin",
-      shopId: product.shopId,
-      action: "update_product",
-      entityType: "product",
-      entityId: product.id,
-      message: typeof body.isActive === "boolean" ? `Produk ${product.name} ${body.isActive ? "diaktifkan" : "dinonaktifkan"}.` : `Produk ${product.name} diperbarui.`,
-      metadata: { sku: product.sku, price: product.price, stock: product.stock, isActive: product.isActive },
-    });
-    await writeDb(db);
+      const nextDiscountType = body.discountType ?? product.discountType ?? "none";
+      const nextDiscountValue = body.discountValue ?? product.discountValue ?? 0;
+      if (scope && nextDiscountType !== "none" && nextDiscountValue > 0) assertFeatureAllowed(scope.adminProfile, "discounts");
 
-    return ok(product);
+      if (body.sku !== undefined) {
+        const nextSku = body.sku.trim() || `SKU-${Date.now().toString().slice(-8)}`;
+        if (db.products.some((row) => row.id !== product.id && row.shopId === product.shopId && row.sku === nextSku)) {
+          throw Object.assign(new Error("SKU sudah digunakan di UMKM ini."), { status: 409 });
+        }
+        product.sku = nextSku;
+      }
+      if (body.name !== undefined) product.name = body.name;
+      if (body.price !== undefined) product.price = body.price;
+      if (body.costPrice !== undefined) product.costPrice = body.costPrice;
+      if (body.discountType !== undefined) product.discountType = body.discountType;
+      if (body.discountValue !== undefined) product.discountValue = body.discountType === "none" ? 0 : body.discountValue;
+      if (body.bulkPrices !== undefined) product.bulkPrices = body.bulkPrices;
+      if (body.stock !== undefined) product.stock = body.stock;
+      if (body.photoUrl !== undefined) product.photoUrl = body.photoUrl === "" ? null : body.photoUrl;
+      if (typeof body.isActive === "boolean") product.isActive = body.isActive;
+      product.updatedAt = now();
+      addAuditLog(db, {
+        actorId: session.user.id,
+        actorRole: session.user.role === "owner" ? "owner" : "admin",
+        shopId: product.shopId, action: "update_product", entityType: "product", entityId: product.id,
+        message: typeof body.isActive === "boolean" ? `Produk ${product.name} ${body.isActive ? "diaktifkan" : "dinonaktifkan"}.` : `Produk ${product.name} diperbarui.`,
+        metadata: { sku: product.sku, price: product.price, stock: product.stock, isActive: product.isActive },
+      });
+      return product;
+    });
+    return ok(updated);
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Invalid product payload", 422, error);
     const { message, status } = authError(error);
@@ -95,22 +92,19 @@ export async function DELETE(_request: Request, props: Params) {
     const session = await requireAuth();
     if (session.user.role === "cashier") return fail("Kasir tidak memiliki akses menghapus inventaris.", 403);
     await assertCanAccessProduct(session.user.id, session.user.role, params.id);
-    const db = await readDb();
-    const product = db.products.find((row) => row.id === params.id);
-    if (!product) return fail("Product not found", 404);
-    product.isActive = false;
-    product.updatedAt = now();
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: session.user.role === "owner" ? "owner" : "admin",
-      shopId: product.shopId,
-      action: "delete_product",
-      entityType: "product",
-      entityId: product.id,
-      message: `Produk ${product.name} dinonaktifkan dari inventaris.`,
-      metadata: { sku: product.sku },
+    const product = await withDbTransaction((db) => {
+      const current = db.products.find((row) => row.id === params.id);
+      if (!current) throw Object.assign(new Error("Product not found"), { status: 404 });
+      current.isActive = false;
+      current.updatedAt = now();
+      addAuditLog(db, {
+        actorId: session.user.id,
+        actorRole: session.user.role === "owner" ? "owner" : "admin",
+        shopId: current.shopId, action: "delete_product", entityType: "product", entityId: current.id,
+        message: `Produk ${current.name} dinonaktifkan dari inventaris.`, metadata: { sku: current.sku },
+      });
+      return current;
     });
-    await writeDb(db);
     return ok(product);
   } catch (error) {
     const { message, status } = authError(error);

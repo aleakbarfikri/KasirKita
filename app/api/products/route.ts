@@ -2,7 +2,7 @@ import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
 import { fail, ok, readJson } from "@/lib/server/http";
 import { createId } from "@/lib/server/ids";
 import { productSchema } from "@/lib/server/validators";
-import { addAuditLog, now, readDb, sortDesc, writeDb, type Product } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, sortDesc, withDbTransaction, type Product } from "@/lib/server/data-store";
 import { assertFeatureAllowed, assertProductLimit } from "@/lib/server/subscription";
 
 const productCsvHeaders = ["sku", "nama_barang", "harga_jual", "harga_modal", "stok", "diskon_tipe", "diskon_nilai"];
@@ -15,6 +15,10 @@ function csvEscape(value: unknown, delimiter = ";") {
 function toCsv(rows: unknown[][]) {
   const delimiter = ";";
   return `\uFEFFsep=${delimiter}\r\n${rows.map((row) => row.map((cell) => csvEscape(cell, delimiter)).join(delimiter)).join("\r\n")}`;
+}
+
+function exportStamp() {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 }
 
 export async function GET(request: Request) {
@@ -38,6 +42,7 @@ export async function GET(request: Request) {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="template-produk-kasirkita.csv"`,
+          "Cache-Control": "private, no-store",
         },
       });
     }
@@ -56,7 +61,8 @@ export async function GET(request: Request) {
           status: 200,
           headers: {
             "Content-Type": "text/csv; charset=utf-8",
-            "Content-Disposition": `attachment; filename="produk-kasirkita-owner.csv"`,
+            "Content-Disposition": `attachment; filename="produk-kasirkita-owner-${exportStamp()}.csv"`,
+            "Cache-Control": "private, no-store",
           },
         });
       }
@@ -75,7 +81,8 @@ export async function GET(request: Request) {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="produk-kasirkita.csv"`,
+          "Content-Disposition": `attachment; filename="produk-kasirkita-${exportStamp()}.csv"`,
+          "Cache-Control": "private, no-store",
         },
       });
     }
@@ -98,40 +105,28 @@ export async function POST(request: Request) {
     const sku = body.sku?.trim() || `SKU-${Date.now().toString().slice(-8)}`;
     const t = now();
 
-    const db = await readDb();
-    if (db.products.some((product) => product.shopId === scope.shopId && product.sku === sku)) {
-      return fail("SKU sudah digunakan di UMKM ini.", 409);
-    }
-    assertProductLimit(db, scope.adminProfile);
-
-    const created: Product = {
-      id: createId("prd"),
-      shopId: scope.shopId,
-      sku,
-      name: body.name,
-      price: body.price,
-      costPrice: body.costPrice,
-      discountType: body.discountType === "none" ? "none" : body.discountType,
-      discountValue: body.discountType === "none" ? 0 : body.discountValue,
-      bulkPrices: body.bulkPrices,
-      stock: body.stock ?? null,
-      photoUrl: body.photoUrl || null,
-      isActive: true,
-      createdAt: t,
-      updatedAt: t,
-    };
-    db.products.push(created);
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: "admin",
-      shopId: scope.shopId,
-      action: "create_product",
-      entityType: "product",
-      entityId: created.id,
-      message: `Produk ${created.name} ditambahkan ke inventaris.`,
-      metadata: { sku: created.sku, price: created.price, stock: created.stock },
+    const created = await withDbTransaction((db) => {
+      if (db.products.some((product) => product.shopId === scope.shopId && product.sku === sku)) {
+        throw Object.assign(new Error("SKU sudah digunakan di UMKM ini."), { status: 409 });
+      }
+      assertProductLimit(db, scope.adminProfile);
+      const product: Product = {
+        id: createId("prd"), shopId: scope.shopId, sku, name: body.name,
+        price: body.price, costPrice: body.costPrice,
+        discountType: body.discountType === "none" ? "none" : body.discountType,
+        discountValue: body.discountType === "none" ? 0 : body.discountValue,
+        bulkPrices: body.bulkPrices, stock: body.stock ?? null,
+        photoUrl: body.photoUrl || null, isActive: true, createdAt: t, updatedAt: t,
+      };
+      db.products.push(product);
+      addAuditLog(db, {
+        actorId: session.user.id, actorRole: "admin", shopId: scope.shopId,
+        action: "create_product", entityType: "product", entityId: product.id,
+        message: `Produk ${product.name} ditambahkan ke inventaris.`,
+        metadata: { sku: product.sku, price: product.price, stock: product.stock },
+      });
+      return product;
     });
-    await writeDb(db);
     return ok(created, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") return fail("Nama barang dan harga jual wajib diisi. SKU boleh dikosongkan.", 422, error);

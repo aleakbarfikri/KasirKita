@@ -460,9 +460,10 @@ export const api = {
     },
     removePhoto: (id: string) => apiFetch<ProductRecord>(`/api/products/${id}/photo`, { method: "DELETE" }),
     remove: (id: string) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "DELETE" }),
-    importCsv: (file: File) => {
+    importCsv: (file: File, replaceExistingStock = false) => {
       const body = new FormData();
       body.append("file", file);
+      body.append("replaceExistingStock", String(replaceExistingStock));
       return apiFetch<{ created: number; updated: number; repairedTransactionItems: number; total: number }>("/api/products/import", { method: "POST", body, timeoutMs: 30000 } as RequestInit & { timeoutMs: number });
     },
     repairCosts: (file: File, apply: boolean) => {

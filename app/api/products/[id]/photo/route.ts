@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { del, put } from "@vercel/blob";
 
 import { authError, getAdminScope, requireAuth } from "@/lib/server/auth-guard";
-import { addAuditLog, now, readDb, writeDb } from "@/lib/server/data-store";
+import { addAuditLog, now, readDb, withDbTransaction } from "@/lib/server/data-store";
 import { fail, ok } from "@/lib/server/http";
 import { assertFeatureAllowed } from "@/lib/server/subscription";
 
@@ -77,20 +77,20 @@ export async function POST(request: Request, props: Params) {
       contentType: "image/webp",
       cacheControlMaxAge: 31536000,
     });
-    product.photoUrl = productImageUrl(scope.shopId, product.id);
-    product.updatedAt = now();
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: "admin",
-      shopId: scope.shopId,
-      action: "update_product",
-      entityType: "product",
-      entityId: product.id,
-      message: `Foto produk ${product.name} diperbarui dan dikompres ke WebP.`,
-      metadata: { sourceBytes: file.size, storedBytes: output.length, format: "webp" },
+    const updated = await withDbTransaction((currentDb) => {
+      const current = currentDb.products.find((row) => row.id === id && row.shopId === scope.shopId);
+      if (!current) throw Object.assign(new Error("Produk tidak ditemukan."), { status: 404 });
+      current.photoUrl = productImageUrl(scope.shopId, current.id);
+      current.updatedAt = now();
+      addAuditLog(currentDb, {
+        actorId: session.user.id, actorRole: "admin", shopId: scope.shopId,
+        action: "update_product", entityType: "product", entityId: current.id,
+        message: `Foto produk ${current.name} diperbarui dan dikompres ke WebP.`,
+        metadata: { sourceBytes: file.size, storedBytes: output.length, format: "webp" },
+      });
+      return current;
     });
-    await writeDb(db);
-    return ok({ product, storedBytes: output.length });
+    return ok({ product: updated, storedBytes: output.length });
   } catch (error) {
     const { message, status } = authError(error);
     return fail(message, status);
@@ -109,19 +109,19 @@ export async function DELETE(_request: Request, props: Params) {
     if (!product) return fail("Produk tidak ditemukan.", 404);
 
     await del(productPath(scope.shopId, product.id), { token: blobToken() });
-    product.photoUrl = null;
-    product.updatedAt = now();
-    addAuditLog(db, {
-      actorId: session.user.id,
-      actorRole: "admin",
-      shopId: scope.shopId,
-      action: "update_product",
-      entityType: "product",
-      entityId: product.id,
-      message: `Foto produk ${product.name} dihapus.`,
+    const updated = await withDbTransaction((currentDb) => {
+      const current = currentDb.products.find((row) => row.id === id && row.shopId === scope.shopId);
+      if (!current) throw Object.assign(new Error("Produk tidak ditemukan."), { status: 404 });
+      current.photoUrl = null;
+      current.updatedAt = now();
+      addAuditLog(currentDb, {
+        actorId: session.user.id, actorRole: "admin", shopId: scope.shopId,
+        action: "update_product", entityType: "product", entityId: current.id,
+        message: `Foto produk ${current.name} dihapus.`,
+      });
+      return current;
     });
-    await writeDb(db);
-    return ok(product);
+    return ok(updated);
   } catch (error) {
     const { message, status } = authError(error);
     return fail(message, status);
