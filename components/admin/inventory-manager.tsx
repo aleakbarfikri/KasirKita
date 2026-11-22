@@ -104,7 +104,7 @@ export function InventoryManager() {
   const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerTarget, setScannerTarget] = useState<"new" | "edit" | null>(null);
   const [scannerStarting, setScannerStarting] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
 
@@ -115,12 +115,12 @@ export function InventoryManager() {
 
   const closeScanner = useCallback(() => {
     stopScanner();
-    setScannerOpen(false);
+    setScannerTarget(null);
     setScannerStarting(false);
   }, [stopScanner]);
 
   useEffect(() => {
-    if (!scannerOpen || !scannerVideoRef.current) return;
+    if (!scannerTarget || !scannerVideoRef.current) return;
     let active = true;
     setScannerStarting(true);
     setScannerError(null);
@@ -137,7 +137,8 @@ export function InventoryManager() {
           scannerVideoRef.current!,
           (result) => {
             if (!result || !active) return;
-            setSku(result.getText().trim());
+            if (scannerTarget === "edit") setEditSku(result.getText().trim());
+            else setSku(result.getText().trim());
             closeScanner();
           },
         );
@@ -151,7 +152,7 @@ export function InventoryManager() {
     }
     startScanner();
     return () => { active = false; stopScanner(); };
-  }, [closeScanner, scannerOpen, stopScanner]);
+  }, [closeScanner, scannerTarget, stopScanner]);
 
   async function loadProducts(background = false) {
     const cached = readCachedProducts();
@@ -518,7 +519,7 @@ export function InventoryManager() {
                 <Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label>
                 <div className="flex gap-2">
                   <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("Auto jika kosong")} className="min-w-0" />
-                  <Button type="button" variant="outline" size="icon" title="Scan barcode SKU" aria-label="Scan barcode SKU" onClick={() => setScannerOpen(true)}><ScanLine className="h-5 w-5" /></Button>
+                  <Button type="button" variant="outline" size="icon" title="Scan barcode SKU" aria-label="Scan barcode SKU" onClick={() => setScannerTarget("new")}><ScanLine className="h-5 w-5" /></Button>
                 </div>
               </div>
               <div className="space-y-2"><Label>{t("Stok")}</Label><Input value={stock} onChange={(e) => setStock(e.target.value)} type="number" placeholder="50" /></div>
@@ -610,7 +611,10 @@ export function InventoryManager() {
           </div>
           <div className="space-y-2">
             <Label>SKU / Barcode <span className="text-xs font-normal text-[#64748b]">({t("opsional")})</span></Label>
-            <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder={t("Kosongkan untuk auto SKU")} />
+            <div className="flex gap-2">
+              <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder={t("Kosongkan untuk auto SKU")} className="min-w-0" />
+              <Button type="button" variant="outline" size="icon" title="Scan barcode SKU" aria-label="Scan barcode SKU produk ini" onClick={() => setScannerTarget("edit")}><ScanLine className="h-5 w-5" /></Button>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
@@ -661,7 +665,7 @@ export function InventoryManager() {
         </div>
       </Modal>
 
-      <Modal open={scannerOpen} title="Scan Barcode SKU" description="Arahkan kamera ke barcode produk. Kode akan masuk otomatis ke kolom SKU." onClose={closeScanner}>
+      <Modal open={Boolean(scannerTarget)} title="Scan Barcode SKU" description="Arahkan kamera ke barcode produk. Kode akan masuk otomatis ke kolom SKU." onClose={closeScanner}>
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-2">
             <video ref={scannerVideoRef} className="aspect-video w-full rounded-xl object-cover" muted playsInline />
