@@ -38,6 +38,7 @@ async function compressPhotoForUpload(file: File) {
 }
 
 type BulkPriceInput = { quantity: string; total: string };
+const PRODUCT_REFRESH_MS = 5 * 60 * 1000;
 
 function validatedBulkPrices(rows: BulkPriceInput[], unitPrice: number) {
   if (rows.some((row) => !row.quantity.trim() || !row.total.trim())) throw new Error("Isi jumlah dan harga total untuk setiap paket.");
@@ -69,6 +70,8 @@ export function InventoryManager() {
   const editPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const scannerVideoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const loadingProductsRef = useRef(false);
+  const lastInventorySyncRef = useRef(0);
   const [items, setItems] = useState<ProductRecord[]>([]);
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -151,19 +154,24 @@ export function InventoryManager() {
   }, [closeScanner, scannerOpen, stopScanner]);
 
   async function loadProducts(background = false) {
-    const cached = background ? null : readCachedProducts();
+    const cached = readCachedProducts();
     if (cached?.products.length) {
-      setItems(cached.products);
-      setLoading(false);
+      if (!background) {
+        setItems(cached.products);
+        setLoading(false);
+      }
     } else if (!background) {
       setLoading(true);
     }
     if (!background) setError(null);
+    if (loadingProductsRef.current) return;
 
+    loadingProductsRef.current = true;
     try {
       const rows = await api.products.list();
       setItems(rows);
       cacheProducts(rows);
+      lastInventorySyncRef.current = Date.now();
     } catch (err) {
       if (cached?.products.length) {
         setItems(cached.products);
@@ -174,6 +182,7 @@ export function InventoryManager() {
         setError(err instanceof Error ? err.message : "Gagal memuat produk");
       }
     } finally {
+      loadingProductsRef.current = false;
       setLoading(false);
     }
   }
@@ -199,10 +208,13 @@ export function InventoryManager() {
   }, []);
 
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === "visible") void loadProducts(true); };
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastInventorySyncRef.current >= PRODUCT_REFRESH_MS) void loadProducts(true);
+    };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
-    const timer = window.setInterval(refresh, 15_000);
+    const timer = window.setInterval(refresh, 60_000);
     return () => {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
