@@ -14,7 +14,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
 import { OwnerMfaCard } from "@/components/dashboard/owner-mfa-card";
 import { jakartaDateKey, shiftDateKey } from "@/lib/report-dates";
-import { dailyTransactionSummary } from "@/lib/report-summary";
+import { dateRangeTransactionSummary } from "@/lib/report-summary";
 
 type SubscriptionPlanChoice = "trial" | "basic" | "starter" | "pro" | "business";
 type PaidSubscriptionPlanChoice = Exclude<SubscriptionPlanChoice, "trial">;
@@ -156,7 +156,8 @@ export function AdminDashboardClient() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanChoice>("pro");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("yearly");
-  const [selectedDate, setSelectedDate] = useState(() => jakartaDateKey(new Date()));
+  const [summaryStart, setSummaryStart] = useState(() => jakartaDateKey(new Date()));
+  const [summaryEnd, setSummaryEnd] = useState(() => jakartaDateKey(new Date()));
   const [reportStart, setReportStart] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return dateInputValue(date); });
   const [reportEnd, setReportEnd] = useState(() => dateInputValue(new Date()));
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(searchParams.get("subscription") === "1");
@@ -232,15 +233,18 @@ export function AdminDashboardClient() {
   }
 
   const stats = useMemo(() => {
-    const daily = dailyTransactionSummary(transactions, selectedDate);
+    const summary = dateRangeTransactionSummary(transactions, summaryStart, summaryEnd);
     const qrisEarned = transactions.filter((row) => row.paymentMethod === "qris_pakasir" && row.status === "success").reduce((sum, row) => sum + row.total, 0);
     const withdrawn = withdrawals.filter((row) => row.status === "completed").reduce((sum, row) => sum + row.amount, 0);
     const reserved = withdrawals.filter((row) => row.status === "pending" || row.status === "processed").reduce((sum, row) => sum + row.amount, 0);
     const activeDebt = debts.filter((debt) => debt.status !== "paid").reduce((sum, debt) => sum + debt.amount - debt.paidAmount, 0);
-    return { daily, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
-  }, [debts, selectedDate, transactions, withdrawals]);
+    return { summary, qrisBalance: Math.max(qrisEarned - withdrawn - reserved, 0), activeDebt };
+  }, [debts, summaryEnd, summaryStart, transactions, withdrawals]);
 
-  const dailyRecentTransactions = useMemo(() => transactions.filter((transaction) => jakartaDateKey(transaction.createdAt) === selectedDate).slice(0, 8), [selectedDate, transactions]);
+  const recentTransactions = useMemo(() => transactions.filter((transaction) => {
+    const date = jakartaDateKey(transaction.createdAt);
+    return date >= summaryStart && date <= summaryEnd;
+  }).slice(0, 8), [summaryEnd, summaryStart, transactions]);
 
   const reportTransactions = useMemo(() => {
     const start = new Date(`${reportStart}T00:00:00`);
@@ -351,16 +355,17 @@ export function AdminDashboardClient() {
       {error ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       {loading ? <p className="mb-4 flex items-center rounded-2xl bg-white p-3 text-sm text-[#3d4a42]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("Memuat data...")}</p> : null}
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#bec9c1] bg-white p-3 sm:p-4">
-        <div className="mr-auto"><p className="font-black text-[#151b2d]">{t("Ringkasan Harian")}</p><p className="text-sm font-semibold text-[#505f76]">{t("Pilih tanggal untuk melihat omzet, modal, dan laba hari sebelumnya.")}</p></div>
-        <label className="text-xs font-bold text-[#505f76]">{t("Tanggal")}<input type="date" value={selectedDate} max={jakartaDateKey(new Date())} onChange={(event) => { if (event.target.value) setSelectedDate(event.target.value); }} className="mt-1 block h-10 rounded-lg border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d]" /></label>
-        <Button variant="outline" size="sm" onClick={() => setSelectedDate(shiftDateKey(selectedDate, -1))}>{t("Hari sebelumnya")}</Button>
-        <Button variant="outline" size="sm" onClick={() => setSelectedDate(jakartaDateKey(new Date()))}>{t("Hari ini")}</Button>
+        <div className="mr-auto"><p className="font-black text-[#151b2d]">{t("Ringkasan Penjualan")}</p><p className="text-sm font-semibold text-[#505f76]">{t("Pilih tanggal mulai dan sampai untuk melihat total omzet, transaksi, modal, dan laba.")}</p></div>
+        <label className="text-xs font-bold text-[#505f76]">{t("Mulai")}<input type="date" value={summaryStart} max={summaryEnd} onChange={(event) => { if (event.target.value) setSummaryStart(event.target.value); }} className="mt-1 block h-10 rounded-lg border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d]" /></label>
+        <label className="text-xs font-bold text-[#505f76]">{t("Sampai")}<input type="date" value={summaryEnd} min={summaryStart} max={jakartaDateKey(new Date())} onChange={(event) => { if (event.target.value) setSummaryEnd(event.target.value); }} className="mt-1 block h-10 rounded-lg border border-[#bec9c1] bg-white px-3 text-sm font-bold text-[#151b2d]" /></label>
+        <Button variant="outline" size="sm" onClick={() => { const yesterday = shiftDateKey(jakartaDateKey(new Date()), -1); setSummaryStart(yesterday); setSummaryEnd(yesterday); }}>{t("Kemarin")}</Button>
+        <Button variant="outline" size="sm" onClick={() => { const today = jakartaDateKey(new Date()); setSummaryStart(today); setSummaryEnd(today); }}>{t("Hari ini")}</Button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        <StitchStatCard title={t("Omzet")} value={formatCurrency(stats.daily.sales)} helper={t("Transaksi sukses pada tanggal dipilih")} icon={ReceiptText} tone="green" />
-        <StitchStatCard title={t("Transaksi")} value={`${stats.daily.count}`} helper={t("Transaksi sukses pada tanggal dipilih")} icon={BarChart3} tone="navy" />
-        <StitchStatCard title={t("Harga Modal")} value={formatCurrency(stats.daily.cost)} helper={t("Total modal barang terjual pada tanggal dipilih")} icon={Package} tone="navy" />
-        <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.daily.profit)} helper={t("Omzet dikurangi modal barang")} icon={TrendingUp} tone="green" />
+        <StitchStatCard title={t("Omzet")} value={formatCurrency(stats.summary.sales)} helper={t("Total transaksi sukses dalam periode dipilih")} icon={ReceiptText} tone="green" />
+        <StitchStatCard title={t("Transaksi")} value={`${stats.summary.count}`} helper={t("Transaksi sukses dalam periode dipilih")} icon={BarChart3} tone="navy" />
+        <StitchStatCard title={t("Harga Modal")} value={formatCurrency(stats.summary.cost)} helper={t("Total modal barang terjual dalam periode dipilih")} icon={Package} tone="navy" />
+        <StitchStatCard title={t("Laba Kotor")} value={formatCurrency(stats.summary.profit)} helper={t("Omzet dikurangi modal barang dalam periode dipilih")} icon={TrendingUp} tone="green" />
         <StitchStatCard title={t("Saldo Digital")} value={formatCurrency(stats.qrisBalance)} helper={t("Saldo saat ini dari seluruh tanggal")} icon={Wallet} tone="blue" />
       </div>
 
@@ -539,12 +544,12 @@ export function AdminDashboardClient() {
         </Modal>
 
         <Card className="w-full min-w-0 max-w-full bg-white xl:col-span-2">
-          <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Tanggal Transaksi")}: {selectedDate}</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{t("Transaksi Cabang")}</CardTitle><CardDescription className="break-words">{t("Periode Transaksi")}: {summaryStart} – {summaryEnd} ({t("8 terbaru")})</CardDescription></CardHeader>
           <CardContent className="w-full max-w-full overflow-x-auto px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
             <Table className="min-w-[640px]">
               <TableHeader><TableRow><TableHead>{t("Order")}</TableHead><TableHead>{t("Barang")}</TableHead><TableHead>{t("Metode")}</TableHead><TableHead>{t("Total")}</TableHead><TableHead>{t("Status")}</TableHead></TableRow></TableHeader>
               <TableBody>
-                {dailyRecentTransactions.map((transaction) => (
+                {recentTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="max-w-[8rem] truncate whitespace-nowrap font-bold" title={transaction.id}>{shortOrderId(transaction.id)}</TableCell>
                     <TableCell className="max-w-[14rem] truncate" title={transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || ""}>{transaction.items?.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-"}</TableCell>
@@ -553,7 +558,7 @@ export function AdminDashboardClient() {
                     <TableCell><Badge variant={statusVariant(transaction.status)} className="normal-case tracking-normal">{t(transactionStatusLabel(transaction.status))}</Badge></TableCell>
                   </TableRow>
                 ))}
-                {dailyRecentTransactions.length === 0 ? <TableRow><TableCell colSpan={5} className="py-6 text-center text-[#64748b]">{t("Tidak ada transaksi pada tanggal ini.")}</TableCell></TableRow> : null}
+                {recentTransactions.length === 0 ? <TableRow><TableCell colSpan={5} className="py-6 text-center text-[#64748b]">{t("Tidak ada transaksi pada periode ini.")}</TableCell></TableRow> : null}
               </TableBody>
             </Table>
           </CardContent>

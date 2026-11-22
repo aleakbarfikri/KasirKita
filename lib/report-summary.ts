@@ -10,8 +10,13 @@ type SaleRow = {
 };
 
 export function dailyTransactionSummary(rows: SaleRow[], date: string) {
+  return dateRangeTransactionSummary(rows, date, date);
+}
+
+export function dateRangeTransactionSummary(rows: SaleRow[], startDate: string, endDate: string) {
   return rows.reduce((summary, row) => {
-    if (row.status !== "success" || jakartaDateKey(row.createdAt) !== date) return summary;
+    const date = jakartaDateKey(row.createdAt);
+    if (row.status !== "success" || !date || date < startDate || date > endDate) return summary;
     const cost = row.costTotal ?? row.items?.reduce((total, item) => total + (item.costPrice ?? 0) * item.quantity, 0) ?? 0;
     summary.sales += row.total;
     summary.cost += cost;
