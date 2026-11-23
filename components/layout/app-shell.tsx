@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAppLanguage } from "@/lib/i18n";
@@ -74,6 +74,7 @@ const cashierAllowedPaths = ["/admin/pos", "/admin/transactions", "/admin/shifts
 const ownerWhatsappUrl = "https://wa.me/6285129292922";
 const cashierNav = adminNav.filter((item) => cashierAllowedPaths.includes(item.href));
 const appBrand = "KasirKita";
+const NOTIFICATION_REFRESH_MS = 5 * 60 * 1000;
 
 type NotificationItem = {
   id: string;
@@ -141,6 +142,8 @@ export function AppShell({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const notificationSyncRef = useRef(0);
+  const notificationLoadingRef = useRef(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -230,7 +233,8 @@ export function AppShell({
   }
 
   const loadNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!user || notificationLoadingRef.current || document.visibilityState !== "visible") return;
+    notificationLoadingRef.current = true;
     setNotificationsLoading(true);
     setNotificationError(null);
     try {
@@ -318,6 +322,7 @@ export function AppShell({
 
       const nextItems = items.slice(0, 12);
       setNotifications(nextItems);
+      notificationSyncRef.current = Date.now();
 
       if (deviceNotificationPermission() === "granted") {
         const seenKey = `kasirkita-notifications-seen-${role}-${user.id}`;
@@ -344,15 +349,25 @@ export function AppShell({
     } catch (err) {
       setNotificationError(err instanceof Error ? err.message : "Gagal memuat notifikasi");
     } finally {
+      notificationLoadingRef.current = false;
       setNotificationsLoading(false);
     }
   }, [role, user]);
 
   useEffect(() => {
     if (!user) return;
-    void loadNotifications();
-    const timer = window.setInterval(loadNotifications, 30_000);
-    return () => window.clearInterval(timer);
+    const refresh = () => {
+      if (Date.now() - notificationSyncRef.current >= NOTIFICATION_REFRESH_MS) void loadNotifications();
+    };
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    const timer = window.setInterval(refresh, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      window.clearInterval(timer);
+    };
   }, [user, loadNotifications]);
 
   const initials = useMemo(() => {
