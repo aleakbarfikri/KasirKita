@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     const db = await readDb();
     const url = new URL(request.url);
     const mode = url.searchParams.get("format");
+    const lowStockOnly = url.searchParams.get("lowStock") === "1";
 
     if (mode === "template") {
       if (session.user.role !== "admin") return fail("Only admin can download product template", 403);
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
           },
         });
       }
-      return ok(sortDesc(rows));
+      return ok(sortDesc(lowStockOnly ? rows.filter((product) => product.isActive !== false && product.stock !== null && product.stock !== undefined && product.stock <= 5) : rows));
     }
 
     const scope = await getAdminScope(session.user.id);
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
         },
       });
     }
-    return ok(sortDesc(rows));
+    return ok(sortDesc(lowStockOnly ? rows.filter((product) => product.isActive !== false && product.stock !== null && product.stock !== undefined && product.stock <= 5) : rows));
   } catch (error) {
     const { message, status } = authError(error);
     return fail(message, status);

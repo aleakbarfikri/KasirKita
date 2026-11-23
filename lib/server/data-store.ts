@@ -576,8 +576,12 @@ async function getPostgresClient() {
   return postgresClient;
 }
 
+let postgresTablesReady: Promise<void> | null = null;
+
 async function ensurePostgresTables(sql: PostgresClient) {
-  await sql`
+  if (postgresTablesReady) return postgresTablesReady;
+  postgresTablesReady = (async () => {
+    await sql`
     create table if not exists kasirkita_app_state (
       key text primary key,
       data jsonb not null,
@@ -585,9 +589,9 @@ async function ensurePostgresTables(sql: PostgresClient) {
       updated_at timestamptz not null default now()
     )
   `;
-  await sql`alter table kasirkita_app_state add column if not exists version bigint not null default 0`;
+    await sql`alter table kasirkita_app_state add column if not exists version bigint not null default 0`;
 
-  await sql`
+    await sql`
     create table if not exists kasirkita_backups (
       id text primary key,
       reason text not null,
@@ -595,8 +599,12 @@ async function ensurePostgresTables(sql: PostgresClient) {
       size_bytes integer not null,
       created_at timestamptz not null default now()
     )
-  `;
-
+    `;
+  })().catch((error) => {
+    postgresTablesReady = null;
+    throw error;
+  });
+  return postgresTablesReady;
 }
 
 async function readPostgresDb(): Promise<AppDb | null> {

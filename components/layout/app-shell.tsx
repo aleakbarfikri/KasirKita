@@ -244,8 +244,8 @@ export function AppShell({
           api.owner.withdrawals.list(),
           api.owner.debts.list(),
           api.owner.admins.list(),
-          api.transactions.list().catch(() => []),
-          api.products.list().catch(() => []),
+          api.transactions.list({ limit: 3 }).catch(() => []),
+          api.products.list({ lowStock: true }).catch(() => []),
           api.owner.cashiers.list().catch(() => []),
         ]);
 
@@ -282,8 +282,8 @@ export function AppShell({
           api.me(),
           user.role === "cashier" ? Promise.resolve([]) : api.withdrawals.list(),
           user.role === "cashier" ? Promise.resolve([]) : api.debts.list(),
-          api.transactions.list().catch(() => []),
-          api.products.list().catch(() => []),
+          api.transactions.list({ limit: 3 }).catch(() => []),
+          api.products.list({ lowStock: true }).catch(() => []),
           user.role === "cashier" ? Promise.resolve([]) : api.cashiers.list().catch(() => []),
           user.role === "cashier" ? Promise.resolve([]) : api.onlineOrders.list().catch(() => []),
         ]);

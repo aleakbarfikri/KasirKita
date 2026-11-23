@@ -26,6 +26,11 @@ export function OnlineOrderDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [shopId, setShopId] = useState<string | null>(null);
   const attempted = useRef(new Set<string>());
+  const loadingRef = useRef(false);
+
+  useEffect(() => {
+    void api.me().then((me) => setShopId(me.shop?.onlineStoreSlug || me.shop?.id || null)).catch(() => {});
+  }, []);
 
   const printReceipt = useCallback(async (order: OnlineOrderRecord, automatic = false) => {
     if (!order.receipt) return false;
@@ -55,14 +60,16 @@ export function OnlineOrderDashboard() {
   }, []);
 
   const load = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
-      let [rows, me] = await Promise.all([api.onlineOrders.list(), api.me()]);
+      let rows = await api.onlineOrders.list();
       const pending = rows.filter((order) => order.status === "pending_payment").slice(0, 12);
       if (pending.length > 0) {
         await Promise.allSettled(pending.map((order) => apiFetch(`/api/store/orders/${order.publicToken}`)));
         rows = await api.onlineOrders.list();
       }
-      setOrders(rows); setShopId(me.shop?.onlineStoreSlug || me.shop?.id || null); setError(null);
+      setOrders(rows); setError(null);
       for (const order of rows) {
         if (!order.printedAt && order.status === "paid" && order.receipt?.settings.autoPrint && !attempted.current.has(order.id)) {
           attempted.current.add(order.id);
@@ -77,9 +84,15 @@ export function OnlineOrderDashboard() {
         }
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Gagal memuat pesanan online"); }
-    finally { setLoading(false); }
+    finally { loadingRef.current = false; setLoading(false); }
   }, [printReceipt]);
-  useEffect(() => { void load(); const timer = window.setInterval(load, 10_000); return () => window.clearInterval(timer); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => { if (document.visibilityState === "visible") void load(); };
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [load]);
 
   async function update(order: OnlineOrderRecord, status: "processing" | "ready" | "completed") { try { await api.onlineOrders.updateStatus(order.id, status); await load(); } catch (err) { setError(err instanceof Error ? err.message : "Gagal memperbarui status"); } }
 

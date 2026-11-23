@@ -450,7 +450,7 @@ export const api = {
   },
 
   products: {
-    list: () => apiFetch<ProductRecord[]>("/api/products"),
+    list: (options?: { lowStock?: boolean }) => apiFetch<ProductRecord[]>(options?.lowStock ? "/api/products?lowStock=1" : "/api/products"),
     create: (body: Partial<ProductRecord>) => apiFetch<ProductRecord>("/api/products", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: Partial<ProductRecord>) => apiFetch<ProductRecord>(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
     uploadPhoto: (id: string, file: File) => {
@@ -487,7 +487,7 @@ export const api = {
   pollPakasir: (reference: string) => apiFetch<{ status: "pending" | "paid" | "failed" | "cancelled"; providerStatus?: string; warning?: string; transaction: TransactionRecord; receipt?: ReceiptRecord }>(`/api/pakasir/status/${reference}`),
 
   transactions: {
-    list: () => apiFetch<TransactionRecord[]>("/api/transactions"),
+    list: (options?: { limit?: number }) => apiFetch<TransactionRecord[]>(options?.limit ? `/api/transactions?limit=${Math.max(1, Math.floor(options.limit))}` : "/api/transactions"),
     void: (id: string, body: { reason: string }) =>
       apiFetch<{ transaction: TransactionRecord; items: unknown[]; debt?: DebtRecord | null }>(`/api/transactions/${id}/void`, { method: "POST", body: JSON.stringify(body) }),
   },

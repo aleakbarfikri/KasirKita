@@ -6,9 +6,9 @@ export function itemCostPrice(db: AppDb, item: TransactionItem) {
   return db.products.find((product) => product.id === item.productId)?.costPrice ?? 0;
 }
 
-export function transactionProfit(db: AppDb, transaction: Transaction) {
+export function transactionProfit(db: AppDb, transaction: Transaction, transactionItems?: TransactionItem[]) {
   if (transaction.status !== "success") return { costTotal: 0, grossProfit: 0 };
-  const items = db.transactionItems.filter((item) => item.transactionId === transaction.id);
+  const items = transactionItems ?? db.transactionItems.filter((item) => item.transactionId === transaction.id);
   const costTotal = items.reduce((sum, item) => sum + itemCostPrice(db, item) * item.quantity, 0);
   const grossProfit = transaction.total - costTotal;
   return { costTotal, grossProfit };
