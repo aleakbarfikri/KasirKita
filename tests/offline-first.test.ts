@@ -3,6 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { CheckoutPayload, ProductRecord } from "../lib/api-client";
 import { applyOfflineStockReservation } from "../lib/offline-stock";
+import { isProductCacheFresh, PRODUCT_CACHE_MAX_AGE_MS } from "../lib/offline-pos";
+
+test("product cache is reused briefly and expires before stock can stay stale all day", () => {
+  const now = Date.parse("2026-11-23T03:00:00.000Z");
+  assert.equal(isProductCacheFresh({ products: [], cachedAt: new Date(now - PRODUCT_CACHE_MAX_AGE_MS + 1).toISOString() }, now), true);
+  assert.equal(isProductCacheFresh({ products: [], cachedAt: new Date(now - PRODUCT_CACHE_MAX_AGE_MS).toISOString() }, now), false);
+  assert.equal(isProductCacheFresh({ products: [], cachedAt: new Date(now + 1).toISOString() }, now), false);
+});
 
 function product(id: string, stock: number | null): ProductRecord {
   return {

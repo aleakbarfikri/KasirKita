@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Minus, PackagePlus, Plus, QrCode, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { api, ApiError, type CheckoutItem, type CheckoutPayload, type CheckoutResponse, type PaymentMethod, type ProductRecord, type SessionUser } from "@/lib/api-client";
-import { cacheProducts, enqueueOfflineCheckout, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, subscribeOfflineData, type OfflineCheckout } from "@/lib/offline-pos";
+import { applyConfirmedCheckoutToCache, cacheProducts, enqueueOfflineCheckout, initializeOfflinePos, isProductCacheFresh, PRODUCT_CACHE_MAX_AGE_MS, readCachedProducts, readOfflineCheckouts, replaceOfflineCheckouts, subscribeOfflineData, type OfflineCheckout } from "@/lib/offline-pos";
 import { readCachedSession } from "@/lib/offline-session";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -149,8 +149,22 @@ export function HomePosClient() {
         setLoading(false);
       }
       setOfflineQueue(readOfflineCheckouts());
-      void loadData(Boolean(hydrated?.products.length));
+      if (!isProductCacheFresh(hydrated)) void loadData(Boolean(hydrated?.products.length));
     });
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible" && !isProductCacheFresh(readCachedProducts())) void loadData(true);
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    const timer = window.setInterval(refresh, PRODUCT_CACHE_MAX_AGE_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -404,6 +418,7 @@ export function HomePosClient() {
 
     try {
       await api.checkout(payload);
+      applyConfirmedCheckoutToCache(payload);
       setPaymentStatus("paid");
       window.setTimeout(resetTransaction, 900);
     } catch (err) {

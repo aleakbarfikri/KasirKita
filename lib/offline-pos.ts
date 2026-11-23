@@ -13,6 +13,12 @@ const offlineChangeEvent = "kasirkita:offline-data-changed";
 type OfflineMetadata = Partial<Record<OfflineRecordKey, number>>;
 type ProductCache = { products: ProductRecord[]; cachedAt: string };
 type TransactionCache = { transactions: TransactionRecord[]; cachedAt: string };
+export const PRODUCT_CACHE_MAX_AGE_MS = 2 * 60 * 1000;
+
+export function isProductCacheFresh(cache: ProductCache | null, now = Date.now()) {
+  const cachedAt = cache ? Date.parse(cache.cachedAt) : NaN;
+  return Boolean(cache && Number.isFinite(cachedAt) && cachedAt <= now && now - cachedAt < PRODUCT_CACHE_MAX_AGE_MS);
+}
 
 export type OfflineCheckout = {
   id: string;
@@ -57,7 +63,15 @@ function persistRecord<T>(recordKey: OfflineRecordKey, storageKey: string, value
 function cacheAdjustedStock(payload: CheckoutPayload) {
   const cached = readCachedProducts();
   if (!cached?.products.length) return;
-  cacheProducts(applyOfflineStockReservation(cached.products, payload));
+  persistRecord("products", productCacheKey, {
+    products: applyOfflineStockReservation(cached.products, payload),
+    cachedAt: cached.cachedAt,
+  } satisfies ProductCache);
+}
+
+/** A confirmed checkout has already reserved stock on the server. Keep this tab current without downloading the full catalogue again. */
+export function applyConfirmedCheckoutToCache(payload: CheckoutPayload) {
+  cacheAdjustedStock(payload);
 }
 
 async function requestBackgroundSync() {
