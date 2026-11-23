@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Camera, Download, FileSpreadsheet, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Save, Search, ScanLine, Upload, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
 import { api, type ProductRecord } from "@/lib/api-client";
-import { cacheProducts, initializeOfflinePos, isProductCacheFresh, readCachedProducts, readOfflineCheckouts, subscribeOfflineData } from "@/lib/offline-pos";
+import { cacheProducts, initializeOfflinePos, readCachedProducts, readOfflineCheckouts, subscribeOfflineData } from "@/lib/offline-pos";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,11 +200,7 @@ export function InventoryManager() {
         setItems(hydrated.products);
         setLoading(false);
       }
-      if (isProductCacheFresh(hydrated)) {
-        lastInventorySyncRef.current = Date.parse(hydrated!.cachedAt);
-      } else {
-        void loadProducts(Boolean(hydrated?.products.length));
-      }
+      void loadProducts(Boolean(hydrated?.products.length));
     });
     return subscribeOfflineData(() => {
       const current = readCachedProducts();
